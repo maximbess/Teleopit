@@ -1,0 +1,40 @@
+<mujoco model="g1_ladder_scene">
+  <include file="g1_29dof_mod.xml"/>
+  <include file="ladder.xml"/>
+
+  <worldbody>
+    <!-- Существующий пол и другие элементы сцены -->
+
+    <body name="left_grip_anchor_body" mocap="true" pos="0 0 -1">
+      <site name="left_grip_anchor"
+            type="sphere"
+            size="0.012"
+            rgba="1 0.5 0 0.8"/>
+    </body>
+
+    <body name="right_grip_anchor_body" mocap="true" pos="0 0 -1">
+      <site name="right_grip_anchor"
+            type="sphere"
+            size="0.012"
+            rgba="0 1 1 0.8"/>
+    </body>
+  </worldbody>
+
+  <equality>
+    <weld name="left_grip_weld"
+          site1="left_grip_site"
+          site2="left_grip_anchor"
+          active="false"
+          solref="0.03 1"
+          solimp="0.90 0.95 0.001"
+          torquescale="0.05"/>
+
+    <weld name="right_grip_weld"
+          site1="right_grip_site"
+          site2="right_grip_anchor"
+          active="false"
+          solref="0.03 1"
+          solimp="0.90 0.95 0.001"
+          torquescale="0.05"/>
+  </equality>
+</mujoco>

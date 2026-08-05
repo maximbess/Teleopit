@@ -39,6 +39,7 @@ from train_mimic.app import (
     validate_checkpoint_path,
     validate_motion_file,
 )
+from train_mimic.tasks.tracking.config.constants import TRACKING_TASKS
 
 
 def parse_args() -> argparse.Namespace:
@@ -52,8 +53,13 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--video", action="store_true", help="Record video instead of interactive viewer")
     parser.add_argument("--device", type=str, default=None)
-    parser.add_argument("--task", type=str, default=DEFAULT_TASK,
-                        help="Task id to play (default: %(default)s)")
+    parser.add_argument(
+        "--task",
+        type=str,
+        default=DEFAULT_TASK,
+        choices=TRACKING_TASKS,
+        help="Motion-tracking task id to play (default: %(default)s)",
+    )
     return parser.parse_args()
 
 

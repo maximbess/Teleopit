@@ -61,6 +61,111 @@ python scripts/run/run_sim.py \
 For sim2real, viewers are disabled by default. Add `viewers=retarget` to show
 the retargeted reference in an optional MuJoCo window.
 
+## RL-Only Ladder Training
+
+The ladder policy has its own entry point and does not use motion clips,
+retargeting, imitation rewards, or the tracking runner:
+
+```bash
+pip install -e '.[train]'
+python train_mimic/scripts/train_ladder.py \
+    --num_envs 4096 \
+    --max_iterations 60000
+```
+
+For a short environment check, use `--num_envs 64 --max_iterations 100`.
+Multi-GPU launch is also supported with `--gpu_ids 0 1 2 3`. The task builds
+the A-frame ladder and grip constraints on top of the canonical
+`assets/robots/unitree_g1/g1_29dof.xml`; no copied G1 model or motion dataset is
+required. Checkpoints are written under `logs/rsl_rl/g1_ladder_rl/`.
+
+The `train` dependency set pins `warp-lang==1.15.0`. Do not use Warp 1.16.0
+with the supported `mjlab==1.4.0` / MuJoCo Warp 3.8 stack: its sensor-kernel
+compilation fails with `Referencing undefined symbol: xmat`, commonly during a
+four-process multi-GPU cold start. Repair an existing environment before
+launching training:
+
+```bash
+python -m pip install --force-reinstall "warp-lang==1.15.0"
+python -c "import warp as wp; print(wp.__version__)"
+```
+
+Both ladder faces use fixed collidable side rails and individual flat-topped
+box rungs. These bars are rigid, use stiff contacts, and cannot be crossed by
+the robot, while the visible space between adjacent rungs remains empty. A thin
+invisible blocker is offset behind each face and uses a separate collision mask:
+it stops the pelvis, torso, and head from entering the A-frame, but hands and
+feet pass through it to reach the exposed bars. The flat rung tops give each
+foot a stable support surface. Episodes start directly in a climbing pose: both
+feet are on physical rung 2 and both hands initially hold rung 5. An explicit
+five-phase FSM repeats the same order on every rung: stabilize all four
+supports, move the first hand, move the second hand, step with the first foot,
+then step with the second foot. Only the selected limb is released. Hand and
+foot targets must remain valid for 3 and 5 consecutive control steps,
+respectively, so a single noisy contact cannot advance the FSM. There is no
+ground-to-ladder approach phase.
+
+Hand and foot target shaping uses signed closing progress instead of absolute
+proximity: approaching a target is positive, hovering is zero, and retreating
+is negative. The adaptive prefix curriculum keeps the last 100 terminal
+episodes for the current phase. It opens the next phase only when that full
+window has strictly more than 80% successes and the phase has received at
+least 120,000 environment steps (5,000 PPO iterations with a 24-step rollout).
+Thus the complete five-phase cycle cannot unlock before iteration 20,000. A
+completed prefix episode ends immediately while its next phase is locked. The
+reward schedule at steps 0, 240,000, and 480,000 emphasizes low torso speed,
+upright posture, smooth joints, and especially low velocity in supporting limb
+joints. Curriculum state is synchronized between GPUs and saved in every
+checkpoint. Torso ascent is rewarded only during the two-hand-supported foot
+phases, while physical foot placement and complete-cycle impulses carry larger
+weights. The 24D command carries a five-state phase one-hot. The policy keeps
+the 117D actor and 120D privileged-critic current-frame groups, encodes a
+10-frame history for each with TemporalCNN, and separately encodes all nine
+finite rung endpoints as a `9 x 7` torso-frame geometry tensor.
+
+The ladder scene removes the canonical XML's embedded `floor` and uses one
+solid-color, non-reflective terrain plane. It also uses a single controlled
+light with playback shadows and reflections disabled, avoiding checker-texture
+moiré, duplicate-plane contacts, and shadow artifacts in video. The resulting
+policy fuses current state, temporal history, and ladder geometry through
+separate Conv1d encoders before the scaled `(2048, 1024, 512, 256, 128)` MLP.
+The ordered phase-command and adaptive-curriculum semantics, climbing keyframe,
+scheduled rewards, active bar contacts, trunk-blocking collision geometry, and
+multi-group TemporalCNN inputs require a fresh ladder training run. Earlier
+117D/120D MLP checkpoints do not match this model signature, and fixed-schedule
+checkpoints also lack the adaptive curriculum state.
+
+Evaluate a ladder checkpoint without further PPO updates:
+
+```bash
+python train_mimic/scripts/benchmark_ladder.py \
+    --checkpoint logs/rsl_rl/g1_ladder_rl/<run>/model_60000.pt \
+    --num_envs 64 \
+    --num_eval_steps 5000
+```
+
+Add `--num_envs 1 --video --video_length 1000` to write an MP4 under
+`benchmark_results/videos/`. The ladder benchmark reports success, failure,
+timeout, rung-progress, grip, reach-distance, reward, and episode-length
+statistics; it does not require a motion dataset.
+
+To record only the trained policy rollout, without benchmark metrics or report
+files, use the dedicated recorder:
+
+```bash
+python train_mimic/scripts/record_ladder_video.py \
+    --checkpoint logs/rsl_rl/g1_ladder_rl/<run>/model_60000.pt \
+    --output ladder.mp4 \
+    --frames 1000
+```
+
+The recorder runs one environment and stops before an automatic episode reset.
+Its default camera is a fixed world-space overview on the robot's outside face
+of the ladder, rather than a torso-tracking view through the rungs. The complete
+robot and ladder remain framed throughout the climb. Override the view with
+`--camera_azimuth`, `--camera_elevation`, `--camera_distance`,
+`--camera_lookat X Y Z`, and `--camera_fovy` when needed.
+
 ## Pico Motion Recording
 
 Record many Pico clips as training-ready G1 motion NPZ files:

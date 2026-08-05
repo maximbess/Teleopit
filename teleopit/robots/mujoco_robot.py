@@ -7,6 +7,8 @@ import mujoco
 import numpy as np
 from omegaconf import DictConfig
 
+from teleopit.robots.automatic_grip import AutomaticGrip
+
 from teleopit.interfaces import RobotState
 from teleopit.runtime.assets import (
     GMR_ASSETS_ROOT,
@@ -142,6 +144,15 @@ class MuJoCoRobot:
         # Full MuJoCo qpos for reset (7D root + joint DOFs)
         self._mujoco_default_qpos = np.array(cfg.mujoco_default_qpos, dtype=np.float64)
 
+        self._grip: AutomaticGrip | None = None
+        grip_cfg = cfg.get("grip")
+        if grip_cfg is not None and bool(grip_cfg.get("enabled", False)):
+            self._grip = AutomaticGrip.from_config(
+                model=self.model,
+                data=self.data,
+                cfg=grip_cfg,
+            )
+
         # Initialize to default pose
         self.reset()
 
@@ -170,6 +181,10 @@ class MuJoCoRobot:
     @property
     def torque_limits(self) -> np.ndarray:
         return self._torque_limits
+
+    @property
+    def grip(self) -> AutomaticGrip | None:
+        return self._grip
 
     # ── Robot Protocol methods ──────────────────────────────────
 
@@ -226,6 +241,8 @@ class MuJoCoRobot:
 
     def step(self) -> None:
         """Advance simulation by one timestep."""
+        if self._grip is not None:
+            self._grip.update()
         mujoco.mj_step(self.model, self.data)
 
     def reset(self, qpos: np.ndarray | None = None) -> None:
@@ -236,4 +253,6 @@ class MuJoCoRobot:
         else:
             self.data.qpos[: len(self._mujoco_default_qpos)] = self._mujoco_default_qpos
         self.data.qvel[:] = 0
+        if self._grip is not None:
+            self._grip.reset()
         mujoco.mj_forward(self.model, self.data)

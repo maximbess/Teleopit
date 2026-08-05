@@ -18,7 +18,7 @@ Module-internal isolation: all modules run in-process and communicate via `InPro
 
 ## Supported Surface
 
-- Training task: `General-Tracking-G1`
+- Training tasks: `General-Tracking-G1` motion tracking and `G1-Ladder-Climb-RL` RL-only ladder climbing
 - Inference observation: `velcmd_history` (167D, dual-input ONNX with `obs` + `obs_history`)
 - TemporalCNN actor/critic with scaled dims (2048,1024,512,256,128)
 - Realtime inference uses a retargeted-reference timeline before observation build; `reference_steps=[0]` is the default production path
@@ -68,17 +68,22 @@ train_mimic/              # Training package
 ├── app.py                # Shared app helpers for train/play/benchmark
 ├── tasks/tracking/config/
 │   ├── constants.py      # Public task constants
-│   ├── registry.py       # Registers General-Tracking-G1 task
-│   ├── env.py            # General-Tracking-G1 env builder
-│   └── rl.py             # TemporalCNN PPO cfg
+│   ├── registry.py       # Registers tracking and RL-only ladder tasks
+│   ├── env.py            # Tracking and generated ladder env builders
+│   └── rl.py             # TemporalCNN tracking and ladder PPO cfgs
+├── tasks/tracking/mdp/
+│   └── ladder.py         # Ladder targets, simulated grip FSM, rewards, and success term
 ├── tasks/tracking/rl/
 │   ├── runner.py         # Training runner and policy ONNX export wrapper
 │   ├── conv1d_encoder.py # 1-D CNN encoder for temporal history groups
 │   └── temporal_cnn_model.py # TemporalCNN actor/critic model
 └── scripts/
     ├── train.py          # Training entry point
+    ├── train_ladder.py   # RL-only G1 ladder-climbing entry point
     ├── play.py           # Checkpoint playback
     ├── benchmark.py      # Policy evaluation with tracking errors
+    ├── benchmark_ladder.py # Ladder success metrics and MP4 recording
+    ├── record_ladder_video.py # Ladder policy MP4 recording without metrics
     └── save_onnx.py      # Export TemporalCNN ONNX
 ```
 
@@ -195,8 +200,8 @@ Runtime constraints:
 - `RLPolicyController` accepts dual-input `obs` + `obs_history` ONNX
 - Startup validates the observation definition against the ONNX signature and raises immediately on mismatch
 
-### Training Task
-The single supported training task is `General-Tracking-G1` (experiment name: `g1_general_tracking`).
+### Training Tasks
+The motion-tracking task is `General-Tracking-G1` (experiment name: `g1_general_tracking`).
 
 - Uses TemporalCNN actor/critic with scaled dims (2048,1024,512,256,128)
 - 167D `velcmd_history` observation, dual-input ONNX export
@@ -206,6 +211,29 @@ The single supported training task is `General-Tracking-G1` (experiment name: `g
 - Playback/benchmark use `play=True`, which switches motion sampling to `start`
 - `window_steps=[0]`
 - `save_onnx.py` exports dual-input TemporalCNN ONNX
+
+The ladder task is `G1-Ladder-Climb-RL` (experiment name: `g1_ladder_rl`).
+
+- It is trained only with PPO reinforcement learning through `train_mimic/scripts/train_ladder.py`; it does not load a motion dataset or use `MotionTrackingOnPolicyRunner`
+- It uses TemporalCNN actor/critic models with scaled dims (2048,1024,512,256,128), separate Conv1d encoders for state history and ladder geometry, and the standard 29D G1 joint-position action
+- The current-frame groups remain 117D actor / 120D privileged critic: the 24D ladder command contains a five-state phase one-hot, hand/foot target vectors, hand attachment, physical foot-contact state, initialization state, and normalized hand/foot progress; each side also receives a 10-frame history and a separate `9 x 7` torso-frame rung-endpoint tensor
+- The A-frame ladder, grip sites, and weld anchors are generated onto the canonical `assets/robots/unitree_g1/g1_29dof.xml` at configuration time; each face uses fixed collidable side rails and separate flat-topped box rungs with visually open gaps, plus a thin invisible blocker offset behind the face that collides only with the pelvis, torso, and head so hands and feet can still reach the bars; do not maintain a second G1 XML or copied mesh tree
+- G1's default collision editor disables generated geoms that do not match `.*_collision`; ladder robot configuration must explicitly re-enable rails and rungs after that editor, preserve their stiff `condim=4` contacts, and assign the trunk blocker and trunk geoms their separate collision bit
+- Rubber-hand attachment is an environment mechanic; feet use physical rung contacts without welds, and the policy still controls only the 29 G1 joints
+- Every ladder episode starts from a deterministic climbing keyframe with both feet physically contacting rung 2 and both hands attached at rung 5, so there is no ground approach phase
+- The ladder FSM repeats five ordered phases: stabilize four supports, move the configured first hand, move the second hand, move the configured first foot, and move the second foot; only the phase-selected limb may move, and both hands remain attached throughout foot phases
+- Stabilization requires five consecutive frames with both foot supports, both attached hands, low torso-COM speed, and low joint-speed RMS; hand and foot targets require 3 and 5 consecutive valid frames respectively, including physical contact for feet
+- The adaptive prefix curriculum opens the next phase only when the rolling last-100-episode success rate is strictly greater than 80% and the current phase has accumulated at least 120,000 environment steps (5,000 PPO iterations with 24 rollout steps); reaching a locked boundary truncates the short prefix episode, while play/benchmark unlock all phases from step 0
+- `LadderOnPolicyRunner` merges curriculum outcomes across all distributed ranks once per PPO iteration and persists the unlocked phase, phase-start step, recent window, and pending outcomes in every checkpoint; adaptive training must fail fast when resuming a fixed-schedule checkpoint without this state
+- The supported `mjlab==1.4.0` / MuJoCo Warp 3.8 training stack pins `warp-lang==1.15.0`; Warp 1.16.0 fails in sensor-kernel code generation with `Referencing undefined symbol: xmat`, so every training/playback entry that imports the training stack validates the Warp version before CUDA environment creation
+- Hand/foot target shaping is signed closing progress rather than absolute proximity, so hovering pays zero and retreating is negative; rung-transition and completion terms are dt-independent one-step impulses
+- Reward weights change at environment steps 0, 240,000, and 480,000; dense torso-speed and upright rewards plus stronger action-rate, joint-velocity, joint-acceleration, and dynamic support-joint velocity penalties stabilize the robot, while torso ascent is limited to two-hand-supported foot phases and foot placement/cycle impulses have larger weights
+- Ladder success requires the final hand rung and final coordinated foot support; falls and low-root states terminate as failures
+- Checkpoints trained with the former 105D/108D or flat 117D/120D MLP contracts are incompatible; the current policy uses multi-group TemporalCNN inputs (`actor|critic`, history, and ladder geometry), while the five-phase command semantics, adaptive curriculum state, ordered FSM, climbing keyframe, scheduled rewards, active bar contacts, and trunk-blocking collision geometry also require existing fixed-schedule checkpoints to be retrained from scratch
+- `benchmark_ladder.py` evaluates ladder checkpoints without PPO updates, counts success/failure/timeout episodes, and optionally records a single-environment MP4
+- `record_ladder_video.py` records one single-environment ladder-policy MP4 without aggregating metrics or writing benchmark reports; it stops before automatic episode reset and defaults to a fixed world-space outside-ladder overview that keeps the complete robot and ladder framed instead of tracking the torso through the rungs
+- Ladder scene assembly removes the canonical XML's embedded `floor`, uses one solid-color non-reflective `SceneCfg` plane, removes embedded robot lights, and disables playback shadows/reflections to prevent duplicate contacts, texture moiré, and lighting artifacts
+- Tracking-only `train.py`, `play.py`, `benchmark.py`, and `save_onnx.py` do not accept the ladder task
 
 ### Dataset Pipeline
 - Dataset build spec supports a `preprocess` section for root-xy normalization, ground alignment, and basic clip filtering
@@ -227,6 +255,9 @@ python scripts/run/record_pico_motion.py
 python train_mimic/scripts/data/build_dataset.py --spec data/pico_motion/pico_recorded.yaml --force
 python train_mimic/scripts/data/precompute_dataset.py data/datasets --outdir data/datasets_precomputed --jobs 8
 python train_mimic/scripts/train.py --motion_file data/datasets_precomputed
+python train_mimic/scripts/train_ladder.py --num_envs 4096 --max_iterations 60000
+python train_mimic/scripts/benchmark_ladder.py --checkpoint logs/rsl_rl/g1_ladder_rl/<run>/model_60000.pt --num_envs 64
+python train_mimic/scripts/record_ladder_video.py --checkpoint logs/rsl_rl/g1_ladder_rl/<run>/model_60000.pt --output ladder.mp4 --frames 1000
 python train_mimic/scripts/data/precompute_dataset.py data/datasets/twist2 --outdir data/datasets/twist2_precomputed --jobs 8 --force
 python train_mimic/scripts/save_onnx.py --checkpoint logs/rsl_rl/g1_general_tracking/<run>/model_30000.pt --output policy.onnx --history_length 10
 ```

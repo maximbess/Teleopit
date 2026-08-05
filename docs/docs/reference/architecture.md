@@ -28,7 +28,7 @@ configs / scripts
 
 train_mimic/scripts
     -> train_mimic/app.py
-    -> single task registry / env builder / runner cfg
+    -> tracking and RL-only ladder task configs
     -> mjlab / rsl_rl
 
 train_mimic/scripts/data
@@ -47,17 +47,21 @@ train_mimic/scripts/data
 | `teleopit/controllers/observation.py` | ObservationBuilder |
 | `teleopit/controllers/rl_policy.py` | Accepts dual-input ONNX whose observation dimension matches the runtime builder |
 | `train_mimic/app.py` | Shared train/play/benchmark assembly |
-| `train_mimic/tasks/tracking/config/` | Single task registration (`General-Tracking-G1`) |
+| `train_mimic/tasks/tracking/config/` | Tracking and RL-only ladder task registration |
 | `train_mimic/data/dataset_builder.py` | Sole official dataset construction entry |
 
 ## Technical Specifications
 
 | Spec | Value |
 |------|-------|
-| Training task | `General-Tracking-G1` |
+| Training tasks | `General-Tracking-G1`, `G1-Ladder-Climb-RL` |
 | Inference observation | `velcmd_history` (167D) |
 | ONNX signature | Dual-input `obs` (167D) + `obs_history` |
-| Actor/Critic | TemporalCNN (2048, 1024, 512, 256, 128) |
+| Tracking Actor/Critic | TemporalCNN (2048, 1024, 512, 256, 128) |
+| Ladder Actor/Critic | TemporalCNN + separate history/geometry Conv1d encoders + MLP (2048, 1024, 512, 256, 128), no motion dataset |
+| Ladder observations | Current actor 117D / privileged critic 120D; 10-frame histories; `9 x 7` torso-frame rung endpoints; 24D ordered phase command |
+| Ladder action | 29D G1 joint-position targets |
+| Ladder curriculum | `LadderOnPolicyRunner`; synchronized last-100 success window and checkpointed adaptive phase state |
 | Training sampling | Default `rewind`; also supports `uniform`; playback/benchmark use `start` |
 | Training `window_steps` | `[0]` |
 | Data format | Minimal recursive HDF5 shards (`shard_*.h5`) |
@@ -74,6 +78,6 @@ train_mimic/scripts/data
 
 **Stable run modes:** offline sim2sim, offline sim2real playback, Pico4 sim2sim, G1 sim2real
 
-**Stable training entry points:** `train.py`, `play.py`, `benchmark.py`, `save_onnx.py`
+**Stable training entry points:** `train.py`, `train_ladder.py`, `play.py`, `benchmark.py`, `benchmark_ladder.py`, `save_onnx.py`
 
 **Stable data entry points:** `build_dataset.py`, `precompute_dataset.py`

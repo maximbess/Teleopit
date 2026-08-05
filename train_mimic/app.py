@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from importlib import metadata
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from train_mimic.tasks.tracking.config.constants import (
     DEFAULT_TRAIN_MOTION_FILE,
@@ -14,6 +15,32 @@ from train_mimic.tasks.tracking.config.constants import (
 from train_mimic.data.dataset_lib import find_precomputed_motion_shards, validate_precomputed_motion_dataset
 
 DEFAULT_TASK = GENERAL_TRACKING_TASK
+SUPPORTED_TRAINING_WARP_VERSION = "1.15.0"
+
+
+def validate_training_runtime_versions(
+    version_getter: Callable[[str], str] | None = None,
+) -> None:
+    """Fail before CUDA initialization when the Warp runtime is unsupported."""
+
+    get_version = metadata.version if version_getter is None else version_getter
+    try:
+        warp_version = get_version("warp-lang")
+    except metadata.PackageNotFoundError:
+        raise RuntimeError(
+            "warp-lang is missing from the training environment. Install the "
+            "supported stack with `python -m pip install -e '.[train]'`."
+        ) from None
+    if warp_version == SUPPORTED_TRAINING_WARP_VERSION:
+        return
+    raise RuntimeError(
+        f"Unsupported warp-lang version {warp_version}. Teleopit training with "
+        "mjlab==1.4.0 and mujoco-warp 3.8 requires "
+        f"warp-lang=={SUPPORTED_TRAINING_WARP_VERSION}. In particular, Warp 1.16.0 "
+        "fails while compiling the MuJoCo Warp sensor module with "
+        "`Referencing undefined symbol: xmat`. Install the supported version with "
+        f"`python -m pip install --force-reinstall warp-lang=={SUPPORTED_TRAINING_WARP_VERSION}`."
+    )
 
 
 def validate_motion_file(motion_file: str) -> None:
@@ -36,6 +63,8 @@ def validate_checkpoint_path(checkpoint_path: str) -> None:
 
 
 def import_training_stack() -> tuple[Any, ...]:
+    validate_training_runtime_versions()
+
     import torch
 
     import mjlab.tasks  # noqa: F401 -- populates mjlab built-in tasks

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from functools import partial
+from importlib import metadata
 import sys
 import types
 from pathlib import Path
@@ -12,7 +13,12 @@ import h5py
 import numpy as np
 import pytest
 
-from train_mimic.app import DEFAULT_TASK, validate_checkpoint_path, validate_motion_file
+from train_mimic.app import (
+    SUPPORTED_TRAINING_WARP_VERSION,
+    validate_checkpoint_path,
+    validate_motion_file,
+    validate_training_runtime_versions,
+)
 from train_mimic.data.dataset_lib import PRECOMPUTED_MOTION_VERSION
 from train_mimic.scripts import train
 from train_mimic.tasks.tracking.config.rl import make_general_tracking_ppo_runner_cfg
@@ -54,6 +60,29 @@ def _args(**overrides: object) -> argparse.Namespace:
 
 
 class TestTrainLauncherHelpers:
+    def test_training_runtime_accepts_pinned_warp(self) -> None:
+        validate_training_runtime_versions(
+            lambda package: (
+                SUPPORTED_TRAINING_WARP_VERSION
+                if package == "warp-lang"
+                else pytest.fail(f"unexpected package lookup: {package}")
+            )
+        )
+
+    def test_training_runtime_rejects_warp_1_16_with_actionable_error(self) -> None:
+        with pytest.raises(RuntimeError, match=r"warp-lang==1\.15\.0") as exc_info:
+            validate_training_runtime_versions(lambda _package: "1.16.0")
+
+        assert "Referencing undefined symbol: xmat" in str(exc_info.value)
+        assert "--force-reinstall" in str(exc_info.value)
+
+    def test_training_runtime_reports_missing_warp(self) -> None:
+        def _missing(_package: str) -> str:
+            raise metadata.PackageNotFoundError("warp-lang")
+
+        with pytest.raises(RuntimeError, match=r"pip install -e '.\[train\]'"):
+            validate_training_runtime_versions(_missing)
+
     def test_parse_args_defaults_to_tensorboard_logger(self) -> None:
         args = train.parse_args([])
         assert args.logger == "tensorboard"
@@ -119,6 +148,25 @@ class TestTrainLauncherHelpers:
         env = train._build_launcher_env(_args(gpu_ids=[3, 1]), env={"PATH": "/bin"})
         assert env["CUDA_VISIBLE_DEVICES"] == "3,1"
         assert env["PATH"] == "/bin"
+
+    def test_multi_gpu_launcher_validates_runtime_before_spawning(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def _reject_runtime() -> None:
+            raise RuntimeError("unsupported Warp")
+
+        monkeypatch.setattr(train, "validate_training_runtime_versions", _reject_runtime)
+        monkeypatch.setattr(
+            train.subprocess,
+            "Popen",
+            lambda *_args, **_kwargs: pytest.fail("torchrun must not start"),
+        )
+
+        with pytest.raises(RuntimeError, match="unsupported Warp"):
+            train._launch_multi_gpu(
+                _args(gpu_ids=[0, 1]),
+                ["train.py", "--gpu_ids", "0", "1"],
+            )
 
     def test_resolve_device_defaults_to_local_rank_in_distributed_mode(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("WORLD_SIZE", "4")

@@ -41,6 +41,7 @@ from train_mimic.app import (
     validate_motion_file,
 )
 from train_mimic.data.dataset_lib import find_precomputed_motion_shards
+from train_mimic.tasks.tracking.config.constants import TRACKING_TASKS
 from teleopit.debug.rollout_trace import RolloutTraceWriter
 
 
@@ -162,8 +163,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--split", action="store_true",
                         help="Render split-screen video with two camera angles")
     parser.add_argument("--device", type=str, default=None)
-    parser.add_argument("--task", type=str, default=DEFAULT_TASK,
-                        help="Task id to benchmark (default: %(default)s)")
+    parser.add_argument(
+        "--task",
+        type=str,
+        default=DEFAULT_TASK,
+        choices=TRACKING_TASKS,
+        help="Motion-tracking task id to benchmark (default: %(default)s)",
+    )
     parser.add_argument(
         "--debug_trace",
         type=str,

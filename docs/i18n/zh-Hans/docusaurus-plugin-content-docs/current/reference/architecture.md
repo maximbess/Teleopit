@@ -28,7 +28,7 @@ configs / scripts
 
 train_mimic/scripts
     -> train_mimic/app.py
-    -> single task registry / env builder / runner cfg
+    -> tracking and RL-only ladder task configs
     -> mjlab / rsl_rl
 
 train_mimic/scripts/data
@@ -47,17 +47,21 @@ train_mimic/scripts/data
 | `teleopit/controllers/observation.py` | ObservationBuilder |
 | `teleopit/controllers/rl_policy.py` | 接受观测维度与运行时 builder 匹配的双输入 ONNX |
 | `train_mimic/app.py` | 共享的训练/播放/benchmark 装配 |
-| `train_mimic/tasks/tracking/config/` | 单一任务注册（`General-Tracking-G1`） |
+| `train_mimic/tasks/tracking/config/` | 追踪任务和纯 RL 梯子任务注册 |
 | `train_mimic/data/dataset_builder.py` | 唯一官方数据集构建入口 |
 
 ## 技术规格
 
 | 项目 | 规格 |
 |---|---|
-| 训练任务 | `General-Tracking-G1` |
+| 训练任务 | `General-Tracking-G1`、`G1-Ladder-Climb-RL` |
 | 推理观测 | `velcmd_history`（167D） |
 | ONNX 签名 | 双输入 `obs`（167D）+ `obs_history` |
-| Actor/Critic | TemporalCNN（2048、1024、512、256、128） |
+| 追踪 Actor/Critic | TemporalCNN（2048、1024、512、256、128） |
+| 梯子 Actor/Critic | TemporalCNN + 独立的历史/几何 Conv1d 编码器 + MLP（2048、1024、512、256、128），不使用动作数据集 |
+| 梯子观测 | 当前 Actor 117D / 特权 Critic 120D；10 帧历史；`9 x 7` 躯干坐标系横档端点；24D 有序阶段指令 |
+| 梯子动作 | 29D G1 关节位置目标 |
+| 梯子课程 | `LadderOnPolicyRunner`；同步最近 100 回合成功窗口，并在检查点中保存自适应阶段状态 |
 | 训练采样 | 默认 `rewind`；也支持 `uniform`；播放/评估使用 `start` |
 | 训练 `window_steps` | `[0]` |
 | 数据格式 | 可递归发现的最小 HDF5 shard（`shard_*.h5`） |
@@ -74,6 +78,6 @@ train_mimic/scripts/data
 
 **稳定运行模式：** 离线 sim2sim、离线 sim2real playback、Pico4 sim2sim、G1 sim2real
 
-**稳定训练入口：** `train.py`、`play.py`、`benchmark.py`、`save_onnx.py`
+**稳定训练入口：** `train.py`、`train_ladder.py`、`play.py`、`benchmark.py`、`benchmark_ladder.py`、`save_onnx.py`
 
 **稳定数据入口：** `build_dataset.py`、`precompute_dataset.py`

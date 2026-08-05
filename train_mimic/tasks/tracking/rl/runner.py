@@ -2,6 +2,7 @@ import os
 import pathlib
 import statistics
 import time
+from itertools import chain
 
 import torch
 from rsl_rl.env.vec_env import VecEnv
@@ -21,7 +22,9 @@ def _one_based_iteration_range(start_iteration: int, total_iterations: int) -> r
     return range(start_iteration + 1, total_iterations + 1)
 
 
-def _resolve_total_iterations(start_iteration: int, num_learning_iterations: int) -> int:
+def _resolve_total_iterations(
+    start_iteration: int, num_learning_iterations: int
+) -> int:
     """Return the cumulative 1-based target iteration after running more iterations."""
     if num_learning_iterations < 0:
         raise ValueError(
@@ -39,6 +42,168 @@ def _format_duration(seconds: float) -> str:
     return f"{hours:02d}:{minutes:02d}:{secs:02d}"
 
 
+class LadderOnPolicyRunner(MjlabOnPolicyRunner):
+    """Plain PPO runner with persistent, multi-GPU ladder curriculum state."""
+
+    env: RslRlVecEnvWrapper
+
+    def _ladder_command(self):
+        return self.env.unwrapped.command_manager.get_term("ladder")
+
+    def _synchronize_ladder_curriculum(self, iteration: int) -> None:
+        command = self._ladder_command()
+        local_outcomes = command.drain_curriculum_outcomes()
+        if self.is_distributed:
+            gathered: list[list[int] | None] = [None] * self.gpu_world_size
+            torch.distributed.all_gather_object(gathered, local_outcomes)
+            outcomes = list(chain.from_iterable(batch or [] for batch in gathered))
+        else:
+            outcomes = local_outcomes
+
+        promoted = command.update_curriculum(outcomes)
+        if promoted and self.gpu_global_rank == 0:
+            phase_name = command.phase_name(command.max_unlocked_phase)
+            print(
+                "[INFO] Ladder curriculum promoted to "
+                f"phase {command.max_unlocked_phase} ({phase_name}) at "
+                f"iteration {iteration}."
+            )
+
+        writer = self.logger.writer
+        if writer is not None:
+            writer.add_scalar(
+                "Curriculum/ladder_unlocked_phase",
+                command.max_unlocked_phase,
+                iteration,
+            )
+            writer.add_scalar(
+                "Curriculum/ladder_success_rate_100",
+                command.curriculum_success_rate,
+                iteration,
+            )
+            writer.add_scalar(
+                "Curriculum/ladder_window_fill",
+                command.curriculum_window_fill,
+                iteration,
+            )
+            writer.add_scalar(
+                "Curriculum/ladder_phase_steps",
+                command.curriculum_phase_steps,
+                iteration,
+            )
+
+    def learn(
+        self,
+        num_learning_iterations: int,
+        init_at_random_ep_len: bool = False,
+    ) -> None:
+        """Run PPO and evaluate curriculum promotion once per rollout."""
+
+        if init_at_random_ep_len:
+            self.env.episode_length_buf = torch.randint_like(
+                self.env.episode_length_buf,
+                high=int(self.env.max_episode_length),
+            )
+
+        obs = self.env.get_observations().to(self.device)
+        self.alg.train_mode()
+        if self.is_distributed:
+            print(f"Synchronizing parameters for rank {self.gpu_global_rank}...")
+            self.alg.broadcast_parameters()
+        self.logger.init_logging_writer()
+
+        start_it = self.current_learning_iteration
+        total_it = _resolve_total_iterations(start_it, num_learning_iterations)
+        for it in _one_based_iteration_range(start_it, total_it):
+            start = time.time()
+            with torch.inference_mode():
+                for _ in range(self.cfg["num_steps_per_env"]):
+                    actions = self.alg.act(obs)
+                    obs, rewards, dones, extras = self.env.step(
+                        actions.to(self.env.device)
+                    )
+                    if self.cfg.get("check_for_nan", True):
+                        check_nan(obs, rewards, dones)
+                    obs, rewards, dones = (
+                        obs.to(self.device),
+                        rewards.to(self.device),
+                        dones.to(self.device),
+                    )
+                    self.alg.process_env_step(obs, rewards, dones, extras)
+                    intrinsic_rewards = (
+                        self.alg.intrinsic_rewards
+                        if self.cfg["algorithm"]["rnd_cfg"]
+                        else None
+                    )
+                    self.logger.process_env_step(
+                        rewards,
+                        dones,
+                        extras,
+                        intrinsic_rewards,
+                    )
+
+                self._synchronize_ladder_curriculum(it)
+                stop = time.time()
+                collect_time = stop - start
+                start = stop
+                self.alg.compute_returns(obs)
+
+            loss_dict = self.alg.update()
+            stop = time.time()
+            learn_time = stop - start
+            self.current_learning_iteration = it
+            MotionTrackingOnPolicyRunner._log_one_based_iteration(
+                self,
+                it=it,
+                start_it=start_it,
+                total_it=total_it,
+                collect_time=collect_time,
+                learn_time=learn_time,
+                loss_dict=loss_dict,
+                learning_rate=self.alg.learning_rate,
+                action_std=self.alg.get_policy().output_std,
+                rnd_weight=(
+                    self.alg.rnd.weight if self.cfg["algorithm"]["rnd_cfg"] else None
+                ),
+            )
+            if self.logger.writer is not None and it % self.cfg["save_interval"] == 0:
+                self.save(os.path.join(self.logger.log_dir, f"model_{it}.pt"))
+
+        if self.logger.writer is not None:
+            self.save(
+                os.path.join(
+                    self.logger.log_dir,
+                    f"model_{self.current_learning_iteration}.pt",
+                )
+            )
+            self.logger.stop_logging_writer()
+
+    def save(self, path: str, infos=None) -> None:
+        curriculum_state = self._ladder_command().curriculum_state_dict()
+        infos = {**(infos or {}), "ladder_curriculum_state": curriculum_state}
+        super().save(path, infos=infos)
+
+    def load(
+        self,
+        path: str,
+        load_cfg: dict | None = None,
+        strict: bool = True,
+        map_location: str | None = None,
+    ) -> dict:
+        infos = super().load(path, load_cfg, strict, map_location)
+        command = self._ladder_command()
+        state = (infos or {}).get("ladder_curriculum_state")
+        if state is None:
+            if command.cfg.curriculum_enabled:
+                raise RuntimeError(
+                    "Checkpoint does not contain adaptive ladder curriculum state. "
+                    "Start a fresh run instead of resuming a fixed-schedule checkpoint."
+                )
+            return infos
+        command.load_curriculum_state_dict(state)
+        return infos
+
+
 class MotionTrackingOnPolicyRunner(MjlabOnPolicyRunner):
     env: RslRlVecEnvWrapper
 
@@ -53,7 +218,9 @@ class MotionTrackingOnPolicyRunner(MjlabOnPolicyRunner):
         super().__init__(env, train_cfg, log_dir, device)
         self.registry_name = registry_name
 
-    def learn(self, num_learning_iterations: int, init_at_random_ep_len: bool = False) -> None:
+    def learn(
+        self, num_learning_iterations: int, init_at_random_ep_len: bool = False
+    ) -> None:
         """Run the learning loop using 1-based iteration numbering."""
         if init_at_random_ep_len:
             self.env.episode_length_buf = torch.randint_like(
@@ -76,13 +243,25 @@ class MotionTrackingOnPolicyRunner(MjlabOnPolicyRunner):
             with torch.inference_mode():
                 for _ in range(self.cfg["num_steps_per_env"]):
                     actions = self.alg.act(obs)
-                    obs, rewards, dones, extras = self.env.step(actions.to(self.env.device))
+                    obs, rewards, dones, extras = self.env.step(
+                        actions.to(self.env.device)
+                    )
                     if self.cfg.get("check_for_nan", True):
                         check_nan(obs, rewards, dones)
-                    obs, rewards, dones = (obs.to(self.device), rewards.to(self.device), dones.to(self.device))
+                    obs, rewards, dones = (
+                        obs.to(self.device),
+                        rewards.to(self.device),
+                        dones.to(self.device),
+                    )
                     self.alg.process_env_step(obs, rewards, dones, extras)
-                    intrinsic_rewards = self.alg.intrinsic_rewards if self.cfg["algorithm"]["rnd_cfg"] else None
-                    self.logger.process_env_step(rewards, dones, extras, intrinsic_rewards)
+                    intrinsic_rewards = (
+                        self.alg.intrinsic_rewards
+                        if self.cfg["algorithm"]["rnd_cfg"]
+                        else None
+                    )
+                    self.logger.process_env_step(
+                        rewards, dones, extras, intrinsic_rewards
+                    )
 
                 stop = time.time()
                 collect_time = stop - start
@@ -104,14 +283,20 @@ class MotionTrackingOnPolicyRunner(MjlabOnPolicyRunner):
                 loss_dict=loss_dict,
                 learning_rate=self.alg.learning_rate,
                 action_std=self.alg.get_policy().output_std,
-                rnd_weight=self.alg.rnd.weight if self.cfg["algorithm"]["rnd_cfg"] else None,
+                rnd_weight=self.alg.rnd.weight
+                if self.cfg["algorithm"]["rnd_cfg"]
+                else None,
             )
 
             if self.logger.writer is not None and it % self.cfg["save_interval"] == 0:
                 self.save(os.path.join(self.logger.log_dir, f"model_{it}.pt"))  # type: ignore[arg-type]
 
         if self.logger.writer is not None:
-            self.save(os.path.join(self.logger.log_dir, f"model_{self.current_learning_iteration}.pt"))  # type: ignore[arg-type]
+            self.save(
+                os.path.join(
+                    self.logger.log_dir, f"model_{self.current_learning_iteration}.pt"
+                )
+            )  # type: ignore[arg-type]
             self.logger.stop_logging_writer()
 
     def _log_one_based_iteration(
@@ -134,7 +319,9 @@ class MotionTrackingOnPolicyRunner(MjlabOnPolicyRunner):
         if logger.writer is None:
             return
 
-        collection_size = logger.cfg["num_steps_per_env"] * logger.num_envs * logger.gpu_world_size
+        collection_size = (
+            logger.cfg["num_steps_per_env"] * logger.num_envs * logger.gpu_world_size
+        )
         iteration_time = collect_time + learn_time
         logger.tot_timesteps += collection_size
         logger.tot_time += iteration_time
@@ -173,53 +360,70 @@ class MotionTrackingOnPolicyRunner(MjlabOnPolicyRunner):
 
         if len(logger.rewbuffer) > 0:
             if logger.cfg["algorithm"]["rnd_cfg"]:
-                logger.writer.add_scalar("Rnd/mean_extrinsic_reward", statistics.mean(logger.erewbuffer), it)
-                logger.writer.add_scalar("Rnd/mean_intrinsic_reward", statistics.mean(logger.irewbuffer), it)
-                logger.writer.add_scalar("Rnd/weight", rnd_weight, it)  # type: ignore[arg-type]
-            logger.writer.add_scalar("Train/mean_reward", statistics.mean(logger.rewbuffer), it)
-            logger.writer.add_scalar("Train/mean_episode_length", statistics.mean(logger.lenbuffer), it)
-            if logger.logger_type != "wandb":
-                logger.writer.add_scalar("Train/mean_reward/time", statistics.mean(logger.rewbuffer), int(logger.tot_time))
                 logger.writer.add_scalar(
-                    "Train/mean_episode_length/time", statistics.mean(logger.lenbuffer), int(logger.tot_time)
+                    "Rnd/mean_extrinsic_reward", statistics.mean(logger.erewbuffer), it
+                )
+                logger.writer.add_scalar(
+                    "Rnd/mean_intrinsic_reward", statistics.mean(logger.irewbuffer), it
+                )
+                logger.writer.add_scalar("Rnd/weight", rnd_weight, it)  # type: ignore[arg-type]
+            logger.writer.add_scalar(
+                "Train/mean_reward", statistics.mean(logger.rewbuffer), it
+            )
+            logger.writer.add_scalar(
+                "Train/mean_episode_length", statistics.mean(logger.lenbuffer), it
+            )
+            if logger.logger_type != "wandb":
+                logger.writer.add_scalar(
+                    "Train/mean_reward/time",
+                    statistics.mean(logger.rewbuffer),
+                    int(logger.tot_time),
+                )
+                logger.writer.add_scalar(
+                    "Train/mean_episode_length/time",
+                    statistics.mean(logger.lenbuffer),
+                    int(logger.tot_time),
                 )
 
-        log_string = f"""{'#' * width}
+        log_string = f"""{"#" * width}
 """
-        log_string += f"""[1m{f' Learning iteration {it}/{total_it} '.center(width)}[0m 
-
-"""
+        heading = f" Learning iteration {it}/{total_it} "
+        log_string += f"\033[1m{heading.center(width)}\033[0m\n\n"
 
         run_name = logger.cfg.get("run_name")
-        log_string += f"""{'Run name:':>{pad}} {run_name}
-""" if run_name else ""
         log_string += (
-            f"""{'Total steps:':>{pad}} {logger.tot_timesteps} 
+            f"""{"Run name:":>{pad}} {run_name}
 """
-            f"""{'Steps per second:':>{pad}} {fps:.0f} 
+            if run_name
+            else ""
+        )
+        log_string += (
+            f"""{"Total steps:":>{pad}} {logger.tot_timesteps}
 """
-            f"""{'Collection time:':>{pad}} {collect_time:.3f}s 
+            f"""{"Steps per second:":>{pad}} {fps:.0f}
 """
-            f"""{'Learning time:':>{pad}} {learn_time:.3f}s 
+            f"""{"Collection time:":>{pad}} {collect_time:.3f}s
+"""
+            f"""{"Learning time:":>{pad}} {learn_time:.3f}s
 """
         )
 
         for key, value in loss_dict.items():
-            log_string += f"""{f'Mean {key} loss:':>{pad}} {value:.4f}
+            log_string += f"""{f"Mean {key} loss:":>{pad}} {value:.4f}
 """
 
         if len(logger.rewbuffer) > 0:
             if logger.cfg["algorithm"]["rnd_cfg"]:
-                log_string += f"""{'Mean extrinsic reward:':>{pad}} {statistics.mean(logger.erewbuffer):.2f}
+                log_string += f"""{"Mean extrinsic reward:":>{pad}} {statistics.mean(logger.erewbuffer):.2f}
 """
-                log_string += f"""{'Mean intrinsic reward:':>{pad}} {statistics.mean(logger.irewbuffer):.2f}
+                log_string += f"""{"Mean intrinsic reward:":>{pad}} {statistics.mean(logger.irewbuffer):.2f}
 """
-            log_string += f"""{'Mean reward:':>{pad}} {statistics.mean(logger.rewbuffer):.2f}
+            log_string += f"""{"Mean reward:":>{pad}} {statistics.mean(logger.rewbuffer):.2f}
 """
-            log_string += f"""{'Mean episode length:':>{pad}} {statistics.mean(logger.lenbuffer):.2f}
+            log_string += f"""{"Mean episode length:":>{pad}} {statistics.mean(logger.lenbuffer):.2f}
 """
 
-        log_string += f"""{'Mean action std:':>{pad}} {action_std.mean().item():.2f}
+        log_string += f"""{"Mean action std:":>{pad}} {action_std.mean().item():.2f}
 """
         if not print_minimal:
             log_string += extras_string
@@ -228,13 +432,13 @@ class MotionTrackingOnPolicyRunner(MjlabOnPolicyRunner):
         remaining_it = total_it - it
         eta = logger.tot_time / done_it * remaining_it if done_it > 0 else 0.0
         log_string += (
-            f"""{'-' * width}
+            f"""{"-" * width}
 """
-            f"""{'Iteration time:':>{pad}} {iteration_time:.2f}s
+            f"""{"Iteration time:":>{pad}} {iteration_time:.2f}s
 """
-            f"""{'Time elapsed:':>{pad}} {_format_duration(logger.tot_time)}
+            f"""{"Time elapsed:":>{pad}} {_format_duration(logger.tot_time)}
 """
-            f"""{'ETA:':>{pad}} {_format_duration(eta)}
+            f"""{"ETA:":>{pad}} {_format_duration(eta)}
 """
         )
         print(log_string)

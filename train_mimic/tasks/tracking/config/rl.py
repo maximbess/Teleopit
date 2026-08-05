@@ -4,6 +4,7 @@ from mjlab.rl import RslRlModelCfg, RslRlOnPolicyRunnerCfg, RslRlPpoAlgorithmCfg
 
 from train_mimic.tasks.tracking.config.constants import (
     GENERAL_TRACKING_EXPERIMENT_NAME,
+    LADDER_RL_EXPERIMENT_NAME,
 )
 
 _TEMPORAL_CNN_MODEL_CLASS = (
@@ -63,6 +64,56 @@ def make_general_tracking_ppo_runner_cfg(
         save_interval=2000,
         num_steps_per_env=24,
         max_iterations=30_000,
+        logger="tensorboard",
+        upload_model=False,
+    )
+
+
+def make_g1_ladder_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
+    """Create PPO with separate current, temporal, and ladder encoders."""
+
+    return RslRlOnPolicyRunnerCfg(
+        actor=RslRlModelCfg(
+            class_name=_TEMPORAL_CNN_MODEL_CLASS,
+            hidden_dims=(2048, 1024, 512, 256, 128),
+            activation="elu",
+            obs_normalization=True,
+            cnn_cfg=_CNN_CFG,
+            distribution_cfg={
+                "class_name": "GaussianDistribution",
+                "init_std": 0.7,
+                "std_type": "scalar",
+            },
+        ),
+        critic=RslRlModelCfg(
+            class_name=_TEMPORAL_CNN_MODEL_CLASS,
+            hidden_dims=(2048, 1024, 512, 256, 128),
+            activation="elu",
+            obs_normalization=True,
+            cnn_cfg=_CNN_CFG,
+        ),
+        algorithm=RslRlPpoAlgorithmCfg(
+            value_loss_coef=1.0,
+            use_clipped_value_loss=True,
+            clip_param=0.2,
+            entropy_coef=0.005,
+            num_learning_epochs=5,
+            num_mini_batches=4,
+            learning_rate=5.0e-4,
+            schedule="adaptive",
+            gamma=0.99,
+            lam=0.95,
+            desired_kl=0.01,
+            max_grad_norm=1.0,
+        ),
+        obs_groups={
+            "actor": ("actor", "actor_history", "actor_ladder"),
+            "critic": ("critic", "critic_history", "critic_ladder"),
+        },
+        experiment_name=LADDER_RL_EXPERIMENT_NAME,
+        save_interval=1_000,
+        num_steps_per_env=24,
+        max_iterations=60_000,
         logger="tensorboard",
         upload_model=False,
     )

@@ -12,7 +12,7 @@ slug: /
 - **离线 sim2sim**：在 MuJoCo 中回放 BVH 动捕文件，通过 RL 策略驱动机器人
 - **VR 遥操作**：基于 Pico 4 / Pico 4 Ultra 全身追踪的实时全身控制
 - **Sim2Real 部署**：使用同一套流程直接部署到 Unitree G1 实物
-- **训练流程**：基于 General-Tracking-G1 任务的端到端强化学习训练
+- **训练流程**：General-Tracking-G1 动作追踪训练，以及独立的纯 RL G1 梯子攀爬训练
 - **可扩展设计**：基于协议的组件体系（InputProvider、Retargeter、Controller、Robot）
 
 ## 流程概览

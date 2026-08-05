@@ -48,8 +48,12 @@ from train_mimic.app import (
     import_training_stack,
     load_task_components,
     validate_motion_file,
+    validate_training_runtime_versions,
 )
-from train_mimic.tasks.tracking.config.constants import DEFAULT_TRAIN_MOTION_FILE
+from train_mimic.tasks.tracking.config.constants import (
+    DEFAULT_TRAIN_MOTION_FILE,
+    TRACKING_TASKS,
+)
 from train_mimic.tasks.tracking.config.env import (
     make_g1_training_robot_cfg,
     resolve_g1_training_xml,
@@ -125,8 +129,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--video", action="store_true",
                         help="Record periodic videos during training")
-    parser.add_argument("--task", type=str, default=DEFAULT_TASK,
-                        help="Task id to train (default: %(default)s)")
+    parser.add_argument(
+        "--task",
+        type=str,
+        default=DEFAULT_TASK,
+        choices=TRACKING_TASKS,
+        help=(
+            "Motion-tracking task id (default: %(default)s). Use "
+            "train_ladder.py for the RL-only ladder task."
+        ),
+    )
     parser.add_argument("--video_interval", type=int, default=2000,
                         help="Record a video every N iterations (default: 2000)")
     parser.add_argument("--video_length", type=int, default=200,
@@ -268,6 +280,7 @@ def _configure_experiment_logger(
     agent_cfg: Any,
     env_cfg: Any,
     log_dir: str,
+    run_config: dict[str, Any] | None = None,
 ) -> bool:
     """Configure the training logger and return whether SwanLab was started."""
     if logger_name == "tensorboard":
@@ -293,11 +306,8 @@ def _configure_experiment_logger(
             "swanlab package is required for --logger swanlab. Install it with `pip install swanlab`."
         ) from None
 
-    swanlab.init(
-        project=agent_cfg.experiment_name,
-        name=os.path.basename(log_dir),
-        log_dir=log_dir,
-        config={
+    if run_config is None:
+        run_config = {
             "experiment_name": agent_cfg.experiment_name,
             "motion_file": env_cfg.commands["motion"].motion_file,
             "robot_xml": getattr(env_cfg, "robot_xml", None),
@@ -307,7 +317,13 @@ def _configure_experiment_logger(
             "rewind_prob": env_cfg.commands["motion"].rewind_prob,
             "rewind_min_steps": env_cfg.commands["motion"].rewind_min_steps,
             "rewind_max_steps": env_cfg.commands["motion"].rewind_max_steps,
-        },
+        }
+
+    swanlab.init(
+        project=agent_cfg.experiment_name,
+        name=os.path.basename(log_dir),
+        log_dir=log_dir,
+        config=run_config,
     )
     swanlab.sync_tensorboard_torch(types=["scalar", "scalars", "image", "text"])
     return True
@@ -315,6 +331,7 @@ def _configure_experiment_logger(
 
 def _launch_multi_gpu(args: argparse.Namespace, argv: Sequence[str]) -> None:
     _validate_multi_gpu_args(args)
+    validate_training_runtime_versions()
     command = _build_torchrun_command(args, argv)
     env = _build_launcher_env(args)
     print(
