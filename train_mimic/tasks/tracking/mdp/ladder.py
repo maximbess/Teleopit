@@ -2900,6 +2900,89 @@ class LadderFootPlacementReward:
         return reward
 
 
+def _ladder_required_feet(command: LadderClimbCommand) -> torch.Tensor:
+    """Exclude only the selected moving foot during foot phases."""
+    foot_ids = torch.arange(2, device=command.phase.device)
+    return ~(command.is_foot_phase[:, None] & (
+        foot_ids[None, :] == command.active_foot[:, None]
+    ))
+
+
+def ladder_movement_survival(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Keep the survival term outside stabilization only."""
+    command = _ladder_command(env, command_name)
+    return (command.phase != int(LadderPhase.STABILIZE)).float()
+
+
+def ladder_missing_foot_support(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Count missing required physical foot supports on every active step."""
+    command = _ladder_command(env, command_name)
+    missing = (_ladder_required_feet(command) & ~command.foot_support).sum(dim=1)
+    return missing.float() * (command.initialized & ~command.finished).float()
+
+
+class LadderFootRecoveryReward:
+    """Signed approach rate to held foot rungs, including before contact.
+
+    Histories are anchored again on reset or phase/held-rung changes. A selected
+    moving foot is excluded; its existing phase progress handles its new target.
+    """
+
+    def __init__(self, cfg: object, env: ManagerBasedRlEnv) -> None:
+        self._reach_distance = float(getattr(cfg, "params")["reach_distance"])
+        if self._reach_distance <= 0:
+            raise ValueError("reach_distance must be > 0")
+        self._previous_distance = torch.zeros(env.num_envs, device=env.device)
+        self._previous_key = torch.zeros((env.num_envs, 3), dtype=torch.long, device=env.device)
+        self._valid_previous = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+
+    def reset(self, env_ids: torch.Tensor | slice | None = None) -> None:
+        self._valid_previous[slice(None) if env_ids is None else env_ids] = False
+
+    def __call__(self, env: ManagerBasedRlEnv, command_name: str,
+                 reach_distance: float) -> torch.Tensor:
+        del reach_distance
+        command = _ladder_command(env, command_name)
+        required = _ladder_required_feet(command)
+        distances = torch.linalg.vector_norm(
+            command.foot_pos_w - command.held_foot_target_pos_w, dim=-1
+        )
+        # Use a fixed divisor so losing a support cannot change normalization.
+        distance = (distances * required.float()).sum(dim=1) / (2 * self._reach_distance)
+        key = torch.cat((command.phase[:, None], command.foot_rung), dim=1)
+        valid = command.initialized & ~command.finished
+        same_target = self._valid_previous & (key == self._previous_key).all(dim=1)
+        rate = (self._previous_distance - distance) / env.step_dt
+        reward = torch.where(valid & same_target, rate, 0.0)
+        self._previous_distance[:] = distance
+        self._previous_key[:] = key
+        self._valid_previous[:] = valid
+        return reward
+
+
+def ladder_stabilization_violation(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Dense squared threshold excess; improvement reduces the penalty.
+
+    The five continuous gates contribute equally. Already valid gates cost zero,
+    while hands and feet are handled by attachment mechanics and support costs.
+    """
+    command = _ladder_command(env, command_name)
+    gates = command._stabilization_conditions()
+    values = (
+        (gates["torso_speed"], command.cfg.max_stabilization_torso_speed),
+        (gates["joint_speed_rms"], command.cfg.max_stabilization_joint_speed),
+        (torch.maximum(gates["torso_angular_speed"], gates["pelvis_angular_speed"]),
+         command.cfg.max_stabilization_body_angular_speed),
+        (gates["waist_joint_speed"], command.cfg.max_stabilization_waist_joint_speed),
+        (command.torso_support_offset_error, command.cfg.max_stabilization_support_offset_error),
+    )
+    # A zero configured threshold uses unit scale rather than dividing by zero.
+    errors = [torch.square(torch.clamp(value - limit, min=0) / (limit if limit > 0 else 1.0))
+              for value, limit in values]
+    active = command.initialized & ~command.finished & command.is_stabilization_phase
+    return torch.stack(errors).mean(dim=0) * active.float()
+
+
 class LadderTargetProgressReward:
     """Reward signed progress toward the active hand or foot target.
 

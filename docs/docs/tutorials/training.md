@@ -225,8 +225,11 @@ fixed throughout training:
 | Stabilization torso-orientation squared error | -1 |
 | Unsuccessful episode termination | -50 |
 | Final success | 100 |
-| Survival (constant one) | 3 |
-| Action rate | -0.5 |
+| Survival outside stabilization | 3 |
+| Missing required foot support (per foot) | -2 |
+| Contact-independent held-foot recovery progress | 4 |
+| Stabilization threshold violation | -1 |
+| Action rate | -0.1 |
 | Joint limits | -10 |
 | Self-contact slots above 1 N | -0.1 |
 | Ankle-joint acceleration squared | -2.5e-6 |
@@ -241,13 +244,31 @@ the tracking task's self-contact sensor and ankle-joint selection; there is no
 additional all-joint acceleration penalty.
 
 The reward per control step is
-`dt * (20 H + sum_p I_p (8 P_p + 8 F_p) - I_stabilize O + 3 - 0.5 A - 10 L - 0.1 C - 2.5e-6 Q) + 25 B - 50 D + 100 S`.
+`dt * (20 H + sum_p I_p (8 P_p + 8 F_p) + 4 R - 2 M - I_stabilize (O + V) + 3 (1 - I_stabilize) - 0.1 A - 10 L - 0.1 C - 2.5e-6 Q) + 25 B - 50 D + 100 S`.
 Here H is the supported novel-height rate, P and F are the existing clipped
 progress and foot-placement rates, O is squared torso-orientation error,
 A is squared action change, L is soft joint-limit excess, C counts self-contact
 slots above 1 N, and Q sums squared ankle-joint accelerations. B, D, and S are
 phase-completion, unsuccessful-termination, and success event indicators.
 The event terms already divide by dt internally, so their bonuses are impulses.
+
+
+M counts missing required physical foot supports on every active step. R is the
+signed decrease of summed required-foot distances to held rungs, divided by
+`2 * 0.35 m * dt`, without a contact multiplier. Foot phases exclude the selected
+moving foot from both terms. Recovery history reanchors on reset and phase or
+held-rung changes; stationary feet receive zero progress and retreat is negative.
+V is the mean squared normalized positive threshold excess for torso linear speed,
+joint-speed RMS, maximum torso/pelvis angular speed, waist-joint speed, and
+support-relative torso offset. Each uses the existing stabilization threshold as
+its scale (unit scale for a zero threshold); valid gates cost zero. This dense
+penalty provides a signal before all gates pass, without altering the dwell or
+phase-transition conditions. Survival is zero during stabilization.
+
+`record_ladder_video.py --ladder_phase first_hand` permits stabilization to advance
+into the first hand phase and freezes transitions only after that hand phase
+succeeds. Reward changes affect subsequent training; they do not change the actions
+of an already trained checkpoint during playback.
 
 The terminal failure term applies to ordinary timeout, stalled `PRE_RELEASE`,
 falls, and low-root endings. Final success and the intentional truncation at a

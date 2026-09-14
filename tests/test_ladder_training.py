@@ -336,6 +336,9 @@ def test_ladder_task_is_rl_only() -> None:
         "ladder_stabilization_orientation",
         "ladder_failure",
         "ladder_finished",
+        "ladder_missing_foot_support",
+        "ladder_foot_recovery",
+        "ladder_stabilization_violation",
         "action_rate",
         "survival",
         "self_collisions",
@@ -372,7 +375,10 @@ def test_ladder_task_is_rl_only() -> None:
     assert cfg.rewards["ladder_failure"].func is ladder_failure_penalty
     assert cfg.rewards["ladder_failure"].weight == -50.0
     assert cfg.rewards["ladder_finished"].weight == 100.0
-    assert cfg.rewards["action_rate"].weight == -0.5
+    assert cfg.rewards["action_rate"].weight == -0.1
+    assert cfg.rewards["ladder_missing_foot_support"].weight == -2.0
+    assert cfg.rewards["ladder_foot_recovery"].weight == 4.0
+    assert cfg.rewards["ladder_stabilization_violation"].weight == -1.0
     assert cfg.rewards["survival"].weight == 3.0
     assert cfg.rewards["joint_limits"].weight == -10.0
     assert cfg.rewards["feet_acc"].weight == -2.5e-6
@@ -2232,3 +2238,90 @@ def test_phase_reward_partition_preserves_unsplit_reward(component: str) -> None
         for term in partition:
             term.reset(torch.tensor([0]))
     assert nonzero
+
+
+@pytest.mark.parametrize("phase", list(LadderPhase))
+def test_ladder_required_support_cost_and_survival(phase: LadderPhase) -> None:
+    from train_mimic.tasks.tracking.mdp.ladder import (
+        ladder_missing_foot_support, ladder_movement_survival,
+    )
+    command = _dummy_ladder_command(phase)
+    command._test_foot_support[:] = False
+    env = _reward_test_env(command)
+    expected = 1.0 if command.is_foot_phase.item() else 2.0
+    for _ in range(3):
+        assert ladder_missing_foot_support(env, "ladder").item() == expected
+    assert ladder_movement_survival(env, "ladder").item() == float(phase != LadderPhase.STABILIZE)
+    command._test_foot_support[:] = True
+    assert ladder_missing_foot_support(env, "ladder").item() == 0.0
+    command._test_foot_support[:] = False
+    command.finished[:] = True
+    assert ladder_missing_foot_support(env, "ladder").item() == 0.0
+
+
+def test_ladder_foot_recovery_before_contact_and_across_resets() -> None:
+    from train_mimic.tasks.tracking.mdp.ladder import LadderFootRecoveryReward
+    command = _reward_test_command()
+    command.is_foot_phase[:] = False
+    command.foot_rung = torch.ones((1, 2), dtype=torch.long)
+    command.foot_contact[:] = False
+    command.foot_pos_w[:, 0, 0] = 0.20
+    env = _reward_test_env(command)
+    params = {"command_name": "ladder", "reach_distance": 0.35}
+    term = LadderFootRecoveryReward(SimpleNamespace(params=params), env)
+    assert term(env, **params).item() == 0.0
+    command.foot_pos_w[:, 0, 0] = 0.10
+    approach = term(env, **params).item()
+    assert approach == pytest.approx(0.10 / (0.70 * env.step_dt))
+    command.foot_pos_w[:, 0, 0] = 0.20
+    assert term(env, **params).item() == pytest.approx(-approach)
+    command.foot_rung[:, 0] += 1
+    command.foot_pos_w[:, 0, 0] = 0.10
+    assert term(env, **params).item() == 0.0
+    term.reset(torch.tensor([0]))
+    command.foot_pos_w[:, 0, 0] = 0.0
+    assert term(env, **params).item() == 0.0
+    command.phase[:] = int(LadderPhase.FIRST_FOOT)
+    command.is_foot_phase[:] = True
+    command.active_foot[:] = 0
+    assert term(env, **params).item() == 0.0
+    command.foot_pos_w[:, 0, 0] = 0.50
+    assert term(env, **params).item() == 0.0
+    command.foot_pos_w[:, 1, 0] = 0.10
+    assert term(env, **params).item() < 0.0
+
+
+@pytest.mark.parametrize("gate", ["torso", "joint", "angular", "waist", "offset"])
+def test_ladder_stabilization_cost_rewards_partial_improvement(gate: str) -> None:
+    from train_mimic.tasks.tracking.mdp.ladder import ladder_stabilization_violation
+    command = _dummy_ladder_command()
+    env = _reward_test_env(command)
+    assert ladder_stabilization_violation(env, "ladder").item() == 0.0
+    if gate == "torso":
+        target, limit = command._test_torso_com_vel[:, 0], 0.20
+    elif gate == "joint":
+        target, limit = command.robot.data.joint_vel, 1.0
+    elif gate == "angular":
+        target, limit = command._test_pelvis_ang_vel[:, 0], 0.40
+    elif gate == "waist":
+        target, limit = command.robot.data.joint_vel[:, int(command._waist_joint_ids[0])], 0.60
+    else:
+        target, limit = command._test_torso_support_offset_error, 0.18
+    target[:] = 2 * limit
+    worse = ladder_stabilization_violation(env, "ladder").item()
+    target[:] = 1.5 * limit
+    better = ladder_stabilization_violation(env, "ladder").item()
+    assert worse > better > 0.0
+    command.phase[:] = int(LadderPhase.FIRST_HAND)
+    assert ladder_stabilization_violation(env, "ladder").item() == 0.0
+
+
+def test_first_hand_recording_prefix_advances_after_stabilization() -> None:
+    command = _dummy_ladder_command()
+    command.cfg.freeze_at_max_unlocked_phase = True
+    command._unlocked_phase = int(LadderPhase.FIRST_HAND)
+    command._test_foot_support[:] = True
+    command._advance_stabilization_phase(command.phase.clone())
+    assert command.phase.item() == int(LadderPhase.FIRST_HAND)
+    assert not command.phase_frozen.item()
+    assert not command.curriculum_stage_complete.item()

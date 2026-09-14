@@ -873,8 +873,23 @@ def make_g1_ladder_rl_env_cfg(
             weight=100.0,
             params={"command_name": "ladder"},
         ),
-        "survival": RewardTermCfg(func=mdp.survival, weight=3.0),
-        "action_rate": RewardTermCfg(func=mdp.action_rate_l2, weight=-0.5),
+        "survival": RewardTermCfg(
+            func=mdp.ladder_movement_survival, weight=3.0,
+            params={"command_name": "ladder"},
+        ),
+        "ladder_missing_foot_support": RewardTermCfg(
+            func=mdp.ladder_missing_foot_support, weight=-2.0,
+            params={"command_name": "ladder"},
+        ),
+        "ladder_foot_recovery": RewardTermCfg(
+            func=mdp.LadderFootRecoveryReward, weight=4.0,
+            params={"command_name": "ladder", "reach_distance": 0.35},
+        ),
+        "ladder_stabilization_violation": RewardTermCfg(
+            func=mdp.ladder_stabilization_violation, weight=-1.0,
+            params={"command_name": "ladder"},
+        ),
+        "action_rate": RewardTermCfg(func=mdp.action_rate_l2, weight=-0.1),
         "joint_limits": RewardTermCfg(
             func=mdp.joint_pos_limits,
             weight=-10.0,

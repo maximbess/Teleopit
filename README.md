@@ -152,12 +152,16 @@ unlock before iteration 16,500. A completed prefix episode ends only after its
 full randomized stabilization hold while its next phase is locked. Rewards are
 fixed throughout training: supported novel maximum whole-body height `20`,
 signed phase-aware foot placement `8`, phase progress `8`, any ordered phase
-completion `25`, stabilization orientation `-1`, final success `100`, survival `3`,
-action rate `-0.5`, joint limits `-10`, self-collisions `-0.1`, ankle-joint
+completion `25`, stabilization orientation `-1`, final success `100`, movement-only survival `3`,
+action rate `-0.1`, joint limits `-10`, self-collisions `-0.1`, ankle-joint
 acceleration `-2.5e-6`, and unsuccessful episode termination `-50`.
 Each of the five phases has separate progress and foot-placement terms (weight `8`
 each); their sum preserves the unsplit shaping reward. Other terms are shared,
 except orientation, which applies only during stabilization.
+Missing required foot support costs `-2` per foot per second. Contact-independent
+held-foot recovery progress has weight `4`; the selected moving foot is excluded.
+Stabilization additionally penalizes continuous speed/offset threshold violations
+with weight `-1`, and receives no survival reward. Transition gates remain unchanged.
 Success and a completed locked curriculum prefix are excluded from that failure
 penalty. The height term pays only the increase above
 the episode's previous maximum, so lowering and re-climbing cannot repeat the
