@@ -13,7 +13,6 @@ from mjlab.asset_zoo.robots import G1_ACTION_SCALE, get_g1_robot_cfg
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs.mdp import dr
 from mjlab.envs.mdp.actions import JointPositionActionCfg
-from mjlab.managers.curriculum_manager import CurriculumTermCfg
 from mjlab.managers.event_manager import EventTermCfg
 from mjlab.managers.observation_manager import ObservationGroupCfg, ObservationTermCfg
 from mjlab.managers.reward_manager import RewardTermCfg
@@ -71,20 +70,8 @@ _LADDER_BODY_BLOCKER_MASK = 2
 _LADDER_START_RUNG = 4
 _LADDER_INITIAL_FOOT_RUNG = 1
 _LADDER_FOOT_CONTACT_SENSOR = "ladder_foot_contact"
-_LADDER_CURRICULUM_MIN_PHASE_STEPS = (120_000, 120_000, 120_000, 120_000)
-_LADDER_REWARD_STAGE_STEPS = (0, 240_000, 480_000)
-_LADDER_REWARD_WEIGHT_SCHEDULES = {
-    "ladder_hand_progress": (4.0, 6.0, 8.0),
-    "ladder_foot_progress": (8.0, 12.0, 16.0),
-    "ladder_torso_ascent": (12.0, 16.0, 20.0),
-    "ladder_torso_stability": (10.0, 8.0, 6.0),
-    "ladder_stabilized": (30.0, 25.0, 20.0),
-    "ladder_rung_advance": (25.0, 35.0, 45.0),
-    "ladder_foot_rung_advance": (50.0, 70.0, 90.0),
-    "ladder_cycle_completed": (80.0, 120.0, 160.0),
-    "ladder_finished": (100.0, 180.0, 260.0),
-}
-
+_LADDER_ARM_EFFORT_SCALE = 0.70
+_LADDER_CURRICULUM_MIN_PHASE_STEPS = (36_000, 120_000, 120_000, 120_000)
 # Symmetric climbing pose computed against the generated left ladder face.  The
 # sole sites sit just outside and above physical rung 2, while the grip sites
 # are within attachment range of rung 5.
@@ -356,6 +343,20 @@ def make_g1_ladder_training_robot_cfg(robot_xml: str | Path | None = None):
 
     robot_cfg = get_g1_robot_cfg()
     robot_cfg.articulation = deepcopy(robot_cfg.articulation)
+    arm_actuator_groups = 0
+    for actuator_cfg in robot_cfg.articulation.actuators:
+        target_names = tuple(actuator_cfg.target_names_expr)
+        if target_names and all(
+            any(part in target for part in ("shoulder", "elbow", "wrist"))
+            for target in target_names
+        ):
+            actuator_cfg.effort_limit *= _LADDER_ARM_EFFORT_SCALE
+            arm_actuator_groups += 1
+    if arm_actuator_groups != 2:
+        raise ValueError(
+            "Expected two arm-only G1 actuator groups (shoulder/elbow/wrist), "
+            f"found {arm_actuator_groups}; update the ladder effort-limit mapping"
+        )
     robot_cfg.init_state = deepcopy(robot_cfg.init_state)
     robot_cfg.init_state.pos = _LADDER_INITIAL_ROOT_POS
     robot_cfg.init_state.joint_pos = dict(_LADDER_INITIAL_JOINT_POS)
@@ -410,40 +411,6 @@ def make_g1_ladder_training_robot_cfg(robot_xml: str | Path | None = None):
     xml_path = resolve_g1_training_xml(robot_xml)
     robot_cfg.spec_fn = partial(_get_g1_ladder_training_spec, xml_path)
     return robot_cfg
-
-
-def _ladder_reward_weight(
-    reward_name: str,
-    *,
-    play: bool,
-) -> float:
-    schedule = _LADDER_REWARD_WEIGHT_SCHEDULES[reward_name]
-    return schedule[-1] if play else schedule[0]
-
-
-def _make_ladder_reward_curriculum() -> dict[str, CurriculumTermCfg]:
-    curriculum: dict[str, CurriculumTermCfg] = {}
-    for reward_name, weights in _LADDER_REWARD_WEIGHT_SCHEDULES.items():
-        if len(weights) != len(_LADDER_REWARD_STAGE_STEPS):
-            raise ValueError(
-                f"Reward schedule {reward_name!r} has {len(weights)} weights, "
-                f"expected {len(_LADDER_REWARD_STAGE_STEPS)}"
-            )
-        curriculum[f"{reward_name}_weight"] = CurriculumTermCfg(
-            func=mdp.reward_curriculum,
-            params={
-                "reward_name": reward_name,
-                "stages": [
-                    {"step": step, "weight": weight}
-                    for step, weight in zip(
-                        _LADDER_REWARD_STAGE_STEPS,
-                        weights,
-                        strict=True,
-                    )
-                ],
-            },
-        )
-    return curriculum
 
 
 def _apply_play_mode_overrides(cfg: ManagerBasedRlEnvCfg) -> None:
@@ -696,7 +663,7 @@ def make_g1_ladder_rl_env_cfg(
         "actions": ObservationTermCfg(func=mdp.last_action),
     }
     ladder_geometry_term = ObservationTermCfg(
-        func=mdp.ladder_rung_endpoints_torso,
+        func=mdp.ladder_rung_tokens_torso,
         params={"command_name": "ladder"},
     )
     observations = {
@@ -711,12 +678,22 @@ def make_g1_ladder_rl_env_cfg(
             enable_corruption=False,
         ),
         "actor_ladder": ObservationGroupCfg(
-            {"rung_endpoints_torso": ladder_geometry_term},
+            {"rung_tokens_torso": ladder_geometry_term},
             concatenate_terms=True,
             enable_corruption=False,
         ),
         "critic_ladder": ObservationGroupCfg(
-            {"rung_endpoints_torso": deepcopy(ladder_geometry_term)},
+            {"rung_tokens_torso": deepcopy(ladder_geometry_term)},
+            concatenate_terms=True,
+            enable_corruption=False,
+        ),
+        "critic_privileged": ObservationGroupCfg(
+            {
+                "ladder_privileged": ObservationTermCfg(
+                    func=mdp.ladder_critic_privileged,
+                    params={"command_name": "ladder"},
+                )
+            },
             concatenate_terms=True,
             enable_corruption=False,
         ),
@@ -744,6 +721,7 @@ def make_g1_ladder_rl_env_cfg(
                 for i in range(1, _LADDER_NUM_RUNGS + 1)
             ),
             torso_body_name="torso_link",
+            pelvis_body_name="pelvis",
             first_moving_hand="left",
             first_moving_foot="left",
             start_rung=_LADDER_START_RUNG,
@@ -753,11 +731,33 @@ def make_g1_ladder_rl_env_cfg(
             curriculum_success_threshold=0.80,
             curriculum_window_size=100,
             curriculum_min_phase_steps=_LADDER_CURRICULUM_MIN_PHASE_STEPS,
-            stabilization_dwell_steps=5,
+            boundary_state_reset_prob=0.0 if play else 0.50,
+            boundary_state_bank_size=0 if play else 1_024,
+            stabilization_dwell_steps=50,
+            stabilization_dwell_max_steps=100,
             hand_target_dwell_steps=3,
             foot_target_dwell_steps=5,
             max_stabilization_torso_speed=0.20,
             max_stabilization_joint_speed=1.0,
+            max_stabilization_body_angular_speed=0.40,
+            max_stabilization_waist_joint_speed=0.60,
+            max_stabilization_support_offset_error=0.18,
+            max_phase_torso_orientation_error=0.30,
+            max_phase_support_offset_error=0.15,
+            max_phase_completion_torso_speed=0.20,
+            max_phase_completion_joint_speed=1.0,
+            first_foot_max_body_drop=0.03,
+            cycle_min_body_ascent=0.12,
+            release_preload_dwell_steps=8,
+            release_ramp_steps=20,
+            release_final_dwell_steps=5,
+            release_recovery_steps=2,
+            pre_release_timeout_steps=300,
+            max_release_torso_speed=0.12,
+            max_release_torso_orientation_error=0.25,
+            max_release_support_offset_error=0.12,
+            release_soft_timeconst=0.18,
+            release_soft_impedance=0.05,
             attach_distance=0.10,
             max_attach_speed=0.35,
             grip_half_span=0.18,
@@ -770,6 +770,10 @@ def make_g1_ladder_rl_env_cfg(
     }
 
     events = {
+        "prepare_ladder_weld_model": EventTermCfg(
+            func=mdp.prepare_ladder_weld_model,
+            mode="startup",
+        ),
         "reset_base": EventTermCfg(
             func=mdp.reset_root_state_uniform,
             mode="reset",
@@ -820,100 +824,75 @@ def make_g1_ladder_rl_env_cfg(
     }
 
     rewards = {
-        "ladder_hand_progress": RewardTermCfg(
-            func=mdp.LadderTargetProgressReward,
-            weight=_ladder_reward_weight("ladder_hand_progress", play=play),
-            params={
-                "command_name": "ladder",
-                "target": "hand",
-                "max_speed": 0.35,
-            },
-        ),
-        "ladder_support": RewardTermCfg(
-            func=mdp.ladder_support_hand,
-            weight=3.0,
+        "ladder_upward_progress": RewardTermCfg(
+            func=mdp.LadderUpwardProgressReward,
+            weight=20.0,
             params={"command_name": "ladder"},
         ),
-        "ladder_rung_advance": RewardTermCfg(
-            func=mdp.ladder_rung_advance,
-            weight=_ladder_reward_weight("ladder_rung_advance", play=play),
-            params={"command_name": "ladder"},
-        ),
-        "ladder_foot_progress": RewardTermCfg(
-            func=mdp.LadderTargetProgressReward,
-            weight=_ladder_reward_weight("ladder_foot_progress", play=play),
-            params={
-                "command_name": "ladder",
-                "target": "foot",
-                "max_speed": 0.35,
-            },
-        ),
-        "ladder_foot_support": RewardTermCfg(
-            func=mdp.ladder_foot_support,
+        "ladder_foot_placement": RewardTermCfg(
+            func=mdp.LadderFootPlacementReward,
             weight=8.0,
+            params={
+                "command_name": "ladder",
+                "distance_std": 0.06,
+                "max_abs_rate": 50.0,
+            },
+        ),
+        "ladder_phase_progress": RewardTermCfg(
+            func=mdp.LadderPhaseProgressReward,
+            weight=8.0,
+            params={
+                "command_name": "ladder",
+                "rung_spacing": _LADDER_HEIGHT / (_LADDER_NUM_RUNGS + 1),
+                "reach_distance": 0.35,
+                "first_hand_body_weight": 0.0,
+                "second_hand_body_weight": 0.0,
+                "foot_body_weight": 0.0,
+                "release_progress_weight": 1.0,
+                "unsupported_progress_scale": 0.25,
+                "max_abs_rate": 10.0,
+            },
+        ),
+        "ladder_phase_completed": RewardTermCfg(
+            func=mdp.ladder_phase_completed,
+            weight=25.0,
             params={"command_name": "ladder"},
         ),
-        "ladder_foot_rung_advance": RewardTermCfg(
-            func=mdp.ladder_foot_rung_advance,
-            weight=_ladder_reward_weight("ladder_foot_rung_advance", play=play),
+        "ladder_stabilization_orientation": RewardTermCfg(
+            func=mdp.ladder_stabilization_orientation_error_l2,
+            weight=-1.0,
             params={"command_name": "ladder"},
         ),
-        "ladder_torso_ascent": RewardTermCfg(
-            func=mdp.LadderTorsoAscentReward,
-            weight=_ladder_reward_weight("ladder_torso_ascent", play=play),
-            params={"command_name": "ladder", "max_speed": 0.40},
-        ),
-        "ladder_torso_stability": RewardTermCfg(
-            func=mdp.ladder_torso_stability_exp,
-            weight=_ladder_reward_weight("ladder_torso_stability", play=play),
-            params={"command_name": "ladder", "std": 0.20},
-        ),
-        "ladder_stabilized": RewardTermCfg(
-            func=mdp.ladder_stabilized,
-            weight=_ladder_reward_weight("ladder_stabilized", play=play),
-            params={"command_name": "ladder"},
-        ),
-        "ladder_cycle_completed": RewardTermCfg(
-            func=mdp.ladder_cycle_completed,
-            weight=_ladder_reward_weight("ladder_cycle_completed", play=play),
+        "ladder_failure": RewardTermCfg(
+            func=mdp.ladder_failure_penalty,
+            weight=-50.0,
             params={"command_name": "ladder"},
         ),
         "ladder_finished": RewardTermCfg(
             func=mdp.ladder_finished,
-            weight=_ladder_reward_weight("ladder_finished", play=play),
+            weight=100.0,
             params={"command_name": "ladder"},
         ),
-        "ladder_both_hands_free": RewardTermCfg(
-            func=mdp.ladder_both_hands_free,
-            weight=-10.0,
-            params={"command_name": "ladder"},
-        ),
-        "upright": RewardTermCfg(
-            func=mdp.ladder_upright_exp,
-            weight=2.0,
-            params={"std": 0.45},
-        ),
-        "survival": RewardTermCfg(func=mdp.survival, weight=0.1),
-        "action_rate": RewardTermCfg(func=mdp.action_rate_l2, weight=-0.10),
-        "joint_velocity": RewardTermCfg(func=mdp.joint_vel_l2, weight=-5.0e-4),
-        "support_joint_velocity": RewardTermCfg(
-            func=mdp.LadderSupportJointVelocityPenalty,
-            weight=-3.0e-3,
-            params={"command_name": "ladder", "entity_name": "robot"},
-        ),
-        "joint_acceleration": RewardTermCfg(
-            func=mdp.joint_acc_l2,
-            weight=-1.0e-7,
-            params={
-                "asset_cfg": SceneEntityCfg("robot", joint_names=(".*",)),
-            },
-        ),
+        "survival": RewardTermCfg(func=mdp.survival, weight=3.0),
+        "action_rate": RewardTermCfg(func=mdp.action_rate_l2, weight=-0.5),
         "joint_limits": RewardTermCfg(
             func=mdp.joint_pos_limits,
-            weight=-5.0,
+            weight=-10.0,
             params={"asset_cfg": SceneEntityCfg("robot", joint_names=(".*",))},
         ),
     }
+
+    # Keep event bonuses and the episode height record shared. Each phase owns
+    # its potential terms, with independent weights and separate reward logs.
+    progress = rewards.pop("ladder_phase_progress")
+    placement = rewards.pop("ladder_foot_placement")
+    for phase in mdp.LadderPhase:
+        for name, template in (("progress", progress), ("foot_placement", placement)):
+            rewards[f"ladder_{phase.name.lower()}_{name}"] = RewardTermCfg(
+                func=template.func,
+                weight=template.weight,
+                params={**template.params, "phase": int(phase)},
+            )
 
     terminations = {
         "time_out": TerminationTermCfg(func=mdp.time_out, time_out=True),
@@ -925,6 +904,10 @@ def make_g1_ladder_rl_env_cfg(
             func=mdp.ladder_curriculum_stage_complete,
             params={"command_name": "ladder"},
             time_out=True,
+        ),
+        "pre_release_stalled": TerminationTermCfg(
+            func=mdp.ladder_pre_release_stalled,
+            params={"command_name": "ladder"},
         ),
         "fell_over": TerminationTermCfg(
             func=mdp.bad_orientation,
@@ -980,7 +963,7 @@ def make_g1_ladder_rl_env_cfg(
         events=events,
         rewards=rewards,
         terminations=terminations,
-        curriculum={} if play else _make_ladder_reward_curriculum(),
+        curriculum={},
         viewer=ViewerConfig(
             origin_type=ViewerConfig.OriginType.ASSET_BODY,
             entity_name="robot",
@@ -1005,6 +988,8 @@ def make_g1_ladder_rl_env_cfg(
         episode_length_s=20.0,
     )
 
+    _configure_self_collision_reward(cfg)
+    _configure_feet_acc_reward(cfg)
     _add_history_obs_groups(cfg)
 
     if play:

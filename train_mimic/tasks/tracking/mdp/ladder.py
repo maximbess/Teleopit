@@ -4,12 +4,14 @@ from collections import deque
 from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import IntEnum
+import math
 from typing import TYPE_CHECKING, Literal, cast
 
 import mujoco
 import torch
 import torch.nn.functional as F
 from mjlab.managers import CommandTerm, CommandTermCfg
+from mjlab.managers.event_manager import requires_model_fields
 
 if TYPE_CHECKING:
     from mjlab.envs import ManagerBasedRlEnv
@@ -26,6 +28,21 @@ class LadderPhase(IntEnum):
     SECOND_HAND = 2
     FIRST_FOOT = 3
     SECOND_FOOT = 4
+
+
+@requires_model_fields("eq_solref", "eq_solimp")
+def prepare_ladder_weld_model(
+    env: ManagerBasedRlEnv,
+    env_ids: torch.Tensor | None,
+) -> None:
+    """Request per-environment equality parameters for gradual grip release.
+
+    The event itself is intentionally a no-op.  Its model-field declaration makes
+    MJLab expand the two equality solver arrays before the ladder command is built,
+    so each parallel environment can soften its active hand weld independently.
+    """
+
+    del env, env_ids
 
 
 def _as_rotation_matrix(value: torch.Tensor) -> torch.Tensor:
@@ -137,6 +154,14 @@ class LadderClimbCommand(CommandTerm):
             )
         if cfg.stabilization_dwell_steps <= 0:
             raise ValueError("stabilization_dwell_steps must be > 0")
+        if (
+            cfg.stabilization_dwell_max_steps is not None
+            and cfg.stabilization_dwell_max_steps < cfg.stabilization_dwell_steps
+        ):
+            raise ValueError(
+                "stabilization_dwell_max_steps must be >= "
+                "stabilization_dwell_steps or None"
+            )
         if cfg.hand_target_dwell_steps <= 0:
             raise ValueError("hand_target_dwell_steps must be > 0")
         if cfg.foot_target_dwell_steps <= 0:
@@ -145,6 +170,60 @@ class LadderClimbCommand(CommandTerm):
             raise ValueError("max_stabilization_torso_speed must be >= 0")
         if cfg.max_stabilization_joint_speed < 0.0:
             raise ValueError("max_stabilization_joint_speed must be >= 0")
+        if cfg.max_stabilization_body_angular_speed < 0.0:
+            raise ValueError(
+                "max_stabilization_body_angular_speed must be >= 0"
+            )
+        if cfg.max_stabilization_waist_joint_speed < 0.0:
+            raise ValueError(
+                "max_stabilization_waist_joint_speed must be >= 0"
+            )
+        if cfg.max_stabilization_support_offset_error <= 0.0:
+            raise ValueError("max_stabilization_support_offset_error must be > 0")
+        if not 0.0 < cfg.max_phase_torso_orientation_error < math.pi:
+            raise ValueError(
+                "max_phase_torso_orientation_error must be between 0 and pi"
+            )
+        if cfg.max_phase_support_offset_error <= 0.0:
+            raise ValueError("max_phase_support_offset_error must be > 0")
+        if cfg.max_phase_completion_torso_speed < 0.0:
+            raise ValueError("max_phase_completion_torso_speed must be >= 0")
+        if cfg.max_phase_completion_joint_speed < 0.0:
+            raise ValueError("max_phase_completion_joint_speed must be >= 0")
+        if cfg.first_foot_max_body_drop < 0.0:
+            raise ValueError("first_foot_max_body_drop must be >= 0")
+        if cfg.cycle_min_body_ascent <= 0.0:
+            raise ValueError("cycle_min_body_ascent must be > 0")
+        if cfg.release_preload_dwell_steps <= 0:
+            raise ValueError("release_preload_dwell_steps must be > 0")
+        if cfg.release_ramp_steps <= 0:
+            raise ValueError("release_ramp_steps must be > 0")
+        if cfg.release_final_dwell_steps <= 0:
+            raise ValueError("release_final_dwell_steps must be > 0")
+        if cfg.release_recovery_steps <= 0:
+            raise ValueError("release_recovery_steps must be > 0")
+        minimum_release_steps = (
+            cfg.release_preload_dwell_steps
+            + cfg.release_ramp_steps
+            + cfg.release_final_dwell_steps
+        )
+        if cfg.pre_release_timeout_steps < minimum_release_steps:
+            raise ValueError(
+                "pre_release_timeout_steps must be >= the configured preload, "
+                f"ramp, and final dwell total ({minimum_release_steps})"
+            )
+        if cfg.max_release_torso_speed < 0.0:
+            raise ValueError("max_release_torso_speed must be >= 0")
+        if not 0.0 < cfg.max_release_torso_orientation_error < math.pi:
+            raise ValueError(
+                "max_release_torso_orientation_error must be between 0 and pi"
+            )
+        if cfg.max_release_support_offset_error <= 0.0:
+            raise ValueError("max_release_support_offset_error must be > 0")
+        if cfg.release_soft_timeconst <= 0.0:
+            raise ValueError("release_soft_timeconst must be > 0")
+        if not 0.0 < cfg.release_soft_impedance < 1.0:
+            raise ValueError("release_soft_impedance must be between 0 and 1")
         if not 0.0 < cfg.curriculum_success_threshold < 1.0:
             raise ValueError(
                 "curriculum_success_threshold must be strictly between 0 and 1"
@@ -158,6 +237,42 @@ class LadderClimbCommand(CommandTerm):
             )
         if any(step <= 0 for step in cfg.curriculum_min_phase_steps):
             raise ValueError("curriculum_min_phase_steps entries must be > 0")
+        if cfg.fixed_max_unlocked_phase is not None:
+            fixed_phase = int(cfg.fixed_max_unlocked_phase)
+            if cfg.curriculum_enabled:
+                raise ValueError(
+                    "fixed_max_unlocked_phase requires curriculum_enabled=False"
+                )
+            if (
+                not int(LadderPhase.STABILIZE)
+                <= fixed_phase
+                <= int(LadderPhase.SECOND_FOOT)
+            ):
+                raise ValueError(
+                    "fixed_max_unlocked_phase must be between "
+                    f"{int(LadderPhase.STABILIZE)} and "
+                    f"{int(LadderPhase.SECOND_FOOT)}, got {fixed_phase}"
+                )
+        if cfg.freeze_at_max_unlocked_phase and (
+            cfg.curriculum_enabled or cfg.fixed_max_unlocked_phase is None
+        ):
+            raise ValueError(
+                "freeze_at_max_unlocked_phase requires curriculum_enabled=False "
+                "and fixed_max_unlocked_phase to be set"
+            )
+        if not 0.0 <= cfg.boundary_state_reset_prob < 1.0:
+            raise ValueError("boundary_state_reset_prob must be in [0, 1)")
+        if cfg.boundary_state_bank_size < 0:
+            raise ValueError("boundary_state_bank_size must be >= 0")
+        if cfg.boundary_state_reset_prob > 0.0:
+            if cfg.boundary_state_bank_size == 0:
+                raise ValueError(
+                    "boundary_state_bank_size must be > 0 when boundary resets are enabled"
+                )
+            if not cfg.initialize_on_reset:
+                raise ValueError(
+                    "boundary-state resets require initialize_on_reset=True"
+                )
         if cfg.grip_half_span is not None and cfg.grip_half_span <= 0.0:
             raise ValueError("grip_half_span must be > 0 or None")
 
@@ -187,6 +302,32 @@ class LadderClimbCommand(CommandTerm):
         self._torso_body_id = self._required_id(
             mujoco.mjtObj.mjOBJ_BODY,
             cfg.torso_body_name,
+        )
+        self._pelvis_body_id = self._required_id(
+            mujoco.mjtObj.mjOBJ_BODY,
+            cfg.pelvis_body_name,
+        )
+        torso_link_ids, _ = self.robot.find_bodies(cfg.torso_body_name)
+        pelvis_link_ids, _ = self.robot.find_bodies(cfg.pelvis_body_name)
+        waist_joint_ids, _ = self.robot.find_joints(r".*waist.*")
+        if len(torso_link_ids) != 1:
+            raise ValueError(
+                f"Expected one robot body matching {cfg.torso_body_name!r}, "
+                f"found {len(torso_link_ids)}"
+            )
+        if len(pelvis_link_ids) != 1:
+            raise ValueError(
+                f"Expected one robot body matching {cfg.pelvis_body_name!r}, "
+                f"found {len(pelvis_link_ids)}"
+            )
+        if not waist_joint_ids:
+            raise ValueError("Ladder robot must contain at least one waist joint")
+        self._torso_link_index = torso_link_ids[0]
+        self._pelvis_link_index = pelvis_link_ids[0]
+        self._waist_joint_ids = torch.tensor(
+            waist_joint_ids,
+            dtype=torch.long,
+            device=self.device,
         )
 
         anchor_mocap_ids: list[int] = []
@@ -222,6 +363,27 @@ class LadderClimbCommand(CommandTerm):
             anchor_mocap_ids, dtype=torch.long, device=self.device
         )
         self._weld_ids = torch.tensor(weld_ids, dtype=torch.long, device=self.device)
+        weld_solref = env.sim.model.eq_solref
+        weld_solimp = env.sim.model.eq_solimp
+        expected_model_worlds = self.num_envs
+        if (
+            weld_solref.shape[0] != expected_model_worlds
+            or weld_solimp.shape[0] != expected_model_worlds
+        ):
+            raise RuntimeError(
+                "Ladder grip release requires per-environment eq_solref/eq_solimp; "
+                "add the prepare_ladder_weld_model startup event before building "
+                "LadderClimbCommand"
+            )
+        self._strong_weld_solref = weld_solref[0, self._weld_ids].clone()
+        self._strong_weld_solimp = weld_solimp[0, self._weld_ids].clone()
+        if cfg.release_soft_timeconst <= float(
+            self._strong_weld_solref[:, 0].max().item()
+        ):
+            raise ValueError(
+                "release_soft_timeconst must be larger than the configured weld "
+                "time constant so the release ramp actually softens the grip"
+            )
         self._rung_site_ids = torch.tensor(
             rung_site_ids, dtype=torch.long, device=self.device
         )
@@ -233,10 +395,15 @@ class LadderClimbCommand(CommandTerm):
         self._all_env_ids = torch.arange(
             self.num_envs, dtype=torch.long, device=self.device
         )
+        self._play_unlocked_phase = (
+            int(cfg.fixed_max_unlocked_phase)
+            if cfg.fixed_max_unlocked_phase is not None
+            else int(LadderPhase.SECOND_FOOT)
+        )
         self._unlocked_phase = (
             int(LadderPhase.STABILIZE)
             if cfg.curriculum_enabled
-            else int(LadderPhase.SECOND_FOOT)
+            else self._play_unlocked_phase
         )
         self._curriculum_phase_start_step = int(getattr(env, "common_step_counter", 0))
         self._recent_curriculum_outcomes: deque[int] = deque(
@@ -244,6 +411,11 @@ class LadderClimbCommand(CommandTerm):
         )
         self._pending_curriculum_outcomes: list[int] = []
         self._episode_active = torch.zeros(
+            self.num_envs,
+            dtype=torch.bool,
+            device=self.device,
+        )
+        self._started_from_boundary = torch.zeros(
             self.num_envs,
             dtype=torch.bool,
             device=self.device,
@@ -278,6 +450,9 @@ class LadderClimbCommand(CommandTerm):
         self.attached = torch.zeros(
             (self.num_envs, 2), dtype=torch.bool, device=self.device
         )
+        self.grip_strength = torch.zeros(
+            (self.num_envs, 2), dtype=torch.float32, device=self.device
+        )
         self.held_rung = torch.full(
             (self.num_envs, 2), -1, dtype=torch.long, device=self.device
         )
@@ -303,7 +478,16 @@ class LadderClimbCommand(CommandTerm):
         self.curriculum_stage_complete = torch.zeros(
             self.num_envs, dtype=torch.bool, device=self.device
         )
+        self.pre_release_stalled = torch.zeros(
+            self.num_envs, dtype=torch.bool, device=self.device
+        )
+        self.phase_frozen = torch.zeros(
+            self.num_envs, dtype=torch.bool, device=self.device
+        )
         self._pending_start_pose_init = torch.zeros(
+            self.num_envs, dtype=torch.bool, device=self.device
+        )
+        self._pending_boundary_state_init = torch.zeros(
             self.num_envs, dtype=torch.bool, device=self.device
         )
         self.phase = torch.full(
@@ -314,6 +498,27 @@ class LadderClimbCommand(CommandTerm):
         )
         self._phase_dwell_count = torch.zeros(
             self.num_envs, dtype=torch.long, device=self.device
+        )
+        self._release_active = torch.zeros(
+            self.num_envs, dtype=torch.bool, device=self.device
+        )
+        self._release_preload_count = torch.zeros(
+            self.num_envs, dtype=torch.long, device=self.device
+        )
+        self._release_ramp_count = torch.zeros(
+            self.num_envs, dtype=torch.long, device=self.device
+        )
+        self._release_final_count = torch.zeros(
+            self.num_envs, dtype=torch.long, device=self.device
+        )
+        self._release_age_count = torch.zeros(
+            self.num_envs, dtype=torch.long, device=self.device
+        )
+        self._stabilization_dwell_target = torch.full(
+            (self.num_envs,),
+            cfg.stabilization_dwell_steps,
+            dtype=torch.long,
+            device=self.device,
         )
 
         first_foot = 0 if cfg.first_moving_foot == "left" else 1
@@ -326,6 +531,7 @@ class LadderClimbCommand(CommandTerm):
         self.foot_rung = torch.full(
             (self.num_envs, 2), -1, dtype=torch.long, device=self.device
         )
+        self._allocate_boundary_state_bank()
         hand_pos = self.hand_pos_w
         self._previous_hand_pos_w = hand_pos.clone()
         self._hand_vel_w = torch.zeros_like(hand_pos)
@@ -335,7 +541,13 @@ class LadderClimbCommand(CommandTerm):
         torso_com_pos = self.torso_com_pos_w
         self._previous_torso_com_pos_w = torso_com_pos.clone()
         self._torso_com_vel_w = torch.zeros_like(torso_com_pos)
-        self.start_height = self.torso_pos_w[:, 2].clone()
+        self._reference_torso_rotation_w = self.torso_rotation_w.clone()
+        self._reference_torso_support_offset_w = self.torso_support_offset_w.clone()
+        body_height = self.body_height.clone()
+        self.start_height = body_height.clone()
+        self._cycle_start_body_height = body_height.clone()
+        self._phase_start_body_height = body_height.clone()
+        self.episode_max_body_height = body_height.clone()
 
         self.metrics["target_distance"] = torch.zeros(self.num_envs, device=self.device)
         self.metrics["rung_progress"] = torch.zeros(self.num_envs, device=self.device)
@@ -345,6 +557,52 @@ class LadderClimbCommand(CommandTerm):
         )
         self.metrics["foot_progress"] = torch.zeros(self.num_envs, device=self.device)
         self.metrics["supported_feet"] = torch.zeros(self.num_envs, device=self.device)
+        self.metrics["torso_orientation_error"] = torch.zeros(
+            self.num_envs, device=self.device
+        )
+        self.metrics["torso_support_offset_error"] = torch.zeros(
+            self.num_envs, device=self.device
+        )
+        self.metrics["active_hand_release_progress"] = torch.zeros(
+            self.num_envs, device=self.device
+        )
+        self.metrics["pre_release_age"] = torch.zeros(
+            self.num_envs, device=self.device
+        )
+        for metric_name in (
+            "stabilization_hands_attached",
+            "stabilization_feet_supported",
+            "stabilization_torso_speed",
+            "stabilization_torso_speed_valid",
+            "stabilization_joint_speed_rms",
+            "stabilization_joint_speed_valid",
+            "stabilization_torso_angular_speed",
+            "stabilization_pelvis_angular_speed",
+            "stabilization_angular_speed_valid",
+            "stabilization_waist_joint_speed",
+            "stabilization_waist_speed_valid",
+            "stabilization_support_offset_valid",
+            "stabilization_gate_valid",
+            "stabilization_dwell_progress",
+        ):
+            self.metrics[metric_name] = torch.zeros(
+                self.num_envs, device=self.device
+            )
+        for metric_name in (
+            "release_hands_attached",
+            "release_feet_supported",
+            "release_torso_speed",
+            "release_torso_speed_valid",
+            "release_orientation_valid",
+            "release_support_offset_valid",
+            "release_gate_valid",
+            "release_preload_progress",
+            "release_ramp_progress",
+            "release_final_dwell_progress",
+        ):
+            self.metrics[metric_name] = torch.zeros(
+                self.num_envs, device=self.device
+            )
         self.metrics["phase"] = torch.zeros(self.num_envs, device=self.device)
         self.metrics["unlocked_phase"] = torch.zeros(self.num_envs, device=self.device)
         self.metrics["curriculum_success_rate"] = torch.zeros(
@@ -361,22 +619,27 @@ class LadderClimbCommand(CommandTerm):
     def command(self) -> torch.Tensor:
         """Return the 24D ladder command consumed by the RL policy.
 
-        Layout: phase one-hot (5), left/right hand-to-target vectors (6),
-        attached flags (2), initialized flag (1), normalized hand progress (1),
-        left/right foot-to-target vectors (6), physical foot-contact flags (2),
-        and normalized foot progress (1).  This preserves the existing 24D
-        command and therefore the 117D/120D actor/critic dimensions.
+        Layout: phase one-hot (5), torso-frame left/right hand-to-target vectors (6),
+        attached flags (2), active-hand grip strength (1), normalized hand
+        progress (1), torso-frame left/right foot-to-target vectors (6), physical
+        foot-contact flags (2), and normalized foot progress (1).  The continuous
+        grip value replaces the nearly constant post-reset initialization bit, so
+        the command stays 24D while exposing the internal pre-release ramp.
         """
 
         phase_one_hot = F.one_hot(self.phase, num_classes=len(LadderPhase)).float()
-        hand_target_delta = (self.hand_target_pos_w - self.hand_pos_w).flatten(1)
-        foot_target_delta = (self.foot_target_pos_w - self.foot_pos_w).flatten(1)
+        hand_target_delta = self._vectors_to_torso(
+            self.hand_target_pos_w - self.hand_pos_w
+        ).flatten(1)
+        foot_target_delta = self._vectors_to_torso(
+            self.foot_target_pos_w - self.foot_pos_w
+        ).flatten(1)
         return torch.cat(
             (
                 phase_one_hot,
                 hand_target_delta,
                 self.attached.float(),
-                self.initialized.float().unsqueeze(-1),
+                self.active_grip_strength.unsqueeze(-1),
                 self.rung_progress.unsqueeze(-1),
                 foot_target_delta,
                 self.foot_contact.float(),
@@ -402,6 +665,16 @@ class LadderClimbCommand(CommandTerm):
     @property
     def active_hand_vel_w(self) -> torch.Tensor:
         return self._hand_vel_w[self._all_env_ids, self.active_hand]
+
+    @property
+    def active_grip_strength(self) -> torch.Tensor:
+        """Continuous support strength of the hand selected by the current phase."""
+
+        strength = self.grip_strength.gather(
+            1,
+            self.active_hand[:, None],
+        ).squeeze(1)
+        return torch.where(self.initialized, strength, 0.0)
 
     @property
     def foot_pos_w(self) -> torch.Tensor:
@@ -430,6 +703,10 @@ class LadderClimbCommand(CommandTerm):
         return (self.phase == int(LadderPhase.FIRST_HAND)) | (
             self.phase == int(LadderPhase.SECOND_HAND)
         )
+
+    @property
+    def is_pre_release(self) -> torch.Tensor:
+        return self.is_hand_phase & self._release_active
 
     @property
     def is_foot_phase(self) -> torch.Tensor:
@@ -501,26 +778,307 @@ class LadderClimbCommand(CommandTerm):
         self._recent_curriculum_outcomes.clear()
         return True
 
+    def _allocate_boundary_state_bank(self) -> None:
+        """Allocate a compact per-phase GPU bank of valid transition states."""
+
+        self._boundary_bank_capacity = (
+            self.cfg.boundary_state_bank_size
+            if self.cfg.boundary_state_reset_prob > 0.0
+            else 0
+        )
+        phase_count = len(LadderPhase)
+        capacity = getattr(self, "_boundary_bank_capacity", 0)
+        joint_pos = self.robot.data.joint_pos
+        float_dtype = joint_pos.dtype
+        float_device = joint_pos.device
+        self._boundary_bank_counts = [0] * phase_count
+        self._boundary_bank_cursors = [0] * phase_count
+        self._boundary_root_state = torch.zeros(
+            (phase_count, capacity, 13),
+            dtype=float_dtype,
+            device=float_device,
+        )
+        self._boundary_joint_pos = torch.zeros(
+            (phase_count, capacity, joint_pos.shape[-1]),
+            dtype=joint_pos.dtype,
+            device=joint_pos.device,
+        )
+        self._boundary_joint_vel = torch.zeros_like(self._boundary_joint_pos)
+        self._boundary_mocap_pos = torch.zeros(
+            (phase_count, capacity, 2, 3),
+            dtype=float_dtype,
+            device=float_device,
+        )
+        self._boundary_mocap_quat = torch.zeros(
+            (phase_count, capacity, 2, 4),
+            dtype=float_dtype,
+            device=float_device,
+        )
+        self._boundary_attached = torch.zeros(
+            (phase_count, capacity, 2),
+            dtype=torch.bool,
+            device=float_device,
+        )
+        self._boundary_held_rung = torch.full(
+            (phase_count, capacity, 2),
+            -1,
+            dtype=torch.long,
+            device=float_device,
+        )
+        self._boundary_foot_rung = torch.full_like(
+            self._boundary_held_rung,
+            -1,
+        )
+        self._boundary_cycle_start_body_height = torch.zeros(
+            (phase_count, capacity),
+            dtype=float_dtype,
+            device=float_device,
+        )
+        self._boundary_phase_start_body_height = torch.zeros_like(
+            self._boundary_cycle_start_body_height
+        )
+
+    def _capture_boundary_states(
+        self,
+        env_ids: torch.Tensor,
+        next_phase: LadderPhase,
+    ) -> None:
+        """Store valid support states immediately before a phase begins."""
+
+        capacity = getattr(self, "_boundary_bank_capacity", 0)
+        if capacity == 0 or env_ids.numel() == 0:
+            return
+        if env_ids.numel() > capacity:
+            env_ids = env_ids[
+                torch.randperm(env_ids.numel(), device=self.device)[:capacity]
+            ]
+
+        phase_id = int(next_phase)
+        count = env_ids.numel()
+        cursor = self._boundary_bank_cursors[phase_id]
+        slots = (
+            torch.arange(count, dtype=torch.long, device=self.device) + cursor
+        ) % capacity
+        data = self._env.sim.data
+        root_state = torch.cat(
+            (
+                self.robot.data.root_link_pose_w[env_ids],
+                self.robot.data.root_link_vel_w[env_ids],
+            ),
+            dim=-1,
+        )
+
+        self._boundary_root_state[phase_id, slots] = root_state
+        self._boundary_joint_pos[phase_id, slots] = self.robot.data.joint_pos[env_ids]
+        self._boundary_joint_vel[phase_id, slots] = self.robot.data.joint_vel[env_ids]
+        self._boundary_mocap_pos[phase_id, slots] = data.mocap_pos[
+            env_ids[:, None], self._anchor_mocap_ids[None, :]
+        ]
+        self._boundary_mocap_quat[phase_id, slots] = data.mocap_quat[
+            env_ids[:, None], self._anchor_mocap_ids[None, :]
+        ]
+        self._boundary_attached[phase_id, slots] = self.attached[env_ids]
+        self._boundary_held_rung[phase_id, slots] = self.held_rung[env_ids]
+        self._boundary_foot_rung[phase_id, slots] = self.foot_rung[env_ids]
+        self._boundary_cycle_start_body_height[phase_id, slots] = (
+            self._cycle_start_body_height[env_ids]
+        )
+        self._boundary_phase_start_body_height[phase_id, slots] = self.body_height[
+            env_ids
+        ]
+        self._boundary_bank_counts[phase_id] = min(
+            capacity,
+            self._boundary_bank_counts[phase_id] + count,
+        )
+        self._boundary_bank_cursors[phase_id] = (cursor + count) % capacity
+
+    def _sample_boundary_resets(self, env_ids: torch.Tensor) -> torch.Tensor:
+        """Restore a configured fraction of resets from unlocked phase boundaries."""
+
+        restored = torch.zeros(env_ids.numel(), dtype=torch.bool, device=self.device)
+        if self._boundary_bank_capacity == 0 or env_ids.numel() == 0:
+            return restored
+        available_phases = [
+            phase_id
+            for phase_id in range(self.max_unlocked_phase + 1)
+            if self._boundary_bank_counts[phase_id] > 0
+        ]
+        if not available_phases:
+            return restored
+
+        restored = (
+            torch.rand(env_ids.numel(), device=self.device)
+            < self.cfg.boundary_state_reset_prob
+        )
+        selected_env_ids = env_ids[restored]
+        if selected_env_ids.numel() == 0:
+            return restored
+
+        available = torch.tensor(
+            available_phases,
+            dtype=torch.long,
+            device=self.device,
+        )
+        phase_ids = available[
+            torch.randint(
+                available.numel(),
+                (selected_env_ids.numel(),),
+                device=self.device,
+            )
+        ]
+        phase_counts = torch.tensor(
+            self._boundary_bank_counts,
+            dtype=torch.long,
+            device=self.device,
+        )
+        sample_indices = torch.floor(
+            torch.rand(selected_env_ids.numel(), device=self.device)
+            * phase_counts[phase_ids].to(torch.float32)
+        ).to(torch.long)
+        self._restore_boundary_states(selected_env_ids, phase_ids, sample_indices)
+        return restored
+
+    def _restore_boundary_states(
+        self,
+        env_ids: torch.Tensor,
+        phase_ids: torch.Tensor,
+        sample_indices: torch.Tensor,
+    ) -> None:
+        """Restore physical/FSM support state and configure the requested phase."""
+
+        root_state = self._boundary_root_state[phase_ids, sample_indices]
+        joint_pos = self._boundary_joint_pos[phase_ids, sample_indices]
+        joint_vel = self._boundary_joint_vel[phase_ids, sample_indices]
+        self.robot.write_joint_state_to_sim(joint_pos, joint_vel, env_ids=env_ids)
+        self.robot.write_root_state_to_sim(root_state, env_ids=env_ids)
+        self.robot.clear_state(env_ids=env_ids)
+
+        data = self._env.sim.data
+        mocap_pos = self._boundary_mocap_pos[phase_ids, sample_indices]
+        mocap_quat = self._boundary_mocap_quat[phase_ids, sample_indices]
+        attached = self._boundary_attached[phase_ids, sample_indices]
+        data.mocap_pos[env_ids[:, None], self._anchor_mocap_ids[None, :]] = mocap_pos
+        data.mocap_quat[env_ids[:, None], self._anchor_mocap_ids[None, :]] = mocap_quat
+        for hand_id in (0, 1):
+            weld_id = int(self._weld_ids[hand_id].item())
+            data.eq_active[env_ids, weld_id] = attached[:, hand_id]
+
+        self.attached[env_ids] = attached
+        self.grip_strength[env_ids] = attached.float()
+        self.held_rung[env_ids] = self._boundary_held_rung[phase_ids, sample_indices]
+        self.foot_rung[env_ids] = self._boundary_foot_rung[phase_ids, sample_indices]
+        self.initialized[env_ids] = True
+        self.finished[env_ids] = False
+        self.phase_frozen[env_ids] = False
+        self._pending_start_pose_init[env_ids] = False
+        self._pending_boundary_state_init[env_ids] = True
+        self._started_from_boundary[env_ids] = True
+        for hand_id in (0, 1):
+            self._restore_weld_parameters(env_ids, hand_id)
+
+        for phase in LadderPhase:
+            phase_env_ids = env_ids[phase_ids == int(phase)]
+            self._start_phase(
+                phase_env_ids,
+                phase,
+                capture_boundary=False,
+            )
+        self._cycle_start_body_height[env_ids] = self._boundary_cycle_start_body_height[
+            phase_ids, sample_indices
+        ]
+        self._phase_start_body_height[env_ids] = self._boundary_phase_start_body_height[
+            phase_ids, sample_indices
+        ]
+
+    def _boundary_bank_state_dict(self) -> dict[str, object] | None:
+        if getattr(self, "_boundary_bank_capacity", 0) == 0:
+            return None
+        return {
+            "capacity": self._boundary_bank_capacity,
+            "counts": list(self._boundary_bank_counts),
+            "cursors": list(self._boundary_bank_cursors),
+            "root_state": self._boundary_root_state.detach().cpu().clone(),
+            "joint_pos": self._boundary_joint_pos.detach().cpu().clone(),
+            "joint_vel": self._boundary_joint_vel.detach().cpu().clone(),
+            "mocap_pos": self._boundary_mocap_pos.detach().cpu().clone(),
+            "mocap_quat": self._boundary_mocap_quat.detach().cpu().clone(),
+            "attached": self._boundary_attached.detach().cpu().clone(),
+            "held_rung": self._boundary_held_rung.detach().cpu().clone(),
+            "foot_rung": self._boundary_foot_rung.detach().cpu().clone(),
+            "cycle_start_body_height": (
+                self._boundary_cycle_start_body_height.detach().cpu().clone()
+            ),
+            "phase_start_body_height": (
+                self._boundary_phase_start_body_height.detach().cpu().clone()
+            ),
+        }
+
+    def _load_boundary_bank_state_dict(self, state: object) -> None:
+        if state is None or getattr(self, "_boundary_bank_capacity", 0) == 0:
+            self._boundary_bank_counts = [0] * len(LadderPhase)
+            self._boundary_bank_cursors = [0] * len(LadderPhase)
+            return
+        if not isinstance(state, dict):
+            raise ValueError("Invalid ladder boundary-state bank checkpoint")
+        if int(state.get("capacity", -1)) != self._boundary_bank_capacity:
+            raise ValueError(
+                "Ladder boundary-state bank capacity does not match the current "
+                "configuration; resume with the original boundary_state_bank_size"
+            )
+
+        counts = [int(value) for value in cast(list[object], state["counts"])]
+        cursors = [int(value) for value in cast(list[object], state["cursors"])]
+        if len(counts) != len(LadderPhase) or len(cursors) != len(LadderPhase):
+            raise ValueError("Invalid ladder boundary-state bank phase metadata")
+        if any(not 0 <= value <= self._boundary_bank_capacity for value in counts):
+            raise ValueError("Invalid ladder boundary-state bank count")
+        if any(not 0 <= value < self._boundary_bank_capacity for value in cursors):
+            raise ValueError("Invalid ladder boundary-state bank cursor")
+
+        tensor_fields = {
+            "root_state": self._boundary_root_state,
+            "joint_pos": self._boundary_joint_pos,
+            "joint_vel": self._boundary_joint_vel,
+            "mocap_pos": self._boundary_mocap_pos,
+            "mocap_quat": self._boundary_mocap_quat,
+            "attached": self._boundary_attached,
+            "held_rung": self._boundary_held_rung,
+            "foot_rung": self._boundary_foot_rung,
+            "cycle_start_body_height": self._boundary_cycle_start_body_height,
+            "phase_start_body_height": self._boundary_phase_start_body_height,
+        }
+        for name, destination in tensor_fields.items():
+            source = state.get(name)
+            if (
+                not isinstance(source, torch.Tensor)
+                or source.shape != destination.shape
+            ):
+                raise ValueError(f"Invalid ladder boundary-state bank tensor {name!r}")
+            destination.copy_(source.to(device=self.device, dtype=destination.dtype))
+        self._boundary_bank_counts = counts
+        self._boundary_bank_cursors = cursors
+
     def curriculum_state_dict(self) -> dict[str, object]:
         """Serialize adaptive curriculum state for a training checkpoint."""
 
         return {
-            "version": 1,
+            "version": 2,
             "unlocked_phase": self._unlocked_phase,
             "phase_start_step": self._curriculum_phase_start_step,
             "recent_outcomes": list(self._recent_curriculum_outcomes),
             "pending_outcomes": list(self._pending_curriculum_outcomes),
+            "boundary_state_bank": self._boundary_bank_state_dict(),
         }
 
     def load_curriculum_state_dict(self, state: dict[str, object]) -> None:
         """Restore adaptive curriculum state with fail-fast validation."""
 
         if not self.cfg.curriculum_enabled:
-            self._unlocked_phase = int(LadderPhase.SECOND_FOOT)
+            self._unlocked_phase = self._play_unlocked_phase
             self._recent_curriculum_outcomes.clear()
             self._pending_curriculum_outcomes.clear()
             return
-        if state.get("version") != 1:
+        if state.get("version") != 2:
             raise ValueError("Unsupported ladder curriculum checkpoint version")
         unlocked_phase = int(state["unlocked_phase"])
         if (
@@ -546,6 +1104,7 @@ class LadderClimbCommand(CommandTerm):
             maxlen=self.cfg.curriculum_window_size,
         )
         self._pending_curriculum_outcomes = pending
+        self._load_boundary_bank_state_dict(state.get("boundary_state_bank"))
 
     @property
     def foot_contact(self) -> torch.Tensor:
@@ -561,12 +1120,7 @@ class LadderClimbCommand(CommandTerm):
     def hand_target_pos_w(self) -> torch.Tensor:
         """Per-hand target positions with shape ``(num_envs, 2, 3)``."""
 
-        start_rungs = torch.full_like(self.held_rung, self.cfg.start_rung)
-        target_rungs = torch.where(
-            self.initialized[:, None], self.held_rung, start_rungs
-        )
-        target_rungs[self._all_env_ids, self.active_hand] = self.target_rung
-        target_rungs = torch.where(target_rungs >= 0, target_rungs, start_rungs)
+        target_rungs = self.hand_target_rung_indices
         return torch.stack(
             tuple(
                 self._closest_points_on_rungs(
@@ -654,6 +1208,218 @@ class LadderClimbCommand(CommandTerm):
         return self._env.sim.data.xipos[:, self._torso_body_id]
 
     @property
+    def pelvis_com_pos_w(self) -> torch.Tensor:
+        """World position of the pelvis center of mass."""
+
+        return self._env.sim.data.xipos[:, self._pelvis_body_id]
+
+    @property
+    def body_height(self) -> torch.Tensor:
+        """Whole-body climbing height represented by pelvis and torso COMs."""
+
+        return 0.5 * (self.pelvis_com_pos_w[:, 2] + self.torso_com_pos_w[:, 2])
+
+    @property
+    def torso_rotation_w(self) -> torch.Tensor:
+        """World orientation matrices of ``torso_link``."""
+
+        return _as_rotation_matrix(self._env.sim.data.xmat[:, self._torso_body_id])
+
+    @property
+    def torso_ang_vel_w(self) -> torch.Tensor:
+        """World angular velocity of ``torso_link``."""
+
+        return self.robot.data.body_link_ang_vel_w[:, self._torso_link_index]
+
+    @property
+    def pelvis_ang_vel_w(self) -> torch.Tensor:
+        """World angular velocity of the pelvis/root body."""
+
+        return self.robot.data.body_link_ang_vel_w[:, self._pelvis_link_index]
+
+    def _vectors_to_torso(self, vectors_w: torch.Tensor) -> torch.Tensor:
+        """Rotate batched world-frame vectors into the current torso frame."""
+
+        world_to_torso = self.torso_rotation_w.transpose(-1, -2)
+        while world_to_torso.ndim < vectors_w.ndim + 1:
+            world_to_torso = world_to_torso.unsqueeze(1)
+        return torch.matmul(world_to_torso, vectors_w.unsqueeze(-1)).squeeze(-1)
+
+    @property
+    def support_centroid_w(self) -> torch.Tensor:
+        """Grip/contact-weighted centroid of the currently load-bearing supports."""
+
+        initialized = self.initialized[:, None]
+        hand_weights = torch.where(
+            initialized,
+            self.grip_strength * self.attached.float(),
+            torch.ones_like(self.grip_strength),
+        )
+        foot_weights = torch.where(
+            initialized,
+            self.foot_support.float(),
+            torch.ones_like(self.grip_strength),
+        )
+        weighted_sum = (self.hand_pos_w * hand_weights.unsqueeze(-1)).sum(dim=1)
+        weighted_sum += (self.foot_pos_w * foot_weights.unsqueeze(-1)).sum(dim=1)
+        total_weight = hand_weights.sum(dim=1) + foot_weights.sum(dim=1)
+        return weighted_sum / total_weight.clamp_min(1.0).unsqueeze(-1)
+
+    @property
+    def torso_support_offset_w(self) -> torch.Tensor:
+        """Torso-COM offset from the continuous load-bearing support centroid."""
+
+        return self.torso_com_pos_w - self.support_centroid_w
+
+    @property
+    def torso_orientation_error(self) -> torch.Tensor:
+        """Full 3-D torso rotation error from the nominal climbing pose, in radians."""
+
+        relative = torch.matmul(
+            self._reference_torso_rotation_w.transpose(-1, -2),
+            self.torso_rotation_w,
+        )
+        cosine = torch.clamp(
+            0.5 * (relative[:, 0, 0] + relative[:, 1, 1] + relative[:, 2, 2] - 1.0),
+            min=-1.0,
+            max=1.0,
+        )
+        return torch.acos(cosine)
+
+    @property
+    def torso_support_offset_error(self) -> torch.Tensor:
+        """Distance from the nominal torso placement inside the support geometry."""
+
+        return torch.linalg.vector_norm(
+            self.torso_support_offset_w - self._reference_torso_support_offset_w,
+            dim=-1,
+        )
+
+    @property
+    def phase_support_constraints_satisfied(self) -> torch.Tensor:
+        """Whether the non-moving supports and torso pose satisfy the active phase."""
+
+        posture_valid = (
+            self.torso_orientation_error <= self.cfg.max_phase_torso_orientation_error
+        ) & (self.torso_support_offset_error <= self.cfg.max_phase_support_offset_error)
+        return self.phase_required_supports_satisfied & posture_valid
+
+    @property
+    def phase_required_supports_satisfied(self) -> torch.Tensor:
+        """Whether the physical supports required by the active phase are present."""
+
+        four_supports = self.attached.all(dim=1) & self.foot_support.all(dim=1)
+
+        support_hand = 1 - self.active_hand
+        support_hand_attached = self.attached.gather(
+            1,
+            support_hand[:, None],
+        ).squeeze(1)
+        hand_phase_supports = support_hand_attached & self.foot_support.all(dim=1)
+
+        support_foot = 1 - self.active_foot
+        support_foot_contact = self.foot_support.gather(
+            1,
+            support_foot[:, None],
+        ).squeeze(1)
+        foot_phase_supports = self.attached.all(dim=1) & support_foot_contact
+
+        support_valid = torch.where(
+            self.phase == int(LadderPhase.STABILIZE),
+            four_supports,
+            torch.where(self.is_hand_phase, hand_phase_supports, foot_phase_supports),
+        )
+        return self.initialized & ~self.finished & support_valid
+
+    @property
+    def phase_completion_stable(self) -> torch.Tensor:
+        """Require valid supports, COM placement, and low speed for completion."""
+
+        torso_speed = torch.linalg.vector_norm(self.torso_com_vel_w, dim=-1)
+        joint_speed_rms = torch.sqrt(
+            torch.mean(torch.square(self.robot.data.joint_vel), dim=1)
+        )
+        return (
+            self.phase_required_supports_satisfied
+            & (
+                self.torso_support_offset_error
+                <= self.cfg.max_phase_support_offset_error
+            )
+            & (torso_speed <= self.cfg.max_phase_completion_torso_speed)
+            & (joint_speed_rms <= self.cfg.max_phase_completion_joint_speed)
+        )
+
+    def _stabilization_conditions(self) -> dict[str, torch.Tensor]:
+        """Return the exact gates used by the stabilization transition."""
+
+        torso_speed = torch.linalg.vector_norm(self.torso_com_vel_w, dim=-1)
+        joint_speed_rms = torch.sqrt(
+            torch.mean(torch.square(self.robot.data.joint_vel), dim=1)
+        )
+        torso_angular_speed = torch.linalg.vector_norm(
+            self.torso_ang_vel_w,
+            dim=-1,
+        )
+        pelvis_angular_speed = torch.linalg.vector_norm(
+            self.pelvis_ang_vel_w,
+            dim=-1,
+        )
+        body_angular_speed = torch.maximum(
+            torso_angular_speed,
+            pelvis_angular_speed,
+        )
+        waist_joint_speed = torch.amax(
+            torch.abs(self.robot.data.joint_vel[:, self._waist_joint_ids]),
+            dim=1,
+        )
+        hands_attached = self.attached.all(dim=1)
+        feet_supported = self.foot_support.all(dim=1)
+        torso_speed_valid = torso_speed <= self.cfg.max_stabilization_torso_speed
+        joint_speed_valid = (
+            joint_speed_rms <= self.cfg.max_stabilization_joint_speed
+        )
+        angular_speed_valid = (
+            body_angular_speed <= self.cfg.max_stabilization_body_angular_speed
+        )
+        waist_speed_valid = (
+            waist_joint_speed <= self.cfg.max_stabilization_waist_joint_speed
+        )
+        support_offset_valid = (
+            self.torso_support_offset_error
+            <= self.cfg.max_stabilization_support_offset_error
+        )
+        stable = (
+            hands_attached
+            & feet_supported
+            & torso_speed_valid
+            & joint_speed_valid
+            & angular_speed_valid
+            & waist_speed_valid
+            & support_offset_valid
+        )
+        return {
+            "hands_attached": hands_attached,
+            "feet_supported": feet_supported,
+            "torso_speed": torso_speed,
+            "torso_speed_valid": torso_speed_valid,
+            "joint_speed_rms": joint_speed_rms,
+            "joint_speed_valid": joint_speed_valid,
+            "torso_angular_speed": torso_angular_speed,
+            "pelvis_angular_speed": pelvis_angular_speed,
+            "angular_speed_valid": angular_speed_valid,
+            "waist_joint_speed": waist_joint_speed,
+            "waist_speed_valid": waist_speed_valid,
+            "support_offset_valid": support_offset_valid,
+            "stable": stable,
+        }
+
+    @property
+    def stabilization_conditions_satisfied(self) -> torch.Tensor:
+        """Whether all transition gates except the consecutive dwell are valid."""
+
+        return self._stabilization_conditions()["stable"]
+
+    @property
     def rung_endpoints_torso(self) -> torch.Tensor:
         """Return all finite rung endpoints in the torso frame.
 
@@ -690,6 +1456,49 @@ class LadderClimbCommand(CommandTerm):
         )
         return torch.cat(
             (to_torso(endpoint_a_w), to_torso(endpoint_b_w), valid),
+            dim=-1,
+        )
+
+    @property
+    def hand_target_rung_indices(self) -> torch.Tensor:
+        """Desired rung index for each hand, including the stationary support hand."""
+
+        start_rungs = torch.full_like(self.held_rung, self.cfg.start_rung)
+        target_rungs = torch.where(
+            self.initialized[:, None], self.held_rung, start_rungs
+        )
+        target_rungs[self._all_env_ids, self.active_hand] = self.target_rung
+        return torch.where(target_rungs >= 0, target_rungs, start_rungs)
+
+    @property
+    def rung_tokens_torso(self) -> torch.Tensor:
+        """Return 15D torso-frame rung tokens with target and support markers.
+
+        Each token contains two finite rung endpoints (6), a validity bit (1),
+        left/right hand target bits (2), left/right foot target bits (2),
+        left/right continuous held-hand support strengths (2), and left/right
+        assigned-foot support bits (2).  The moving hand marker fades with its
+        weld impedance instead of disappearing discontinuously at detach time.
+        """
+
+        endpoints = self.rung_endpoints_torso
+        rung_ids = torch.arange(
+            self.num_rungs,
+            dtype=torch.long,
+            device=self.device,
+        ).view(1, -1, 1)
+
+        def markers(indices: torch.Tensor) -> torch.Tensor:
+            return (rung_ids == indices[:, None, :]).to(endpoints.dtype)
+
+        return torch.cat(
+            (
+                endpoints,
+                markers(self.hand_target_rung_indices),
+                markers(self.foot_target_rung_indices),
+                markers(self.held_rung) * self.grip_strength[:, None, :],
+                markers(self.foot_rung),
+            ),
             dim=-1,
         )
 
@@ -731,6 +1540,108 @@ class LadderClimbCommand(CommandTerm):
         )
         self.metrics["foot_progress"][:] = self.foot_progress
         self.metrics["supported_feet"][:] = self.foot_support.sum(dim=1).float()
+        self.metrics["torso_orientation_error"][:] = self.torso_orientation_error
+        self.metrics["torso_support_offset_error"][:] = self.torso_support_offset_error
+        self.metrics["active_hand_release_progress"][:] = torch.where(
+            self.is_hand_phase,
+            1.0 - self.active_grip_strength,
+            0.0,
+        )
+        self.metrics["pre_release_age"][:] = self._release_age_count.float()
+        stabilization_active = self.is_stabilization_phase
+        stabilization_conditions = self._stabilization_conditions()
+        zeros = torch.zeros_like(self._phase_dwell_count, dtype=torch.float32)
+        for metric_name, condition_name in (
+            ("stabilization_hands_attached", "hands_attached"),
+            ("stabilization_feet_supported", "feet_supported"),
+            ("stabilization_torso_speed_valid", "torso_speed_valid"),
+            ("stabilization_joint_speed_valid", "joint_speed_valid"),
+            ("stabilization_angular_speed_valid", "angular_speed_valid"),
+            ("stabilization_waist_speed_valid", "waist_speed_valid"),
+            ("stabilization_support_offset_valid", "support_offset_valid"),
+        ):
+            self.metrics[metric_name][:] = torch.where(
+                stabilization_active,
+                stabilization_conditions[condition_name].float(),
+                zeros,
+            )
+        for metric_name, condition_name in (
+            ("stabilization_torso_speed", "torso_speed"),
+            ("stabilization_joint_speed_rms", "joint_speed_rms"),
+            ("stabilization_torso_angular_speed", "torso_angular_speed"),
+            ("stabilization_pelvis_angular_speed", "pelvis_angular_speed"),
+            ("stabilization_waist_joint_speed", "waist_joint_speed"),
+        ):
+            self.metrics[metric_name][:] = torch.where(
+                stabilization_active,
+                stabilization_conditions[condition_name],
+                zeros,
+            )
+        self.metrics["stabilization_gate_valid"][:] = torch.where(
+            stabilization_active,
+            stabilization_conditions["stable"].float(),
+            zeros,
+        )
+        self.metrics["stabilization_dwell_progress"][:] = torch.where(
+            stabilization_active,
+            torch.clamp(
+                self._phase_dwell_count.float()
+                / self._stabilization_dwell_target.clamp_min(1).float(),
+                max=1.0,
+            ),
+            zeros,
+        )
+        release_active = self.is_pre_release
+        release_conditions = self._release_stability_conditions()
+        zeros = torch.zeros_like(self._release_age_count, dtype=torch.float32)
+        for metric_name, condition_name in (
+            ("release_hands_attached", "hands_attached"),
+            ("release_feet_supported", "feet_supported"),
+            ("release_torso_speed_valid", "torso_speed_valid"),
+            ("release_orientation_valid", "orientation_valid"),
+            ("release_support_offset_valid", "support_offset_valid"),
+        ):
+            self.metrics[metric_name][:] = torch.where(
+                release_active,
+                release_conditions[condition_name].float(),
+                zeros,
+            )
+        self.metrics["release_torso_speed"][:] = torch.where(
+            release_active,
+            release_conditions["torso_speed"],
+            zeros,
+        )
+        self.metrics["release_gate_valid"][:] = torch.where(
+            release_active,
+            release_conditions["stable"].float(),
+            zeros,
+        )
+        self.metrics["release_preload_progress"][:] = torch.where(
+            release_active,
+            torch.clamp(
+                self._release_preload_count.float()
+                / float(self.cfg.release_preload_dwell_steps),
+                max=1.0,
+            ),
+            zeros,
+        )
+        self.metrics["release_ramp_progress"][:] = torch.where(
+            release_active,
+            torch.clamp(
+                self._release_ramp_count.float() / float(self.cfg.release_ramp_steps),
+                max=1.0,
+            ),
+            zeros,
+        )
+        self.metrics["release_final_dwell_progress"][:] = torch.where(
+            release_active,
+            torch.clamp(
+                self._release_final_count.float()
+                / float(self.cfg.release_final_dwell_steps),
+                max=1.0,
+            ),
+            zeros,
+        )
         self.metrics["phase"][:] = self.phase.float()
         self.metrics["unlocked_phase"][:] = float(self.max_unlocked_phase)
         self.metrics["curriculum_success_rate"][:] = self.curriculum_success_rate
@@ -748,6 +1659,7 @@ class LadderClimbCommand(CommandTerm):
         self.active_hand[env_ids] = first_hand
         self.target_rung[env_ids] = self.cfg.start_rung
         self.attached[env_ids] = False
+        self.grip_strength[env_ids] = 0.0
         self.held_rung[env_ids] = -1
         self.initialized[env_ids] = False
         self.finished[env_ids] = False
@@ -757,9 +1669,19 @@ class LadderClimbCommand(CommandTerm):
         self.just_stabilized[env_ids] = False
         self.just_cycle_completed[env_ids] = False
         self.curriculum_stage_complete[env_ids] = False
+        self.pre_release_stalled[env_ids] = False
+        self.phase_frozen[env_ids] = False
+        self._started_from_boundary[env_ids] = False
+        self._pending_boundary_state_init[env_ids] = False
         self._pending_start_pose_init[env_ids] = self.cfg.initialize_on_reset
         self.phase[env_ids] = int(LadderPhase.STABILIZE)
         self._phase_dwell_count[env_ids] = 0
+        self._release_active[env_ids] = False
+        self._release_preload_count[env_ids] = 0
+        self._release_ramp_count[env_ids] = 0
+        self._release_final_count[env_ids] = 0
+        self._release_age_count[env_ids] = 0
+        self._sample_stabilization_dwell_target(env_ids)
 
         first_foot = 0 if self.cfg.first_moving_foot == "left" else 1
         self.active_foot[env_ids] = first_foot
@@ -772,6 +1694,7 @@ class LadderClimbCommand(CommandTerm):
         for hand_id in (0, 1):
             weld_id = int(self._weld_ids[hand_id].item())
             self._env.sim.data.eq_active[env_ids, weld_id] = False
+            self._restore_weld_parameters(env_ids, hand_id)
 
         hand_pos = self.hand_pos_w[env_ids]
         self._previous_hand_pos_w[env_ids] = hand_pos
@@ -782,15 +1705,23 @@ class LadderClimbCommand(CommandTerm):
         torso_com_pos = self.torso_com_pos_w[env_ids]
         self._previous_torso_com_pos_w[env_ids] = torso_com_pos
         self._torso_com_vel_w[env_ids] = 0.0
-        self.start_height[env_ids] = self.torso_pos_w[env_ids, 2]
+        body_height = self.body_height[env_ids]
+        self.start_height[env_ids] = body_height
+        self._cycle_start_body_height[env_ids] = body_height
+        self._phase_start_body_height[env_ids] = body_height
+        self.episode_max_body_height[env_ids] = body_height
         self._episode_active[env_ids] = True
+        self._sample_boundary_resets(env_ids)
 
     def _record_episode_outcomes(self, env_ids: torch.Tensor) -> None:
         """Queue terminal outcomes for synchronization by the PPO runner."""
 
         if not self.cfg.curriculum_enabled:
             return
-        active_ids = env_ids[self._episode_active[env_ids]]
+        full_prefix_episode = (
+            self._episode_active[env_ids] & ~self._started_from_boundary[env_ids]
+        )
+        active_ids = env_ids[full_prefix_episode]
         if active_ids.numel() == 0:
             return
         termination_manager = self._env.termination_manager
@@ -818,31 +1749,35 @@ class LadderClimbCommand(CommandTerm):
         self.just_stabilized.zero_()
         self.just_cycle_completed.zero_()
         self.curriculum_stage_complete.zero_()
+        self.pre_release_stalled.zero_()
 
         hand_pos = self.hand_pos_w
-        self.start_height[self._pending_start_pose_init] = self.torso_pos_w[
-            self._pending_start_pose_init,
-            2,
-        ]
-        self._previous_hand_pos_w[self._pending_start_pose_init] = hand_pos[
-            self._pending_start_pose_init
-        ]
+        reset_initialization = (
+            self._pending_start_pose_init | self._pending_boundary_state_init
+        )
+        reset_body_height = self.body_height[reset_initialization]
+        self.start_height[reset_initialization] = reset_body_height
+        self.episode_max_body_height[reset_initialization] = reset_body_height
+        start_pose_init = self._pending_start_pose_init
+        start_pose_body_height = self.body_height[start_pose_init]
+        self._cycle_start_body_height[start_pose_init] = start_pose_body_height
+        self._phase_start_body_height[start_pose_init] = start_pose_body_height
+        self._previous_hand_pos_w[reset_initialization] = hand_pos[reset_initialization]
         self._hand_vel_w[:] = (hand_pos - self._previous_hand_pos_w) / self._env.step_dt
         self._previous_hand_pos_w[:] = hand_pos
         foot_pos = self.foot_pos_w
-        self._previous_foot_pos_w[self._pending_start_pose_init] = foot_pos[
-            self._pending_start_pose_init
-        ]
+        self._previous_foot_pos_w[reset_initialization] = foot_pos[reset_initialization]
         self._foot_vel_w[:] = (foot_pos - self._previous_foot_pos_w) / self._env.step_dt
         self._previous_foot_pos_w[:] = foot_pos
         torso_com_pos = self.torso_com_pos_w
-        self._previous_torso_com_pos_w[self._pending_start_pose_init] = torso_com_pos[
-            self._pending_start_pose_init
+        self._previous_torso_com_pos_w[reset_initialization] = torso_com_pos[
+            reset_initialization
         ]
         self._torso_com_vel_w[:] = (
             torso_com_pos - self._previous_torso_com_pos_w
         ) / self._env.step_dt
         self._previous_torso_com_pos_w[:] = torso_com_pos
+        self._pending_boundary_state_init.zero_()
 
         # Reconcile state if another component or a reset disabled a weld.
         for hand_id in (0, 1):
@@ -850,7 +1785,10 @@ class LadderClimbCommand(CommandTerm):
             weld_active = self._env.sim.data.eq_active[:, weld_id] != 0
             lost = self.attached[:, hand_id] & ~weld_active
             self.attached[lost, hand_id] = False
+            self.grip_strength[lost, hand_id] = 0.0
             self.held_rung[lost, hand_id] = -1
+            lost_ids = torch.where(lost & (self.active_hand == hand_id))[0]
+            self._reset_release_state(lost_ids)
 
         self._initialize_from_start_pose()
         self._try_initialize()
@@ -959,23 +1897,15 @@ class LadderClimbCommand(CommandTerm):
             (phase_at_start == int(LadderPhase.STABILIZE))
             & self.initialized
             & ~self.finished
+            & ~self.phase_frozen
         )
         if not torch.any(phase_mask):
             return
 
-        torso_speed = torch.linalg.vector_norm(self.torso_com_vel_w, dim=-1)
-        joint_speed_rms = torch.sqrt(
-            torch.mean(torch.square(self.robot.data.joint_vel), dim=1)
-        )
-        stable = (
-            self.attached.all(dim=1)
-            & self.foot_support.all(dim=1)
-            & (torso_speed <= self.cfg.max_stabilization_torso_speed)
-            & (joint_speed_rms <= self.cfg.max_stabilization_joint_speed)
-        )
+        stable = self.stabilization_conditions_satisfied
         self._update_phase_dwell(phase_mask, stable)
         ready = phase_mask & (
-            self._phase_dwell_count >= self.cfg.stabilization_dwell_steps
+            self._phase_dwell_count >= self._stabilization_dwell_target
         )
         env_ids = torch.where(ready)[0]
         if env_ids.numel() == 0:
@@ -984,7 +1914,7 @@ class LadderClimbCommand(CommandTerm):
         self._transition_or_finish_curriculum(env_ids, LadderPhase.FIRST_HAND)
 
     def _advance_hand_phase(self, phase_at_start: torch.Tensor) -> None:
-        """Attach one hand after it remains close and slow for several steps."""
+        """Unload, release, and reattach one hand without a discontinuous support step."""
 
         phase_mask = (
             (
@@ -993,9 +1923,12 @@ class LadderClimbCommand(CommandTerm):
             )
             & self.initialized
             & ~self.finished
+            & ~self.phase_frozen
         )
         if not torch.any(phase_mask):
             return
+
+        self._advance_release_ramp(phase_mask)
 
         distance = torch.linalg.vector_norm(
             self.active_hand_pos_w - self.target_pos_w,
@@ -1015,6 +1948,7 @@ class LadderClimbCommand(CommandTerm):
             ~moving_attached
             & support_hand_attached
             & self.foot_support.all(dim=1)
+            & self.phase_completion_stable
             & (distance <= self.cfg.attach_distance)
             & (speed <= self.cfg.max_attach_speed)
         )
@@ -1057,6 +1991,7 @@ class LadderClimbCommand(CommandTerm):
             & self.initialized
             & self.attached.all(dim=1)
             & ~self.finished
+            & ~self.phase_frozen
         )
         if not torch.any(phase_mask):
             return
@@ -1075,9 +2010,24 @@ class LadderClimbCommand(CommandTerm):
             1,
             support_foot[:, None],
         ).squeeze(1)
+        first_foot_height_valid = (
+            self.body_height
+            >= self._phase_start_body_height - self.cfg.first_foot_max_body_drop
+        )
+        second_foot_height_valid = (
+            self.body_height
+            >= self._cycle_start_body_height + self.cfg.cycle_min_body_ascent
+        )
+        height_valid = torch.where(
+            phase_at_start == int(LadderPhase.FIRST_FOOT),
+            first_foot_height_valid,
+            second_foot_height_valid,
+        )
         reached = (
             active_contact
             & support_foot_contact
+            & self.phase_completion_stable
+            & height_valid
             & (distance <= self.cfg.foot_reach_distance)
             & (speed <= self.cfg.max_foot_speed)
         )
@@ -1105,6 +2055,11 @@ class LadderClimbCommand(CommandTerm):
             return
 
         self.just_cycle_completed[second_complete] = True
+        if self.cfg.freeze_at_max_unlocked_phase and self.max_unlocked_phase == int(
+            LadderPhase.SECOND_FOOT
+        ):
+            self.phase_frozen[second_complete] = True
+            return
         hands_at_top = (
             torch.min(self.held_rung[second_complete], dim=1).values
             >= self.num_rungs - 1
@@ -1128,6 +2083,10 @@ class LadderClimbCommand(CommandTerm):
         if env_ids.numel() == 0:
             return
         if int(next_phase) > self.max_unlocked_phase:
+            self._capture_boundary_states(env_ids, next_phase)
+            if self.cfg.freeze_at_max_unlocked_phase:
+                self.phase_frozen[env_ids] = True
+                return
             self.curriculum_stage_complete[env_ids] = True
             return
         self._start_phase(env_ids, next_phase)
@@ -1136,17 +2095,25 @@ class LadderClimbCommand(CommandTerm):
         self,
         env_ids: torch.Tensor,
         phase: LadderPhase,
+        *,
+        capture_boundary: bool = True,
     ) -> None:
         """Configure the single limb allowed to move in ``phase``."""
 
         if env_ids.numel() == 0:
             return
+        if capture_boundary:
+            self._capture_boundary_states(env_ids, phase)
         self.phase[env_ids] = int(phase)
         self._phase_dwell_count[env_ids] = 0
+        self._phase_start_body_height[env_ids] = self.body_height[env_ids]
 
         first_hand = 0 if self.cfg.first_moving_hand == "left" else 1
         first_foot = 0 if self.cfg.first_moving_foot == "left" else 1
         if phase == LadderPhase.STABILIZE:
+            self._cycle_start_body_height[env_ids] = self.body_height[env_ids]
+            self._reset_release_state(env_ids)
+            self._sample_stabilization_dwell_target(env_ids)
             self.target_rung[env_ids] = torch.max(self.held_rung[env_ids], dim=1).values
             self.target_foot_rung[env_ids] = torch.max(
                 self.foot_rung[env_ids], dim=1
@@ -1158,15 +2125,16 @@ class LadderClimbCommand(CommandTerm):
                 torch.max(self.held_rung[env_ids], dim=1).values + 1,
                 max=self.num_rungs - 1,
             )
-            self._release(env_ids, first_hand)
+            self._begin_release(env_ids, first_hand)
             return
         if phase == LadderPhase.SECOND_HAND:
             second_hand = 1 - first_hand
             self.active_hand[env_ids] = second_hand
             self.target_rung[env_ids] = torch.max(self.held_rung[env_ids], dim=1).values
-            self._release(env_ids, second_hand)
+            self._begin_release(env_ids, second_hand)
             return
         if phase == LadderPhase.FIRST_FOOT:
+            self._reset_release_state(env_ids)
             self.active_foot[env_ids] = first_foot
             self.target_foot_rung[env_ids] = torch.clamp(
                 torch.max(self.foot_rung[env_ids], dim=1).values + 1,
@@ -1174,11 +2142,205 @@ class LadderClimbCommand(CommandTerm):
             )
             return
 
+        self._reset_release_state(env_ids)
         second_foot = 1 - first_foot
         self.active_foot[env_ids] = second_foot
         self.target_foot_rung[env_ids] = torch.max(
             self.foot_rung[env_ids], dim=1
         ).values
+
+    def _sample_stabilization_dwell_target(self, env_ids: torch.Tensor) -> None:
+        """Choose how long each environment must hold quiet four-point support."""
+
+        if env_ids.numel() == 0:
+            return
+        minimum = self.cfg.stabilization_dwell_steps
+        maximum = self.cfg.stabilization_dwell_max_steps
+        if maximum is None or maximum == minimum:
+            self._stabilization_dwell_target[env_ids] = minimum
+            return
+        self._stabilization_dwell_target[env_ids] = torch.randint(
+            minimum,
+            maximum + 1,
+            (env_ids.numel(),),
+            dtype=torch.long,
+            device=self.device,
+        )
+
+    def _reset_release_state(self, env_ids: torch.Tensor) -> None:
+        if env_ids.numel() == 0:
+            return
+        self._release_active[env_ids] = False
+        self._release_preload_count[env_ids] = 0
+        self._release_ramp_count[env_ids] = 0
+        self._release_final_count[env_ids] = 0
+        self._release_age_count[env_ids] = 0
+
+    def _restore_weld_parameters(self, env_ids: torch.Tensor, hand_id: int) -> None:
+        """Restore the compiled strong weld parameters for selected environments."""
+
+        if env_ids.numel() == 0:
+            return
+        weld_id = int(self._weld_ids[hand_id].item())
+        self._env.sim.model.eq_solref[env_ids, weld_id] = self._strong_weld_solref[
+            hand_id
+        ]
+        self._env.sim.model.eq_solimp[env_ids, weld_id] = self._strong_weld_solimp[
+            hand_id
+        ]
+
+    def _set_grip_strength(
+        self,
+        env_ids: torch.Tensor,
+        hand_id: int,
+        strength: torch.Tensor,
+    ) -> None:
+        """Map normalized grip strength to per-world equality softness."""
+
+        if env_ids.numel() == 0:
+            return
+        strength = torch.clamp(strength, min=0.0, max=1.0)
+        release = 1.0 - strength
+        weld_id = int(self._weld_ids[hand_id].item())
+        solref = self._env.sim.model.eq_solref
+        solimp = self._env.sim.model.eq_solimp
+        strong_ref = self._strong_weld_solref[hand_id]
+        strong_imp = self._strong_weld_solimp[hand_id]
+
+        solref[env_ids, weld_id] = strong_ref
+        solref[env_ids, weld_id, 0] = strong_ref[0] + release * (
+            self.cfg.release_soft_timeconst - strong_ref[0]
+        )
+        solimp[env_ids, weld_id] = strong_imp
+        soft_impedance = torch.as_tensor(
+            self.cfg.release_soft_impedance,
+            dtype=strong_imp.dtype,
+            device=strong_imp.device,
+        )
+        solimp[env_ids, weld_id, 0] = strong_imp[0] + release * (
+            soft_impedance - strong_imp[0]
+        )
+        solimp[env_ids, weld_id, 1] = strong_imp[1] + release * (
+            soft_impedance - strong_imp[1]
+        )
+        self.grip_strength[env_ids, hand_id] = strength
+
+    def _begin_release(self, env_ids: torch.Tensor, hand_id: int) -> None:
+        """Enter PRE_RELEASE while keeping the selected hand physically attached."""
+
+        if env_ids.numel() == 0:
+            return
+        if torch.any(~self.attached[env_ids, hand_id]):
+            raise RuntimeError(
+                "Cannot begin ladder PRE_RELEASE for a hand without an active weld"
+            )
+        self._reset_release_state(env_ids)
+        self._release_active[env_ids] = True
+        self._restore_weld_parameters(env_ids, hand_id)
+        self.grip_strength[env_ids, hand_id] = 1.0
+
+    def _release_stability_conditions(self) -> dict[str, torch.Tensor]:
+        """Return every independently logged PRE_RELEASE gate condition."""
+
+        support_hand = 1 - self.active_hand
+        support_hand_attached = self.attached.gather(
+            1,
+            support_hand[:, None],
+        ).squeeze(1)
+        moving_hand_attached = self.attached.gather(
+            1,
+            self.active_hand[:, None],
+        ).squeeze(1)
+        torso_speed = torch.linalg.vector_norm(self.torso_com_vel_w, dim=-1)
+        conditions = {
+            "hands_attached": support_hand_attached & moving_hand_attached,
+            "feet_supported": self.foot_support.all(dim=1),
+            "torso_speed": torso_speed,
+            "torso_speed_valid": torso_speed <= self.cfg.max_release_torso_speed,
+            "orientation_valid": (
+                self.torso_orientation_error
+                <= self.cfg.max_release_torso_orientation_error
+            ),
+            "support_offset_valid": (
+                self.torso_support_offset_error
+                <= self.cfg.max_release_support_offset_error
+            ),
+        }
+        conditions["stable"] = (
+            conditions["hands_attached"]
+            & conditions["feet_supported"]
+            & conditions["torso_speed_valid"]
+            & conditions["orientation_valid"]
+            & conditions["support_offset_valid"]
+        )
+        return conditions
+
+    def _release_is_stable(self) -> torch.Tensor:
+        """Return the feedback gate used to advance or reverse PRE_RELEASE."""
+
+        return self._release_stability_conditions()["stable"]
+
+    def _advance_release_ramp(self, phase_mask: torch.Tensor) -> None:
+        """Transfer load, soften the weld, and detach only after a stable soft hold."""
+
+        active = phase_mask & self._release_active
+        if not torch.any(active):
+            return
+        self._release_age_count[active] += 1
+        stable = self._release_is_stable()
+        preloading = active & (self._release_ramp_count == 0)
+        self._release_preload_count[preloading] = torch.where(
+            stable[preloading],
+            self._release_preload_count[preloading] + 1,
+            0,
+        )
+
+        ramping = active & (
+            (self._release_ramp_count > 0)
+            | (self._release_preload_count >= self.cfg.release_preload_dwell_steps)
+        )
+        increased = torch.clamp(
+            self._release_ramp_count + 1,
+            max=self.cfg.release_ramp_steps,
+        )
+        decreased = torch.clamp(
+            self._release_ramp_count - self.cfg.release_recovery_steps,
+            min=0,
+        )
+        self._release_ramp_count[ramping] = torch.where(
+            stable[ramping],
+            increased[ramping],
+            decreased[ramping],
+        )
+        returned_to_preload = ramping & (self._release_ramp_count == 0) & ~stable
+        self._release_preload_count[returned_to_preload] = 0
+
+        u = self._release_ramp_count.float() / float(self.cfg.release_ramp_steps)
+        smooth_release = u * u * (3.0 - 2.0 * u)
+        strength = 1.0 - smooth_release
+        for hand_id in (0, 1):
+            selected = torch.where(active & (self.active_hand == hand_id))[0]
+            self._set_grip_strength(selected, hand_id, strength[selected])
+
+        fully_soft = active & (self._release_ramp_count >= self.cfg.release_ramp_steps)
+        self._release_final_count[active] = torch.where(
+            fully_soft[active] & stable[active],
+            self._release_final_count[active] + 1,
+            0,
+        )
+        complete = active & (
+            self._release_final_count >= self.cfg.release_final_dwell_steps
+        )
+        for hand_id in (0, 1):
+            selected = torch.where(complete & (self.active_hand == hand_id))[0]
+            self._release(selected, hand_id)
+
+        stalled = (
+            phase_mask
+            & self._release_active
+            & (self._release_age_count >= self.cfg.pre_release_timeout_steps)
+        )
+        self.pre_release_stalled[stalled] = True
 
     def _attach(
         self,
@@ -1200,9 +2362,11 @@ class LadderClimbCommand(CommandTerm):
         hand_mat = _as_rotation_matrix(data.site_xmat[env_ids, hand_site_id])
         data.mocap_pos[env_ids, mocap_id] = hand_pos
         data.mocap_quat[env_ids, mocap_id] = _matrix_to_quaternion(hand_mat)
+        self._restore_weld_parameters(env_ids, hand_id)
         data.eq_active[env_ids, weld_id] = True
 
         self.attached[env_ids, hand_id] = True
+        self.grip_strength[env_ids, hand_id] = 1.0
         self.held_rung[env_ids, hand_id] = rung_indices
 
     def _release(self, env_ids: torch.Tensor, hand_id: int) -> None:
@@ -1212,8 +2376,11 @@ class LadderClimbCommand(CommandTerm):
             return
         weld_id = int(self._weld_ids[hand_id].item())
         self._env.sim.data.eq_active[env_ids, weld_id] = False
+        self._restore_weld_parameters(env_ids, hand_id)
         self.attached[env_ids, hand_id] = False
+        self.grip_strength[env_ids, hand_id] = 0.0
         self.held_rung[env_ids, hand_id] = -1
+        self._reset_release_state(env_ids)
 
     def _closest_points_on_rungs(
         self,
@@ -1289,6 +2456,7 @@ class LadderClimbCommandCfg(CommandTermCfg):
     )
     rung_site_names: tuple[str, ...] = ()
     torso_body_name: str = "torso_link"
+    pelvis_body_name: str = "pelvis"
 
     first_moving_hand: HandName = "left"
     first_moving_foot: HandName = "left"
@@ -1299,16 +2467,40 @@ class LadderClimbCommandCfg(CommandTermCfg):
     curriculum_success_threshold: float = 0.80
     curriculum_window_size: int = 100
     curriculum_min_phase_steps: tuple[int, int, int, int] = (
-        120_000,
+        36_000,
         120_000,
         120_000,
         120_000,
     )
-    stabilization_dwell_steps: int = 5
+    fixed_max_unlocked_phase: int | None = None
+    freeze_at_max_unlocked_phase: bool = False
+    boundary_state_reset_prob: float = 0.0
+    boundary_state_bank_size: int = 0
+    stabilization_dwell_steps: int = 50
+    stabilization_dwell_max_steps: int | None = 100
     hand_target_dwell_steps: int = 3
     foot_target_dwell_steps: int = 5
     max_stabilization_torso_speed: float = 0.20
     max_stabilization_joint_speed: float = 1.0
+    max_stabilization_body_angular_speed: float = 0.40
+    max_stabilization_waist_joint_speed: float = 0.60
+    max_stabilization_support_offset_error: float = 0.18
+    max_phase_torso_orientation_error: float = 0.30
+    max_phase_support_offset_error: float = 0.15
+    max_phase_completion_torso_speed: float = 0.20
+    max_phase_completion_joint_speed: float = 1.0
+    first_foot_max_body_drop: float = 0.03
+    cycle_min_body_ascent: float = 0.12
+    release_preload_dwell_steps: int = 8
+    release_ramp_steps: int = 20
+    release_final_dwell_steps: int = 5
+    release_recovery_steps: int = 2
+    pre_release_timeout_steps: int = 100
+    max_release_torso_speed: float = 0.12
+    max_release_torso_orientation_error: float = 0.25
+    max_release_support_offset_error: float = 0.12
+    release_soft_timeconst: float = 0.18
+    release_soft_impedance: float = 0.05
     attach_distance: float = 0.06
     max_attach_speed: float = 0.30
     foot_reach_distance: float = 0.10
@@ -1329,6 +2521,383 @@ def _ladder_command(
     command_name: str,
 ) -> LadderClimbCommand:
     return cast(LadderClimbCommand, env.command_manager.get_term(command_name))
+
+
+class LadderPhaseProgressReward:
+    """Target potential with non-farmable novel stabilization progress.
+
+    The potential combines distance to the selected limb target with continuous
+    grip release during hand phases.  Positive progress is paid only while the
+    non-moving supports and torso pose remain valid; negative progress is never
+    masked.  A phase/target key suppresses artificial reward jumps when the FSM
+    selects a new target.  During ``STABILIZE`` only a new per-phase maximum of
+    normalized dwell is rewarded, so resetting and rebuilding the same dwell
+    cannot exploit discounted returns.
+    """
+
+    def __init__(self, cfg: object, env: ManagerBasedRlEnv) -> None:
+        params = getattr(cfg, "params")
+        self._rung_spacing = float(params["rung_spacing"])
+        self._reach_distance = float(params["reach_distance"])
+        self._first_hand_body_weight = float(params["first_hand_body_weight"])
+        self._second_hand_body_weight = float(params["second_hand_body_weight"])
+        self._foot_body_weight = float(params["foot_body_weight"])
+        self._release_progress_weight = float(params["release_progress_weight"])
+        self._unsupported_progress_scale = float(params["unsupported_progress_scale"])
+        self._max_abs_rate = float(params["max_abs_rate"])
+        if self._rung_spacing <= 0.0:
+            raise ValueError("rung_spacing must be > 0")
+        if self._reach_distance <= 0.0:
+            raise ValueError("reach_distance must be > 0")
+        if (
+            min(
+                self._first_hand_body_weight,
+                self._second_hand_body_weight,
+                self._foot_body_weight,
+            )
+            < 0.0
+        ):
+            raise ValueError("phase body weights must be >= 0")
+        if self._release_progress_weight < 0.0:
+            raise ValueError("release_progress_weight must be >= 0")
+        if self._max_abs_rate <= 0.0:
+            raise ValueError("max_abs_rate must be > 0")
+        if not 0.0 <= self._unsupported_progress_scale <= 1.0:
+            raise ValueError("unsupported_progress_scale must be in [0, 1]")
+
+        self._previous_potential = torch.zeros(env.num_envs, device=env.device)
+        self._previous_target_key = torch.full(
+            (env.num_envs,),
+            -1,
+            dtype=torch.long,
+            device=env.device,
+        )
+        self._valid_previous = torch.zeros(
+            env.num_envs,
+            dtype=torch.bool,
+            device=env.device,
+        )
+        self._max_stabilization_potential = torch.zeros(
+            env.num_envs,
+            device=env.device,
+        )
+
+    def reset(self, env_ids: torch.Tensor | slice | None = None) -> None:
+        if env_ids is None:
+            env_ids = slice(None)
+        self._valid_previous[env_ids] = False
+        self._max_stabilization_potential[env_ids] = 0.0
+
+    def __call__(
+        self,
+        env: ManagerBasedRlEnv,
+        command_name: str,
+        rung_spacing: float,
+        reach_distance: float,
+        first_hand_body_weight: float,
+        second_hand_body_weight: float,
+        foot_body_weight: float,
+        release_progress_weight: float,
+        unsupported_progress_scale: float,
+        max_abs_rate: float,
+        phase: int | None = None,
+    ) -> torch.Tensor:
+        del (
+            rung_spacing,
+            reach_distance,
+            first_hand_body_weight,
+            second_hand_body_weight,
+            foot_body_weight,
+            release_progress_weight,
+            unsupported_progress_scale,
+            max_abs_rate,
+        )
+        selected_phase = None if phase is None else int(LadderPhase(phase))
+        command = _ladder_command(env, command_name)
+        phase = command.phase
+        is_stabilizing = phase == int(LadderPhase.STABILIZE)
+
+        hand_distance = torch.linalg.vector_norm(
+            command.active_hand_pos_w - command.target_pos_w,
+            dim=-1,
+        )
+        foot_distance = torch.linalg.vector_norm(
+            command.active_foot_pos_w - command.active_foot_target_pos_w,
+            dim=-1,
+        )
+        target_distance = torch.where(
+            command.is_hand_phase, hand_distance, foot_distance
+        )
+        target_distance = torch.where(
+            is_stabilizing,
+            torch.zeros_like(target_distance),
+            target_distance,
+        )
+
+        body_weight = torch.zeros_like(command.body_height)
+        body_weight = torch.where(
+            phase == int(LadderPhase.FIRST_HAND),
+            self._first_hand_body_weight,
+            body_weight,
+        )
+        body_weight = torch.where(
+            phase == int(LadderPhase.SECOND_HAND),
+            self._second_hand_body_weight,
+            body_weight,
+        )
+        body_weight = torch.where(
+            command.is_foot_phase,
+            self._foot_body_weight,
+            body_weight,
+        )
+        movement_potential = (
+            body_weight * command.body_height / self._rung_spacing
+            - target_distance / self._reach_distance
+        )
+        release_potential = torch.where(
+            command.is_hand_phase,
+            1.0 - command.active_grip_strength,
+            0.0,
+        )
+        movement_potential = (
+            movement_potential + self._release_progress_weight * release_potential
+        )
+        dwell_potential = (
+            command._phase_dwell_count.float()
+            / command._stabilization_dwell_target.clamp_min(1).float()
+        )
+        potential = torch.where(is_stabilizing, dwell_potential, movement_potential)
+
+        phase_target_key = phase * (2 * command.num_rungs + 1)
+        hand_target_key = command.active_hand * command.num_rungs + command.target_rung
+        foot_target_key = (
+            command.active_foot * command.num_rungs + command.target_foot_rung
+        )
+        phase_target_key = phase_target_key + torch.where(
+            command.is_hand_phase,
+            hand_target_key,
+            torch.where(command.is_foot_phase, foot_target_key, 0),
+        )
+
+        valid = command.initialized & ~command.finished
+        same_target = self._valid_previous & (
+            phase_target_key == self._previous_target_key
+        )
+        # Reattaching restores grip strength to one.  When the next curriculum
+        # phase is still locked, the public phase/target key does not change,
+        # so suppress that successful completion discontinuity explicitly.
+        same_target &= ~command.just_advanced
+        target_changed = ~self._valid_previous | (
+            phase_target_key != self._previous_target_key
+        )
+        stabilization_record = torch.where(
+            target_changed,
+            potential,
+            self._max_stabilization_potential,
+        )
+        novel_stabilization_progress = torch.clamp(
+            potential - stabilization_record,
+            min=0.0,
+        )
+        signed_progress = potential - self._previous_potential
+        progress = torch.where(
+            is_stabilizing,
+            novel_stabilization_progress,
+            signed_progress,
+        )
+        progress_rate = progress / env.step_dt
+        progress_rate = torch.clamp(
+            progress_rate,
+            min=-self._max_abs_rate,
+            max=self._max_abs_rate,
+        )
+        positive_constraints_satisfied = torch.where(
+            is_stabilizing,
+            command.stabilization_conditions_satisfied,
+            command.phase_support_constraints_satisfied,
+        )
+        positive_scale = (
+            self._unsupported_progress_scale
+            + (1.0 - self._unsupported_progress_scale)
+            * positive_constraints_satisfied.float()
+        )
+        active_hand_attached = command.attached.gather(
+            1,
+            command.active_hand[:, None],
+        ).squeeze(1)
+        detached_hand_phase = command.is_hand_phase & ~active_hand_attached
+        positive_scale = torch.where(
+            detached_hand_phase,
+            command.phase_support_constraints_satisfied.float(),
+            positive_scale,
+        )
+        gated_rate = torch.where(
+            progress_rate > 0.0,
+            progress_rate * positive_scale,
+            progress_rate,
+        )
+        reward = torch.where(valid & same_target, gated_rate, 0.0)
+
+        self._previous_potential[:] = potential
+        self._previous_target_key[:] = phase_target_key
+        self._valid_previous[:] = valid
+        self._max_stabilization_potential[:] = torch.where(
+            is_stabilizing,
+            torch.maximum(stabilization_record, potential),
+            torch.zeros_like(self._max_stabilization_potential),
+        )
+        # Update history for every environment before masking the output.
+        # This preserves potential differences across phase changes and resets.
+        if selected_phase is not None:
+            reward = torch.where(command.phase == selected_phase, reward, 0.0)
+        return reward
+
+
+class LadderUpwardProgressReward:
+    """Reward only novel whole-body height reached during an episode.
+
+    The per-environment maximum is anchored to the first valid height after a
+    reset.  Returning the novel height increment as a rate makes the integrated
+    reward independent of the control timestep::
+
+        sum(weight * reward * dt) = weight * (max_t(height_t) - height_0)
+
+    Lowering the body and climbing back to an already rewarded height therefore
+    cannot farm reward.  ``body_height`` averages pelvis and torso COM height,
+    so the term cannot be maximized by lifting only one body point.
+    """
+
+    def __init__(self, cfg: object, env: ManagerBasedRlEnv) -> None:
+        del cfg, env
+
+    def reset(self, env_ids: torch.Tensor | slice | None = None) -> None:
+        del env_ids
+
+    def __call__(
+        self,
+        env: ManagerBasedRlEnv,
+        command_name: str,
+    ) -> torch.Tensor:
+        command = _ladder_command(env, command_name)
+        height = command.body_height
+        active = command.initialized
+        previous_max = command.episode_max_body_height
+        new_max = torch.maximum(previous_max, height)
+        novel_height = torch.where(
+            active,
+            new_max - previous_max,
+            0.0,
+        )
+        command.episode_max_body_height[:] = torch.where(
+            active,
+            new_max,
+            previous_max,
+        )
+        supported = command.phase_required_supports_satisfied
+        return novel_height * supported.float() / env.step_dt
+
+
+class LadderFootPlacementReward:
+    """Reward improvements in phase-appropriate physical foot placement.
+
+    Stabilization and hand phases keep both feet on their assigned support
+    rungs.  During a foot phase, the non-moving foot keeps its assigned rung
+    while the selected foot is evaluated against the new target rung.  The
+    signed potential difference rewards establishing the desired contact and
+    penalizes losing it without paying a dense reward for standing still.
+    """
+
+    def __init__(self, cfg: object, env: ManagerBasedRlEnv) -> None:
+        params = getattr(cfg, "params")
+        self._distance_std = float(params["distance_std"])
+        self._max_abs_rate = float(params["max_abs_rate"])
+        if self._distance_std <= 0.0:
+            raise ValueError("distance_std must be > 0")
+        if self._max_abs_rate <= 0.0:
+            raise ValueError("max_abs_rate must be > 0")
+
+        self._previous_quality = torch.zeros(env.num_envs, device=env.device)
+        self._previous_target_key = torch.full(
+            (env.num_envs,),
+            -1,
+            dtype=torch.long,
+            device=env.device,
+        )
+        self._valid_previous = torch.zeros(
+            env.num_envs,
+            dtype=torch.bool,
+            device=env.device,
+        )
+
+    def reset(self, env_ids: torch.Tensor | slice | None = None) -> None:
+        if env_ids is None:
+            env_ids = slice(None)
+        self._valid_previous[env_ids] = False
+
+    def __call__(
+        self,
+        env: ManagerBasedRlEnv,
+        command_name: str,
+        distance_std: float,
+        max_abs_rate: float,
+        phase: int | None = None,
+    ) -> torch.Tensor:
+        del distance_std, max_abs_rate
+        selected_phase = None if phase is None else int(LadderPhase(phase))
+        command = _ladder_command(env, command_name)
+
+        foot_ids = torch.arange(
+            command.foot_pos_w.shape[1],
+            device=env.device,
+        )
+        moving_foot = command.is_foot_phase[:, None] & (
+            foot_ids[None, :] == command.active_foot[:, None]
+        )
+        desired_pos_w = torch.where(
+            moving_foot[:, :, None],
+            command.active_foot_target_pos_w[:, None, :],
+            command.held_foot_target_pos_w,
+        )
+
+        distance = torch.linalg.vector_norm(
+            command.foot_pos_w - desired_pos_w,
+            dim=-1,
+        )
+        placement_quality = (
+            torch.exp(-torch.square(distance / self._distance_std))
+            * command.foot_contact.float()
+        )
+        quality = placement_quality.mean(dim=1)
+
+        target_key = command.phase * (2 * command.num_rungs + 1)
+        foot_target_key = (
+            command.active_foot * command.num_rungs + command.target_foot_rung
+        )
+        target_key = target_key + torch.where(
+            command.is_foot_phase,
+            foot_target_key,
+            0,
+        )
+
+        valid = command.initialized & ~command.finished
+        same_target = self._valid_previous & (target_key == self._previous_target_key)
+        quality_delta = quality - self._previous_quality
+        progress_rate = quality_delta / env.step_dt
+        progress_rate = torch.clamp(
+            progress_rate,
+            min=-self._max_abs_rate,
+            max=self._max_abs_rate,
+        )
+        reward = torch.where(valid & same_target, progress_rate, 0.0)
+
+        self._previous_quality[:] = quality
+        self._previous_target_key[:] = target_key
+        self._valid_previous[:] = valid
+        # Update history for every environment before masking the output.
+        # This preserves potential differences across phase changes and resets.
+        if selected_phase is not None:
+            reward = torch.where(command.phase == selected_phase, reward, 0.0)
+        return reward
 
 
 class LadderTargetProgressReward:
@@ -1469,7 +3038,7 @@ def ladder_support_hand(
     command_name: str,
 ) -> torch.Tensor:
     command = _ladder_command(env, command_name)
-    attached = command.attached.float()
+    attached = command.grip_strength * command.attached.float()
     moving_hand = command.active_hand[:, None]
     support_during_hand_phase = attached.scatter(1, moving_hand, 0.0).sum(dim=1)
     return torch.where(
@@ -1499,14 +3068,109 @@ def ladder_foot_support(
 def ladder_torso_stability_exp(
     env: ManagerBasedRlEnv,
     command_name: str,
-    std: float,
+    torso_speed_std: float,
+    joint_speed_std: float,
+    movement_phase_scale: float,
 ) -> torch.Tensor:
-    """Reward low torso-COM speed throughout an initialized climb."""
+    """Reward quiet support, with a strict four-point stabilization signal.
+
+    During ``STABILIZE`` the reward is non-zero only while both welded hands
+    and both physically contacting feet support the robot.  Later movement
+    phases retain a smaller stability signal based on the fraction of active
+    supports, so the selected limb can move without removing the incentive to
+    keep the rest of the body quiet.
+    """
 
     command = _ladder_command(env, command_name)
-    error = torch.sum(torch.square(command.torso_com_vel_w), dim=-1)
-    stable = torch.exp(-error / std**2)
-    return stable * (command.initialized & ~command.finished).float()
+    torso_speed_sq = torch.sum(torch.square(command.torso_com_vel_w), dim=-1)
+    joint_speed_rms_sq = torch.mean(
+        torch.square(command.robot.data.joint_vel),
+        dim=1,
+    )
+    quiet = torch.exp(
+        -torso_speed_sq / torso_speed_std**2 - joint_speed_rms_sq / joint_speed_std**2
+    )
+
+    hand_support = (command.grip_strength * command.attached.float()).mean(dim=1)
+    foot_support = command.foot_support.float().mean(dim=1)
+    support_fraction = 0.5 * (hand_support + foot_support)
+    four_point_support = (
+        command.attached.all(dim=1) & command.foot_support.all(dim=1)
+    ).float()
+    stabilization_phase = command.phase == int(LadderPhase.STABILIZE)
+    support_quality = torch.where(
+        stabilization_phase,
+        four_point_support,
+        movement_phase_scale * support_fraction,
+    )
+    valid = command.initialized & ~command.finished
+    return quiet * support_quality * valid.float()
+
+
+def _ladder_posture_support_quality(
+    command: LadderClimbCommand,
+    movement_phase_scale: float,
+) -> torch.Tensor:
+    hand_support = (command.grip_strength * command.attached.float()).mean(dim=1)
+    foot_support = command.foot_support.float().mean(dim=1)
+    support_fraction = 0.5 * (hand_support + foot_support)
+    four_point_support = (
+        command.attached.all(dim=1) & command.foot_support.all(dim=1)
+    ).float()
+    return torch.where(
+        command.phase == int(LadderPhase.STABILIZE),
+        four_point_support,
+        movement_phase_scale * support_fraction,
+    )
+
+
+def ladder_torso_posture_exp(
+    env: ManagerBasedRlEnv,
+    command_name: str,
+    orientation_std: float,
+    movement_phase_scale: float,
+) -> torch.Tensor:
+    """Reward the nominal full torso orientation instead of individual joint angles."""
+
+    command = _ladder_command(env, command_name)
+    posture = torch.exp(
+        -torch.square(command.torso_orientation_error) / orientation_std**2
+    )
+    support_quality = _ladder_posture_support_quality(command, movement_phase_scale)
+    valid = command.initialized & ~command.finished
+    return posture * support_quality * valid.float()
+
+
+def ladder_stabilization_orientation_error_l2(
+    env: ManagerBasedRlEnv,
+    command_name: str,
+) -> torch.Tensor:
+    """Softly discourage torso rotation without making orientation a hard gate."""
+
+    command = _ladder_command(env, command_name)
+    active = (
+        command.initialized
+        & ~command.finished
+        & (command.phase == int(LadderPhase.STABILIZE))
+    )
+    return torch.square(command.torso_orientation_error) * active.float()
+
+
+def ladder_com_alignment_exp(
+    env: ManagerBasedRlEnv,
+    command_name: str,
+    support_offset_std: float,
+    movement_phase_scale: float,
+) -> torch.Tensor:
+    """Reward torso-COM placement relative to the current four-support geometry."""
+
+    command = _ladder_command(env, command_name)
+    alignment = torch.exp(
+        -torch.square(command.torso_support_offset_error) / support_offset_std**2
+    )
+    support_quality = _ladder_posture_support_quality(command, movement_phase_scale)
+    valid = command.initialized & ~command.finished
+    return alignment * support_quality * valid.float()
 
 
 class LadderSupportJointVelocityPenalty:
@@ -1602,6 +3266,35 @@ def ladder_foot_rung_advance(
     return _ladder_command(env, command_name).just_foot_advanced.float() / env.step_dt
 
 
+def ladder_phase_completed(
+    env: ManagerBasedRlEnv,
+    command_name: str,
+) -> torch.Tensor:
+    """Return one fixed impulse for any ordered FSM phase transition."""
+
+    command = _ladder_command(env, command_name)
+    completed = (
+        command.just_stabilized | command.just_advanced | command.just_foot_advanced
+    )
+    return completed.float() / env.step_dt
+
+
+def ladder_failure_penalty(
+    env: ManagerBasedRlEnv,
+    command_name: str,
+) -> torch.Tensor:
+    """Return one impulse for any terminal outcome that is not task progress."""
+
+    del command_name
+    termination_manager = env.termination_manager
+    successful = termination_manager.get_term("success").bool()
+    prefix_completed = termination_manager.get_term(
+        "curriculum_stage_complete"
+    ).bool()
+    failed = termination_manager.dones.bool() & ~successful & ~prefix_completed
+    return failed.float() / env.step_dt
+
+
 def ladder_stabilized(
     env: ManagerBasedRlEnv,
     command_name: str,
@@ -1651,6 +3344,15 @@ def ladder_success(
     return _ladder_command(env, command_name).finished
 
 
+def ladder_pre_release_stalled(
+    env: ManagerBasedRlEnv,
+    command_name: str,
+) -> torch.Tensor:
+    """Terminate an episode that exceeds the bounded PRE_RELEASE duration."""
+
+    return _ladder_command(env, command_name).pre_release_stalled
+
+
 def ladder_curriculum_stage_complete(
     env: ManagerBasedRlEnv,
     command_name: str,
@@ -1667,3 +3369,75 @@ def ladder_rung_endpoints_torso(
     """Expose fixed ladder geometry as ``(B, num_rungs, 7)`` observations."""
 
     return _ladder_command(env, command_name).rung_endpoints_torso
+
+
+def ladder_rung_tokens_torso(
+    env: ManagerBasedRlEnv,
+    command_name: str,
+) -> torch.Tensor:
+    """Expose target-aware ladder geometry as ``(B, num_rungs, 15)`` tokens."""
+
+    return _ladder_command(env, command_name).rung_tokens_torso
+
+
+def ladder_critic_privileged(
+    env: ManagerBasedRlEnv,
+    command_name: str,
+) -> torch.Tensor:
+    """Expose compact reward/FSM state to the asymmetric training critic only."""
+
+    command = _ladder_command(env, command_name)
+    body_height = command.body_height
+    torso_speed = torch.linalg.vector_norm(command.torso_com_vel_w, dim=-1)
+    joint_speed_rms = torch.sqrt(
+        torch.mean(torch.square(command.robot.data.joint_vel), dim=1)
+    )
+    height_below_record = torch.clamp(
+        command.episode_max_body_height - body_height,
+        min=0.0,
+    )
+    release_progress = command._release_ramp_count.float() / float(
+        command.cfg.release_ramp_steps
+    )
+    dwell_target = torch.where(
+        command.is_stabilization_phase,
+        command._stabilization_dwell_target,
+        torch.where(
+            command.is_hand_phase,
+            torch.full_like(
+                command._phase_dwell_count,
+                command.cfg.hand_target_dwell_steps,
+            ),
+            torch.full_like(
+                command._phase_dwell_count,
+                command.cfg.foot_target_dwell_steps,
+            ),
+        ),
+    )
+    dwell_progress = torch.clamp(
+        command._phase_dwell_count.float() / dwell_target.clamp_min(1).float(),
+        min=0.0,
+        max=1.0,
+    )
+
+    scalar_terms = (
+        body_height,
+        command.episode_max_body_height,
+        height_below_record,
+        body_height - command._cycle_start_body_height,
+        body_height - command._phase_start_body_height,
+        torso_speed,
+        command.torso_orientation_error,
+        command.torso_support_offset_error,
+        joint_speed_rms,
+    )
+    return torch.cat(
+        (
+            *(term.unsqueeze(-1) for term in scalar_terms),
+            command.foot_support.float(),
+            command.phase_required_supports_satisfied.float().unsqueeze(-1),
+            release_progress.unsqueeze(-1),
+            dwell_progress.unsqueeze(-1),
+        ),
+        dim=-1,
+    )

@@ -103,25 +103,103 @@ supports, move the first hand, move the second hand, step with the first foot,
 then step with the second foot. Only the selected limb is released. Hand and
 foot targets must remain valid for 3 and 5 consecutive control steps,
 respectively, so a single noisy contact cannot advance the FSM. There is no
-ground-to-ladder approach phase.
+ground-to-ladder approach phase. Stabilization itself must remain valid for a
+per-environment random 50--100 consecutive policy steps (1--2 seconds); losing
+any support or speed condition restarts that environment's hold counter.
 
-Hand and foot target shaping uses signed closing progress instead of absolute
-proximity: approaching a target is positive, hovering is zero, and retreating
-is negative. The adaptive prefix curriculum keeps the last 100 terminal
-episodes for the current phase. It opens the next phase only when that full
+Hand movement phases use a feedback-controlled soft release instead of
+disabling the selected weld immediately. Both hands remain attached for an
+8-step preload-transfer hold. The selected per-environment weld then softens
+over 20 policy steps with a smoothstep ramp from its compiled solver parameters
+to a `0.18` second time constant and `0.05` impedance. If foot support, torso
+speed, torso orientation, or support-relative COM alignment becomes invalid,
+the ramp reverses by two steps; joint motion remains penalized but cannot veto
+release. The weld is disabled only after five additional stable steps at
+minimum strength. A hand phase that remains in `PRE_RELEASE` for 300 policy
+steps terminates as a failure. It receives the same `-50` terminal penalty as
+any other unsuccessful ending, so deliberately falling is not a cheaper way to
+leave the phase. This internal substage does not add a sixth public FSM phase.
+Episode logs expose the hand/foot-support, torso-speed, torso-orientation, and
+support-offset gates separately, together with the combined gate and normalized
+preload, ramp, and final-dwell progress.
+
+Task shaping separates three non-overlapping signals: supported novel
+whole-body height, phase-conditioned active-limb distance, and physical foot
+placement. The phase potential contains normalized target distance plus
+continuous `1 - grip_strength` release progress during hand phases, so height
+is not counted twice and reversing the grip ramp produces a symmetric penalty.
+During `STABILIZE`, only a new per-phase maximum dwell progress is rewarded;
+resetting and rebuilding the same partial hold pays nothing. Stabilization also
+checks torso/pelvis angular speed and individual waist-joint speed, while torso
+orientation remains a soft penalty rather than a transition gate.
+Positive target progress normally retains 25% of its signal when phase
+support/posture constraints are temporarily invalid and receives the full
+signal when they are valid. Once the selected hand is detached, however,
+positive hand-target progress is paid only while those constraints are valid;
+negative progress is always retained.
+Successful phase transitions populate a per-phase GPU state bank.
+Once a phase is unlocked, half of training resets sample an available boundary
+state and continue from that phase; the other half still start from the fixed
+climbing keyframe. Boundary-started episodes train PPO but are excluded from
+the curriculum success window, so promotion still measures complete prefixes
+from the original start. The adaptive prefix curriculum keeps the last 100
+eligible terminal episodes for the current phase. It opens the next phase only when that full
 window has strictly more than 80% successes and the phase has received at
-least 120,000 environment steps (5,000 PPO iterations with a 24-step rollout).
-Thus the complete five-phase cycle cannot unlock before iteration 20,000. A
-completed prefix episode ends immediately while its next phase is locked. The
-reward schedule at steps 0, 240,000, and 480,000 emphasizes low torso speed,
-upright posture, smooth joints, and especially low velocity in supporting limb
-joints. Curriculum state is synchronized between GPUs and saved in every
-checkpoint. Torso ascent is rewarded only during the two-hand-supported foot
-phases, while physical foot placement and complete-cycle impulses carry larger
-weights. The 24D command carries a five-state phase one-hot. The policy keeps
-the 117D actor and 120D privileged-critic current-frame groups, encodes a
-10-frame history for each with TemporalCNN, and separately encodes all nine
-finite rung endpoints as a `9 x 7` torso-frame geometry tensor.
+least its configured step budget. Initial stabilization uses 36,000 environment
+steps (1,500 PPO iterations with a 24-step rollout), while each later transition
+uses 120,000 steps (5,000 iterations). Thus the complete five-phase cycle cannot
+unlock before iteration 16,500. A completed prefix episode ends only after its
+full randomized stabilization hold while its next phase is locked. Rewards are
+fixed throughout training: supported novel maximum whole-body height `20`,
+signed phase-aware foot placement `8`, phase progress `8`, any ordered phase
+completion `25`, stabilization orientation `-1`, final success `100`, survival `3`,
+action rate `-0.5`, joint limits `-10`, self-collisions `-0.1`, ankle-joint
+acceleration `-2.5e-6`, and unsuccessful episode termination `-50`.
+Each of the five phases has separate progress and foot-placement terms (weight `8`
+each); their sum preserves the unsplit shaping reward. Other terms are shared,
+except orientation, which applies only during stabilization.
+Success and a completed locked curriculum prefix are excluded from that failure
+penalty. The height term pays only the increase above
+the episode's previous maximum, so lowering and re-climbing cannot repeat the
+reward; its total contribution is `20` times the new maximum height gained in
+meters, provided the physical supports required by the phase are present. An
+unsupported maximum still advances the record but receives no reward. Foot
+placement is another potential difference rather than a dense standing reward:
+losing a required rung contact and restoring it apply symmetric negative and
+positive changes, so a detach/reattach cycle has zero net reward, while
+unchanged contact earns zero.
+During foot phases the selected foot's desired position switches to its new
+target rung while the other foot must retain its support rung. Completion requires valid phase supports,
+support-relative COM-offset error at most 0.15 m, torso speed at most 0.20 m/s,
+and joint-speed RMS at most 1.0 rad/s. Torso orientation remains a shaping and
+diagnostic signal but does not block phase transitions. The first foot
+may lower whole-body height by at most 0.03 m; completing the second foot
+requires at least 0.12 m of whole-body ascent from the cycle start. Gaussian
+action exploration starts at `0.7`; its raw learnable parameter is projected
+after every PPO update so the effective `[0.25, 1.0]` clamp cannot leave it
+gradient-dead below the lower bound. Every curriculum promotion restores the
+actor standard deviation to `0.7`, clears its optimizer momentum, and resets
+the adaptive PPO learning rate to the configured `5e-4` for the newly opened
+phase. TensorBoard records the projected parameter as `Policy/raw_mean_std`.
+The ladder-only MuJoCo configuration also reduces all shoulder, elbow, and
+wrist effort limits to 70% (`25 -> 17.5 Nm`, `5 -> 3.5 Nm`) without changing the
+tracking robot. Curriculum state and the local phase-boundary bank are saved in
+every checkpoint. The 24D command carries a five-state phase one-hot. The policy keeps
+the 117D actor and 120D clean critic current-frame groups, encodes a
+10-frame history for each with TemporalCNN, and gives only the critic an
+additional current-only 14D reward/FSM state. This privileged vector contains
+whole-body and record heights, cycle/phase ascent, torso and joint stability,
+physical foot support, required-support validity, release progress, and dwell
+progress. The policy separately encodes all nine
+finite rungs as a `9 x 15` torso-frame token tensor. Each token contains finite
+endpoints, a validity bit, and per-limb target/support markers. Hand and foot
+target vectors in the 24D command are also expressed in the torso frame. The
+former post-reset initialization scalar now carries continuous active-hand grip
+strength, and held-hand support markers fade by the same value. The torso-COM
+support centroid weights hands by grip strength and feet by physical support,
+so its balance target shifts continuously from four supports to three instead
+of following the released hand or jumping at detach time. Per-environment
+`eq_solref` and `eq_solimp` fields let parallel simulations soften independently.
 
 The ladder scene removes the canonical XML's embedded `floor` and uses one
 solid-color, non-reflective terrain plane. It also uses a single controlled
@@ -130,10 +208,32 @@ moiré, duplicate-plane contacts, and shadow artifacts in video. The resulting
 policy fuses current state, temporal history, and ladder geometry through
 separate Conv1d encoders before the scaled `(2048, 1024, 512, 256, 128)` MLP.
 The ordered phase-command and adaptive-curriculum semantics, climbing keyframe,
-scheduled rewards, active bar contacts, trunk-blocking collision geometry, and
-multi-group TemporalCNN inputs require a fresh ladder training run. Earlier
-117D/120D MLP checkpoints do not match this model signature, and fixed-schedule
-checkpoints also lack the adaptive curriculum state.
+phase-potential reward, whole-body ascent gates, active bar contacts, trunk-blocking collision geometry, and
+multi-group TemporalCNN inputs require a fresh ladder training run. The
+critic-only 14D group also changes the critic input signature, so standard full
+checkpoint resume from an earlier ladder model is unsupported; preserving an
+old actor requires an explicit actor-only warm start with a new critic. Earlier
+117D/120D MLP checkpoints and TemporalCNN checkpoints with `9 x 7` endpoint-only
+geometry do not match this model signature, and fixed-schedule checkpoints also
+lack the adaptive curriculum state. Checkpoints trained before the continuous
+grip-strength command, feedback-controlled soft-release mechanic, or
+phase-potential/whole-body-height contract must also be retrained even though
+the current-frame dimension remains unchanged. The curriculum-state version is
+bumped so an incompatible training resume fails immediately.
+
+Play a ladder checkpoint interactively with all phases enabled:
+
+```bash
+python train_mimic/scripts/play.py \
+    --task G1-Ladder-Climb-RL \
+    --checkpoint logs/rsl_rl/g1_ladder_rl/<run>/model_60000.pt
+```
+
+Use `--ladder_phase stabilize|first_hand|second_hand|first_foot|second_foot`
+to stop each episode at a selected curriculum boundary. The selected value is
+the deepest enabled phase: for example, `second_hand` runs `stabilize`, then
+`first_hand`, then `second_hand`, and resets before the first-foot phase. This
+preserves the ordered support transitions required by the ladder FSM.
 
 Evaluate a ladder checkpoint without further PPO updates:
 
@@ -156,10 +256,16 @@ files, use the dedicated recorder:
 python train_mimic/scripts/record_ladder_video.py \
     --checkpoint logs/rsl_rl/g1_ladder_rl/<run>/model_60000.pt \
     --output ladder.mp4 \
-    --frames 1000
+    --frames 1000 \
+    --ladder_phase second_hand
 ```
 
 The recorder runs one environment and stops before an automatic episode reset.
+It accepts the same `--ladder_phase` curriculum-prefix choices as `play.py`.
+When a phase is selected explicitly, the FSM freezes after that phase succeeds:
+it does not transition or emit `curriculum_stage_complete`, so recording
+continues until `--frames` or a real failure. Omit the option to record the
+complete climb.
 Its default camera is a fixed world-space overview on the robot's outside face
 of the ladder, rather than a torso-tracking view through the rungs. The complete
 robot and ladder remain framed throughout the climb. Override the view with

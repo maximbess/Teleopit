@@ -82,6 +82,7 @@ def make_g1_ladder_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
             distribution_cfg={
                 "class_name": "GaussianDistribution",
                 "init_std": 0.7,
+                "std_range": (0.25, 1.0),
                 "std_type": "scalar",
             },
         ),
@@ -108,7 +109,12 @@ def make_g1_ladder_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
         ),
         obs_groups={
             "actor": ("actor", "actor_history", "actor_ladder"),
-            "critic": ("critic", "critic_history", "critic_ladder"),
+            "critic": (
+                "critic",
+                "critic_history",
+                "critic_ladder",
+                "critic_privileged",
+            ),
         },
         experiment_name=LADDER_RL_EXPERIMENT_NAME,
         save_interval=1_000,

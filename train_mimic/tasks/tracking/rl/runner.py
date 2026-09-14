@@ -3,6 +3,7 @@ import pathlib
 import statistics
 import time
 from itertools import chain
+from math import exp, log
 
 import torch
 from rsl_rl.env.vec_env import VecEnv
@@ -42,6 +43,81 @@ def _format_duration(seconds: float) -> str:
     return f"{hours:02d}:{minutes:02d}:{secs:02d}"
 
 
+def _ordered_episode_extra_keys(ep_extras: list[dict]) -> tuple[str, ...]:
+    """Return every logged episode key in first-seen order.
+
+    MJLab emits an empty ``extras["log"]`` dictionary on policy steps without
+    resets.  A reset can occur later in the same rollout, so inspecting only
+    the first dictionary silently drops those episode metrics.
+    """
+
+    return tuple(
+        dict.fromkeys(key for episode_info in ep_extras for key in episode_info)
+    )
+
+
+def _distribution_parameter_and_bounds(
+    distribution,
+) -> tuple[torch.nn.Parameter, tuple[float, float]]:
+    """Return the learnable Gaussian scale parameter and its native bounds."""
+
+    std_type = getattr(distribution, "std_type", None)
+    if std_type == "scalar":
+        return distribution.std_param, tuple(float(x) for x in distribution.std_range)
+    if std_type == "log":
+        return distribution.log_std_param, tuple(
+            float(x) for x in distribution.log_std_range
+        )
+    raise TypeError(
+        "Ladder PPO requires a Gaussian distribution with scalar or log std; "
+        f"got std_type={std_type!r}."
+    )
+
+
+def _project_distribution_std(
+    distribution,
+) -> tuple[torch.nn.Parameter, bool]:
+    """Project the raw std parameter so clamp cannot leave it gradient-dead."""
+
+    parameter, (minimum, maximum) = _distribution_parameter_and_bounds(distribution)
+    projected = bool(
+        torch.any((parameter < minimum) | (parameter > maximum)).item()
+    )
+    with torch.no_grad():
+        parameter.clamp_(min=minimum, max=maximum)
+    return parameter, projected
+
+
+def _raw_distribution_std_mean(distribution) -> torch.Tensor:
+    """Return the unclamped learnable std in effective scalar space."""
+
+    parameter, _ = _distribution_parameter_and_bounds(distribution)
+    raw_std = torch.exp(parameter) if distribution.std_type == "log" else parameter
+    return raw_std.mean()
+
+
+def _set_distribution_std(distribution, target_std: float) -> torch.nn.Parameter:
+    """Set every action dimension to one valid effective standard deviation."""
+
+    if target_std <= 0.0:
+        raise ValueError(f"target_std must be positive, got {target_std}")
+    parameter, (minimum, maximum) = _distribution_parameter_and_bounds(distribution)
+    native_target = log(target_std) if distribution.std_type == "log" else target_std
+    if not minimum <= native_target <= maximum:
+        effective_bounds = (
+            (exp(minimum), exp(maximum))
+            if distribution.std_type == "log"
+            else (minimum, maximum)
+        )
+        raise ValueError(
+            f"target_std={target_std} is outside configured std range "
+            f"{effective_bounds}"
+        )
+    with torch.no_grad():
+        parameter.fill_(native_target)
+    return parameter
+
+
 class LadderOnPolicyRunner(MjlabOnPolicyRunner):
     """Plain PPO runner with persistent, multi-GPU ladder curriculum state."""
 
@@ -49,6 +125,35 @@ class LadderOnPolicyRunner(MjlabOnPolicyRunner):
 
     def _ladder_command(self):
         return self.env.unwrapped.command_manager.get_term("ladder")
+
+    def _actor_distribution(self):
+        distribution = self.alg.get_policy().distribution
+        if distribution is None:
+            raise RuntimeError("Ladder PPO actor must define a Gaussian distribution")
+        return distribution
+
+    def _restore_exploration_after_promotion(self) -> tuple[float, float]:
+        """Reset std, its optimizer momentum, and LR for a newly opened phase."""
+
+        target_std = float(self.cfg["actor"]["distribution_cfg"]["init_std"])
+        distribution = self._actor_distribution()
+        std_parameter = _set_distribution_std(distribution, target_std)
+        self.alg.optimizer.state.pop(std_parameter, None)
+
+        target_learning_rate = float(self.cfg["algorithm"]["learning_rate"])
+        self.alg.learning_rate = target_learning_rate
+        for param_group in self.alg.optimizer.param_groups:
+            param_group["lr"] = target_learning_rate
+        return target_std, target_learning_rate
+
+    def _project_actor_std(self) -> None:
+        """Project actor std and discard optimizer momentum that crossed a bound."""
+
+        std_parameter, projected = _project_distribution_std(
+            self._actor_distribution()
+        )
+        if projected:
+            self.alg.optimizer.state.pop(std_parameter, None)
 
     def _synchronize_ladder_curriculum(self, iteration: int) -> None:
         command = self._ladder_command()
@@ -61,12 +166,19 @@ class LadderOnPolicyRunner(MjlabOnPolicyRunner):
             outcomes = local_outcomes
 
         promoted = command.update_curriculum(outcomes)
+        promotion_std = None
+        promotion_learning_rate = None
+        if promoted:
+            promotion_std, promotion_learning_rate = (
+                self._restore_exploration_after_promotion()
+            )
         if promoted and self.gpu_global_rank == 0:
             phase_name = command.phase_name(command.max_unlocked_phase)
             print(
                 "[INFO] Ladder curriculum promoted to "
                 f"phase {command.max_unlocked_phase} ({phase_name}) at "
-                f"iteration {iteration}."
+                f"iteration {iteration}; actor std reset to {promotion_std:.3f}, "
+                f"learning rate reset to {promotion_learning_rate:.3g}."
             )
 
         writer = self.logger.writer
@@ -91,6 +203,17 @@ class LadderOnPolicyRunner(MjlabOnPolicyRunner):
                 command.curriculum_phase_steps,
                 iteration,
             )
+            if promoted:
+                writer.add_scalar(
+                    "Curriculum/ladder_promotion_actor_std",
+                    promotion_std,
+                    iteration,
+                )
+                writer.add_scalar(
+                    "Curriculum/ladder_promotion_learning_rate",
+                    promotion_learning_rate,
+                    iteration,
+                )
 
     def learn(
         self,
@@ -149,6 +272,7 @@ class LadderOnPolicyRunner(MjlabOnPolicyRunner):
                 self.alg.compute_returns(obs)
 
             loss_dict = self.alg.update()
+            self._project_actor_std()
             stop = time.time()
             learn_time = stop - start
             self.current_learning_iteration = it
@@ -166,6 +290,12 @@ class LadderOnPolicyRunner(MjlabOnPolicyRunner):
                     self.alg.rnd.weight if self.cfg["algorithm"]["rnd_cfg"] else None
                 ),
             )
+            if self.logger.writer is not None:
+                self.logger.writer.add_scalar(
+                    "Policy/raw_mean_std",
+                    _raw_distribution_std_mean(self._actor_distribution()),
+                    it,
+                )
             if self.logger.writer is not None and it % self.cfg["save_interval"] == 0:
                 self.save(os.path.join(self.logger.log_dir, f"model_{it}.pt"))
 
@@ -191,6 +321,7 @@ class LadderOnPolicyRunner(MjlabOnPolicyRunner):
         map_location: str | None = None,
     ) -> dict:
         infos = super().load(path, load_cfg, strict, map_location)
+        self._project_actor_std()
         command = self._ladder_command()
         state = (infos or {}).get("ladder_curriculum_state")
         if state is None:
@@ -328,7 +459,7 @@ class MotionTrackingOnPolicyRunner(MjlabOnPolicyRunner):
 
         extras_string = ""
         if logger.ep_extras:
-            for key in logger.ep_extras[0]:
+            for key in _ordered_episode_extra_keys(logger.ep_extras):
                 infotensor = torch.tensor([], device=logger.device)
                 for ep_info in logger.ep_extras:
                     if key not in ep_info:

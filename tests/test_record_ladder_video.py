@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from train_mimic.ladder_playback import configure_ladder_play_phase
 from train_mimic.scripts import record_ladder_video
 
 
@@ -14,6 +15,7 @@ def test_record_ladder_video_cli_has_no_benchmark_arguments() -> None:
     args = record_ladder_video.parse_args(["--checkpoint", "model.pt"])
 
     assert args.frames == 1000
+    assert args.ladder_phase is None
     assert args.width == 1280
     assert args.height == 720
     assert args.camera_distance == 4.5
@@ -26,6 +28,63 @@ def test_record_ladder_video_cli_has_no_benchmark_arguments() -> None:
     assert not hasattr(args, "output_dir")
     assert not hasattr(args, "motion_file")
     assert not hasattr(args, "task")
+
+
+@pytest.mark.parametrize(
+    "phase_name",
+    ["stabilize", "first_hand", "second_hand", "first_foot", "second_foot"],
+)
+def test_record_ladder_video_accepts_phase_prefix(phase_name: str) -> None:
+    args = record_ladder_video.parse_args(
+        ["--checkpoint", "model.pt", "--ladder_phase", phase_name]
+    )
+
+    assert args.ladder_phase == phase_name
+
+
+@pytest.mark.parametrize(
+    ("phase_name", "expected_phase"),
+    [
+        ("stabilize", 0),
+        ("first_hand", 1),
+        ("second_hand", 2),
+        ("first_foot", 3),
+        ("second_foot", 4),
+        (None, 4),
+    ],
+)
+def test_record_ladder_video_configures_phase_prefix(
+    phase_name: str | None,
+    expected_phase: int,
+) -> None:
+    command_cfg = SimpleNamespace(
+        fixed_max_unlocked_phase=None,
+        freeze_at_max_unlocked_phase=False,
+    )
+    env_cfg = SimpleNamespace(commands={"ladder": command_cfg})
+
+    selected = configure_ladder_play_phase(env_cfg, phase_name)
+
+    assert command_cfg.fixed_max_unlocked_phase == expected_phase
+    assert command_cfg.freeze_at_max_unlocked_phase is False
+    assert selected == (phase_name or "second_foot")
+
+
+def test_record_ladder_video_freezes_explicit_selected_phase() -> None:
+    command_cfg = SimpleNamespace(
+        fixed_max_unlocked_phase=None,
+        freeze_at_max_unlocked_phase=False,
+    )
+    env_cfg = SimpleNamespace(commands={"ladder": command_cfg})
+
+    configure_ladder_play_phase(
+        env_cfg,
+        "stabilize",
+        freeze_at_boundary=True,
+    )
+
+    assert command_cfg.fixed_max_unlocked_phase == 0
+    assert command_cfg.freeze_at_max_unlocked_phase is True
 
 
 @pytest.mark.parametrize(

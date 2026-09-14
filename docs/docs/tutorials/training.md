@@ -113,14 +113,31 @@ python train_mimic/scripts/train_ladder.py \
 The ladder entry point intentionally has no `--motion_file`, sampling-mode, or
 rewind options. It uses a TemporalCNN policy with separate Conv1d encoders for
 state history and ladder geometry. The 24D ladder command produces the 117D
-current actor group and 120D privileged-critic group; each side also receives a
-10-frame history and a `9 x 7` torso-frame tensor containing the finite rung
-endpoints and validity bits. Hand and foot target shaping uses signed closing progress:
-approaching is positive, hovering is zero, and retreating is negative. This
-prevents the policy from collecting a persistent proximity reward by holding a
-foot near a rung without making contact. The simulated rubber-hand welds are
+current actor group and a 120D clean critic group; each side also receives a
+10-frame history and a `9 x 15` torso-frame rung-token tensor. The critic alone
+receives a separate current-only 14D privileged vector. It exposes whole-body
+height, episode height record and record gap, cycle/phase ascent, torso speed,
+torso-orientation and support-offset errors, joint-speed RMS, two physical foot
+supports, phase-required support validity, release-ramp progress, and normalized
+phase dwell. Keeping this vector out of `critic_history` avoids needlessly
+expanding the temporal encoder. Every rung token
+contains finite endpoints, a validity bit, and separate left/right hand and
+foot target/support markers. The hand and foot target vectors in the 24D
+command use the same torso frame. Its former post-reset initialization scalar
+now reports continuous active-hand grip strength, and the corresponding held-rung
+marker fades by the same value. Task shaping uses one phase-conditioned
+potential. It combines normalized whole-body height, defined as the mean of
+pelvis and torso COM height, with normalized distance to the active limb target.
+Positive progress is paid only while the phase-required supports and torso pose
+remain valid; negative progress is always retained. The simulated rubber-hand welds are
 part of the environment mechanics; feet use ordinary physical contacts and the
 policy action remains the 29 G1 joint targets.
+
+The ladder-only MuJoCo articulation scales the effort limits of every shoulder,
+elbow, and wrist actuator to 70% of the standard G1 values: the 25 Nm arm group
+is limited to 17.5 Nm and the 5 Nm wrist-pitch/yaw group to 3.5 Nm. This torque
+saturation is applied only by the ladder robot builder; tracking and inference
+retain the standard G1 limits.
 
 The command uses an explicit five-state sequence and repeats it for every rung:
 
@@ -130,56 +147,172 @@ The command uses an explicit five-state sequence and repeats it for every rung:
 4. move the first foot with both hands attached;
 5. move the second foot, then return to stabilization.
 
+Each hand movement phase starts with an internal `PRE_RELEASE` substage; it does
+not add a sixth one-hot state. Both welds stay active for 8 stable preload-transfer
+steps. The selected environment's weld then follows a 20-step smoothstep ramp
+from its compiled equality parameters to `solref.timeconst=0.18` and
+`solimp dmin=dmax=0.05`. The ramp advances only while both feet and the other
+hand support the robot and the torso speed, torso-orientation error, and
+support-relative COM error remain within `0.12 m/s`, `0.25 rad`, and `0.12 m`.
+A violation reverses the ramp by two steps. Joint motion remains penalized but
+cannot veto release. Binary detach occurs only after five more stable frames
+at minimum grip strength. Remaining in `PRE_RELEASE` for 300 policy steps
+terminates the episode as a failure. It receives the same `-50` terminal reward
+impulse as any other unsuccessful ending, so deliberately falling cannot avoid
+a larger stall-specific cost.
+MJLab expands `eq_solref` and `eq_solimp` per environment so parallel releases
+remain independent.
+
+Episode diagnostics log the hand-attachment, two-foot-support, torso-speed,
+torso-orientation, and support-offset gates independently, plus their combined
+validity and normalized preload, softening-ramp, and final-dwell progress. This
+makes a stalled release attributable to one condition instead of only reporting
+the terminal `pre_release_stalled` result.
+
+The support centroid used by the phase-validity gate is also continuous: hand
+positions are weighted by grip strength and attached state, while foot positions
+are weighted by physical support. Consequently the balance target moves from
+the four-support geometry toward the future three-support geometry throughout
+the ramp and never follows a free reaching hand.
+
 The policy sees this state as a five-value one-hot inside the existing 24D
 command. Hand targets require three consecutive close, slow frames; foot
-targets require five consecutive frames with proximity, low speed, and a real
-contact-sensor hit. The adaptive curriculum records every terminal episode as
+targets require five consecutive frames with proximity, low speed, a real
+contact-sensor hit, and valid whole-body height. The first foot may lower the
+body by at most 0.03 m from its phase start; the second foot must raise it by at
+least 0.12 m from the cycle start. Stabilization requires a per-environment random 50--100
+consecutive valid frames (1--2 seconds at 50 Hz); losing a hand attachment,
+foot support, torso-speed limit, or joint-speed limit resets the hold counter.
+Every successful phase transition is stored in a bounded, per-phase GPU state
+bank. Once a phase is unlocked, 50% of training resets sample uniformly from
+the available phase boundaries; the remaining resets retain the deterministic
+climbing keyframe. A restored state includes root/joint position and velocity,
+hand-anchor poses, weld state, and the hand/foot rung assignments before the
+requested phase is configured. Boundary-started episodes still contribute PPO
+experience but do not enter the promotion window. The adaptive curriculum records every eligible full-prefix terminal episode as
 a success only when it reaches the boundary after the currently unlocked
 phase; falls, low-root termination, and ordinary episode timeout are failures.
 The next phase opens only when both conditions hold:
 
 - the rolling window contains 100 episodes and its success rate is strictly
   greater than 80% (at least 81 successes);
-- the current phase has accumulated at least 120,000 environment steps.
+- the current phase has accumulated its configured minimum environment steps.
 
-With `num_steps_per_env=24`, the minimum budget is 5,000 PPO iterations per
-transition. If every phase passes immediately when eligible, the earliest
-schedule is:
+With `num_steps_per_env=24`, initial stabilization uses 36,000 environment
+steps (1,500 PPO iterations), while every later transition uses 120,000 steps
+(5,000 iterations). If every phase passes immediately when eligible, the
+earliest schedule is:
 
 | Phase available | Earliest environment step | Earliest PPO iteration |
 |---|---:|---:|
 | Stabilize | 0 | 0 |
-| First hand | 120,000 | 5,000 |
-| Second hand | 240,000 | 10,000 |
-| First foot | 360,000 | 15,000 |
-| Second foot/full cycle | 480,000 | 20,000 |
+| First hand | 36,000 | 1,500 |
+| Second hand | 156,000 | 6,500 |
+| First foot | 276,000 | 11,500 |
+| Second foot/full cycle | 396,000 | 16,500 |
 
 If success is 80% or lower, the phase remains locked regardless of elapsed
 steps. Reaching a locked boundary truncates the short prefix episode so PPO can
-start another attempt without waiting for the normal timeout. Reward weights
-switch on the matching long-run scale:
+start another attempt without waiting for the normal timeout. The reward set is
+fixed throughout training:
 
-| Environment step | Hand/foot progress | Torso ascent/stability | Hand advance | Foot advance | Stable/cycle/finish |
-|---:|---:|---:|---:|---:|---:|
-| 0 | 4 / 8 | 12 / 10 | 25 | 50 | 30 / 80 / 100 |
-| 240,000 | 6 / 12 | 16 / 8 | 35 | 70 | 25 / 120 / 180 |
-| 480,000 | 8 / 16 | 20 / 6 | 45 | 90 | 20 / 160 / 260 |
+| Term | Weight |
+|---|---:|
+| Supported novel maximum whole-body height | 20 |
+| Phase-aware signed foot placement | 8 |
+| Phase-conditioned target progress | 8 |
+| Any ordered phase completion | 25 |
+| Stabilization torso-orientation squared error | -1 |
+| Unsuccessful episode termination | -50 |
+| Final success | 100 |
+| Survival (constant one) | 3 |
+| Action rate | -0.5 |
+| Joint limits | -10 |
+| Self-contact slots above 1 N | -0.1 |
+| Ankle-joint acceleration squared | -2.5e-6 |
 
-Torso ascent is active only in a foot phase with both hands attached. A dense
-torso-speed reward, stronger upright reward, stronger action-rate and global
-joint-velocity penalties, joint-acceleration penalty, and an additional
-support-joint velocity penalty stabilize the trunk and the limbs that must stay
-fixed. Foot-contact and foot-transition weights are deliberately larger than
-the hand equivalents. Transition and completion rewards remain dt-independent
-one-step impulses. The ladder runner merges outcome windows across all GPUs and
-saves the unlocked phase, phase-start step, and recent outcomes in checkpoints.
+
+Progress and foot placement are separate terms for each of the five phases:
+`ladder_<phase>_progress` and `ladder_<phase>_foot_placement`. Each has weight 8
+and returns zero outside its phase; their sum equals the original unsplit
+shaping reward. All histories update before masking. Height and event bonuses
+are shared; orientation applies only to stabilization. Shared regularizers use
+the tracking task's self-contact sensor and ankle-joint selection; there is no
+additional all-joint acceleration penalty.
+
+The reward per control step is
+`dt * (20 H + sum_p I_p (8 P_p + 8 F_p) - I_stabilize O + 3 - 0.5 A - 10 L - 0.1 C - 2.5e-6 Q) + 25 B - 50 D + 100 S`.
+Here H is the supported novel-height rate, P and F are the existing clipped
+progress and foot-placement rates, O is squared torso-orientation error,
+A is squared action change, L is soft joint-limit excess, C counts self-contact
+slots above 1 N, and Q sums squared ankle-joint accelerations. B, D, and S are
+phase-completion, unsuccessful-termination, and success event indicators.
+The event terms already divide by dt internally, so their bonuses are impulses.
+
+The terminal failure term applies to ordinary timeout, stalled `PRE_RELEASE`,
+falls, and low-root endings. Final success and the intentional truncation at a
+completed locked curriculum boundary are excluded.
+
+The novel-height term records the maximum mean pelvis/torso COM height reached
+since the episode reset. It always advances that record, but pays a positive
+increase only while the physical supports required by the current phase are
+present. An unsupported jump therefore consumes the new record without earning
+reward, and returning to that height cannot collect it later. The term returns
+`delta_height / step_dt`; after reward-manager timestep scaling, its maximum
+episode contribution is `20 * (max_height - initial_height)` and is independent
+of the control frequency.
+
+The foot-placement term is also a signed potential difference, not a dense
+reward for remaining in place. During stabilization and hand phases, both feet
+are evaluated against their currently assigned rungs. During a foot phase, the
+support foot remains assigned to its held rung while the selected foot is
+evaluated against the new target rung. Placement quality combines physical
+rung contact with an exponential distance score using a 0.06 m standard
+deviation. Establishing the desired contact pays the positive potential change,
+losing it applies the equal negative change, and unchanged contact produces
+zero reward. A closed detach/reattach cycle therefore has zero net reward and
+cannot be farmed through contact chatter; an unsupported body launch also loses
+placement potential and receives no height reward.
+
+The phase-conditioned potential contains normalized distance to the active hand
+or foot target and, during hand phases, continuous release progress
+`1 - grip_strength` with coefficient `1.0`; whole-body height is handled
+exclusively by the novel-height term. Reversing the grip ramp therefore returns
+the same progress as a negative reward, so a closed soften/regrip cycle has zero
+net reward. `STABILIZE` pays only increases of its per-phase maximum normalized
+dwell progress. Resetting and rebuilding an already reached partial hold pays
+zero, preventing discounted dwell cycles from being farmed.
+Positive target progress normally receives 25% strength while phase support or
+posture constraints are invalid and full strength when they are valid. Once the
+selected hand is detached, positive hand-target progress instead receives zero
+unless those constraints are valid, preventing an unstable dive toward the bar
+from earning progress.
+Negative target progress is never attenuated. A movement phase completes only after the same support and
+support-relative COM-offset check also holds with torso speed at most 0.20 m/s
+and joint-speed RMS at most 1.0 rad/s. Torso orientation remains available to
+reward shaping and diagnostics but no longer blocks phase transitions.
+Initial stabilization additionally requires torso and pelvis angular speed at
+most 0.40 rad/s and every waist-joint speed at most 0.60 rad/s. Its soft
+orientation penalty discourages twisting without turning orientation into a
+hard transition condition.
+Phase-completion and success rewards are dt-independent
+one-step impulses. The ladder runner
+merges outcome windows across all GPUs and
+saves the unlocked phase, phase-start step, recent outcomes, and phase-boundary
+bank in checkpoints.
 Resuming a fixed-schedule checkpoint fails explicitly because it has no
 adaptive curriculum state. Playback and benchmarking unlock every phase
-immediately and use final-stage weights.
+immediately and use the same fixed reward definition.
 
 The long-run ladder PPO preset uses 60,000 iterations, saves every 1,000
-iterations, starts Gaussian exploration at standard deviation 0.7, and uses a
-`5e-4` learning rate with `0.005` entropy coefficient. Ladder training does not
+iterations, starts Gaussian exploration at standard deviation 0.7, clamps its
+effective value to `[0.25, 1.0]`, and uses a `5e-4` learning rate with `0.005`
+entropy coefficient. The ladder runner also projects the raw scalar/log std
+parameter after every update and checkpoint load, so it cannot remain below the
+clamp with zero gradient. Opening a new curriculum phase restores std to `0.7`,
+clears its optimizer momentum, and resets both the adaptive learning-rate state
+and optimizer groups to `5e-4`; `Policy/raw_mean_std` logs the projected raw
+parameter separately from the effective policy std. Ladder training does not
 randomize initial episode lengths, because artificial early timeouts would
 pollute the last-100 curriculum success window.
 
@@ -209,11 +342,19 @@ artifacts. Checkpoints are saved under `logs/rsl_rl/g1_ladder_rl/` and are not
 exported with `save_onnx.py`.
 
 The multi-group TemporalCNN contract is incompatible with earlier 105D/108D and
-flat 117D/120D MLP ladder checkpoints. The current-frame dimensions stay
-117D/120D, but the model now requires history and ladder-geometry inputs. The
-phase one-hot semantics, ordered FSM, climbing keyframe, scheduled rewards,
-active bar contacts, and trunk-blocking collision geometry also require a new
-training run.
+flat 117D/120D MLP ladder checkpoints. The base current-frame dimensions stay
+117D/120D, but the model now requires history, `9 x 15` target-aware
+ladder-geometry inputs, and the critic-only current 14D reward/FSM state.
+Standard full resume from a checkpoint without that critic group is unsupported;
+reusing such a policy requires an explicit actor-only warm start with a newly
+initialized critic. TemporalCNN checkpoints using the earlier `9 x 7`
+endpoint-only geometry are also incompatible. The
+continuous grip-strength scalar and feedback-controlled soft-release mechanic
+also change the meaning and transition distribution of the 24D command. The
+phase one-hot semantics, ordered FSM, climbing keyframe, phase-potential reward and whole-body ascent gates,
+active bar contacts, and trunk-blocking collision geometry therefore require a
+new training run. The curriculum checkpoint version is bumped so attempting to
+resume a policy trained with the former scheduled multi-term reward fails fast.
 
 Multi-GPU launch uses the same per-GPU environment convention:
 
@@ -260,6 +401,24 @@ python train_mimic/scripts/play.py \
     --checkpoint logs/rsl_rl/g1_general_tracking/<run>/model_30000.pt \
     --motion_file data/datasets_precomputed
 ```
+
+The same entry point plays an RL-only ladder checkpoint without a motion
+dataset:
+
+```bash
+python train_mimic/scripts/play.py \
+    --task G1-Ladder-Climb-RL \
+    --checkpoint logs/rsl_rl/g1_ladder_rl/<run>/model_60000.pt \
+    --ladder_phase second_hand
+```
+
+`--ladder_phase` accepts `stabilize`, `first_hand`, `second_hand`,
+`first_foot`, or `second_foot` (the default). It selects the deepest phase in
+the ordered curriculum prefix, not an isolated initial state. For example,
+`second_hand` plays `stabilize -> first_hand -> second_hand` and resets before
+`first_foot`; this keeps the hand attachments and foot supports physically
+consistent. Omit the option, or choose `second_foot`, to play the complete
+climb.
 
 ### Benchmark
 
@@ -320,8 +479,16 @@ automatic reset can appear in the video:
 python train_mimic/scripts/record_ladder_video.py \
     --checkpoint logs/rsl_rl/g1_ladder_rl/<run>/model_60000.pt \
     --output ladder.mp4 \
-    --frames 1000
+    --frames 1000 \
+    --ladder_phase second_hand
 ```
+
+The recorder accepts the same `--ladder_phase` values and ordered-prefix
+semantics as interactive playback. When the option is supplied explicitly,
+the FSM freezes after the selected phase succeeds instead of transitioning or
+terminating at the curriculum boundary. The policy and physics continue until
+the frame limit or a real failure, which makes `stabilize` useful for sustained
+balance inspection. Omit the option to record the complete climb.
 
 The recorder uses a fixed world-space overview from the robot's outside face
 of the ladder (`azimuth=30`, `elevation=-5`, `distance=4.5`) and aims at the

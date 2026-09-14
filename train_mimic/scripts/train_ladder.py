@@ -161,7 +161,27 @@ def _run_worker(args: argparse.Namespace) -> None:
             "curriculum_success_threshold": ladder_cmd.curriculum_success_threshold,
             "curriculum_window_size": ladder_cmd.curriculum_window_size,
             "curriculum_min_phase_steps": list(ladder_cmd.curriculum_min_phase_steps),
+            "boundary_state_reset_prob": ladder_cmd.boundary_state_reset_prob,
+            "boundary_state_bank_size": ladder_cmd.boundary_state_bank_size,
             "stabilization_dwell_steps": ladder_cmd.stabilization_dwell_steps,
+            "stabilization_dwell_max_steps": ladder_cmd.stabilization_dwell_max_steps,
+            "max_stabilization_support_offset_error": (
+                ladder_cmd.max_stabilization_support_offset_error
+            ),
+            "release_preload_dwell_steps": ladder_cmd.release_preload_dwell_steps,
+            "release_ramp_steps": ladder_cmd.release_ramp_steps,
+            "release_final_dwell_steps": ladder_cmd.release_final_dwell_steps,
+            "release_recovery_steps": ladder_cmd.release_recovery_steps,
+            "pre_release_timeout_steps": ladder_cmd.pre_release_timeout_steps,
+            "max_release_torso_speed": ladder_cmd.max_release_torso_speed,
+            "max_release_torso_orientation_error": (
+                ladder_cmd.max_release_torso_orientation_error
+            ),
+            "max_release_support_offset_error": (
+                ladder_cmd.max_release_support_offset_error
+            ),
+            "release_soft_timeconst": ladder_cmd.release_soft_timeconst,
+            "release_soft_impedance": ladder_cmd.release_soft_impedance,
             "hand_target_dwell_steps": ladder_cmd.hand_target_dwell_steps,
             "foot_target_dwell_steps": ladder_cmd.foot_target_dwell_steps,
         },
