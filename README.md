@@ -67,7 +67,8 @@ The ladder policy has its own entry point and does not use motion clips,
 retargeting, imitation rewards, or the tracking runner:
 
 ```bash
-pip install -e '.[train]'
+pip install -e '.[train,collision-build]'
+python scripts/setup/download_assets.py --only robots g1_collision
 python train_mimic/scripts/train_ladder.py \
     --num_envs 4096 \
     --max_iterations 60000
@@ -92,11 +93,15 @@ python -c "import warp as wp; print(wp.__version__)"
 
 Both ladder faces use fixed collidable side rails and individual flat-topped
 box rungs. These bars are rigid, use stiff contacts, and cannot be crossed by
-the robot, while the visible space between adjacent rungs remains empty. A thin
-invisible blocker is offset behind each face and uses a separate collision mask:
-it stops the pelvis, torso, and head from entering the A-frame, but hands and
-feet pass through it to reach the exposed bars. The flat rung tops give each
-foot a stable support surface. Episodes start directly in a climbing pose: both
+the robot. The space between adjacent rungs is physically open; there are no
+invisible face blockers. Ladder training replaces the coarse G1 body primitives
+with convex parts built from the OmniRetarget/Holosoma G1 collision surfaces.
+The overlay covers the pelvis, torso, head, legs, forearms and wrists; canonical
+hand capsules and grip sites are retained. It preserves the canonical 29 joints,
+mass, inertia, actuators and visual meshes. Other G1 tasks use the canonical
+collisions. See the [collision asset guide](docs/docs/tutorials/training.md#ladder-collision-assets)
+for the pinned source and build requirements. The flat rung tops give each
+foot a support surface. Episodes start directly in a climbing pose: both
 feet are on physical rung 2 and both hands initially hold rung 5. An explicit
 five-phase FSM repeats the same order on every rung: stabilize all four
 supports, move the first hand, move the second hand, step with the first foot,
@@ -212,7 +217,7 @@ moiré, duplicate-plane contacts, and shadow artifacts in video. The resulting
 policy fuses current state, temporal history, and ladder geometry through
 separate Conv1d encoders before the scaled `(2048, 1024, 512, 256, 128)` MLP.
 The ordered phase-command and adaptive-curriculum semantics, climbing keyframe,
-phase-potential reward, whole-body ascent gates, active bar contacts, trunk-blocking collision geometry, and
+phase-potential reward, whole-body ascent gates, active bar contacts, refined surface collision geometry, and
 multi-group TemporalCNN inputs require a fresh ladder training run. The
 critic-only 14D group also changes the critic input signature, so standard full
 checkpoint resume from an earlier ladder model is unsupported; preserving an

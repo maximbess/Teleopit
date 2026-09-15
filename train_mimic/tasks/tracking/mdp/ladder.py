@@ -1062,7 +1062,7 @@ class LadderClimbCommand(CommandTerm):
         """Serialize adaptive curriculum state for a training checkpoint."""
 
         return {
-            "version": 2,
+            "version": 3,
             "unlocked_phase": self._unlocked_phase,
             "phase_start_step": self._curriculum_phase_start_step,
             "recent_outcomes": list(self._recent_curriculum_outcomes),
@@ -1078,8 +1078,12 @@ class LadderClimbCommand(CommandTerm):
             self._recent_curriculum_outcomes.clear()
             self._pending_curriculum_outcomes.clear()
             return
-        if state.get("version") != 2:
-            raise ValueError("Unsupported ladder curriculum checkpoint version")
+        if state.get("version") != 3:
+            raise ValueError(
+                "Unsupported ladder curriculum checkpoint version: train a fresh "
+                "policy for the refined G1 contact model; old boundary states "
+                "and curriculum outcomes are not valid under the new collisions"
+            )
         unlocked_phase = int(state["unlocked_phase"])
         if (
             not int(LadderPhase.STABILIZE)

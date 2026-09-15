@@ -190,9 +190,9 @@ def main():
     )
     parser.add_argument(
         "--only",
-        choices=list(ASSET_GROUPS.keys()),
+        choices=[*ASSET_GROUPS, "g1_collision"],
         nargs="+",
-        help="Only download specific asset groups (default: all)",
+        help="Asset groups (default: all hosted groups; g1_collision is an explicit GitHub download and CPU build)",
     )
     parser.add_argument(
         "--source",
@@ -209,13 +209,22 @@ def main():
     args = parser.parse_args()
 
     groups = args.only or list(ASSET_GROUPS.keys())
-
-    if args.source == "huggingface":
-        cache_dir = Path(args.cache_dir) if args.cache_dir else PROJECT_ROOT / "data" / "huggingface_cache"
-        download_all_hf(groups, cache_dir)
-    else:
-        cache_dir = Path(args.cache_dir) if args.cache_dir else PROJECT_ROOT / "data" / "modelscope_cache"
-        download_all(groups, cache_dir)
+    build_collision = "g1_collision" in groups
+    groups = [group for group in groups if group != "g1_collision"]
+    # The overlay builder needs the canonical robot meshes, so hosted assets
+    # must be placed before building an explicitly requested collision group.
+    if groups:
+        if args.source == "huggingface":
+            cache_dir = Path(args.cache_dir) if args.cache_dir else PROJECT_ROOT / "data" / "huggingface_cache"
+            download_all_hf(groups, cache_dir)
+        else:
+            cache_dir = Path(args.cache_dir) if args.cache_dir else PROJECT_ROOT / "data" / "modelscope_cache"
+            download_all(groups, cache_dir)
+    if build_collision:
+        if str(PROJECT_ROOT) not in sys.path:
+            sys.path.insert(0, str(PROJECT_ROOT))
+        from scripts.setup.download_g1_collision import build_assets
+        build_assets()
 
 
 if __name__ == "__main__":

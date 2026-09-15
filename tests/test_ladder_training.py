@@ -596,7 +596,7 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
     spec = robot_cfg.spec_fn()
     model = Entity(robot_cfg).spec.compile()
 
-    assert robot_cfg.init_state.pos == (-0.911384, 0.0, 1.357509)
+    assert robot_cfg.init_state.pos == (-0.913384, 0.0, 1.364509)
     arm_actuator_effort_limits = {
         actuator_cfg.effort_limit
         for actuator_cfg in robot_cfg.articulation.actuators
@@ -748,10 +748,9 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
     assert backstop_id == -1
     assert rung_id >= 0
     assert rail_id >= 0
-    assert blocker_id >= 0
+    assert blocker_id == -1
     assert model.geom_type[rung_id] == mujoco.mjtGeom.mjGEOM_BOX
     assert model.geom_type[rail_id] == mujoco.mjtGeom.mjGEOM_CAPSULE
-    assert model.geom_type[blocker_id] == mujoco.mjtGeom.mjGEOM_BOX
     assert model.geom_size[rung_id].tolist() == pytest.approx([0.055, 0.35, 0.035])
     assert model.geom_contype[rung_id] == 1
     assert model.geom_conaffinity[rung_id] == 1
@@ -761,58 +760,15 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
     assert model.geom_condim[rail_id] == 4
     assert model.geom_solref[rung_id].tolist() == pytest.approx([0.005, 1.0])
     assert model.geom_solref[rail_id].tolist() == pytest.approx([0.005, 1.0])
-    assert model.geom_contype[blocker_id] == 2
-    assert model.geom_conaffinity[blocker_id] == 2
-    assert model.geom_rgba[blocker_id, 3] == 0.0
-
-    torso_id = mujoco.mj_name2id(
-        model,
-        mujoco.mjtObj.mjOBJ_GEOM,
-        "torso_collision",
-    )
-    foot_id = mujoco.mj_name2id(
-        model,
-        mujoco.mjtObj.mjOBJ_GEOM,
-        "left_foot1_collision",
-    )
-
-    def collision_masks_match(first_id: int, second_id: int) -> bool:
-        return bool(
-            (model.geom_contype[first_id] & model.geom_conaffinity[second_id])
-            or (model.geom_contype[second_id] & model.geom_conaffinity[first_id])
-        )
-
-    assert model.geom_contype[torso_id] == 3
-    assert model.geom_conaffinity[torso_id] == 3
-    assert model.geom_contype[foot_id] == 1
-    assert model.geom_conaffinity[foot_id] == 1
-    assert collision_masks_match(torso_id, blocker_id)
-    assert not collision_masks_match(foot_id, blocker_id)
-    assert collision_masks_match(foot_id, rung_id)
-
-    # Move the initialized robot's trunk onto the left ladder face and verify
-    # that the configured model produces a real blocker contact.  This tests
-    # the post-Entity collision configuration used by MJLab/MJWarp, not merely
-    # the raw geom attributes emitted by the spec builder.
-    blocker_contact_data = mujoco.MjData(model)
-    blocker_contact_data.qpos[:] = data.qpos
-    blocker_contact_data.qpos[0] = -0.50
-    mujoco.mj_forward(model, blocker_contact_data)
-    blocker_contact_geoms = set()
-    for contact in blocker_contact_data.contact:
-        geom_pair = (int(contact.geom[0]), int(contact.geom[1]))
-        if blocker_id not in geom_pair:
-            continue
-        other_geom = geom_pair[1] if geom_pair[0] == blocker_id else geom_pair[0]
-        blocker_contact_geoms.add(
-            mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, other_geom)
-        )
-    assert blocker_contact_geoms & {
-        "pelvis_collision",
-        "torso_collision",
-        "head_collision",
-    }
-    assert not any(name.startswith("left_foot") for name in blocker_contact_geoms)
+    # Every refined surface remains enabled after the stock G1 editor.
+    names = [mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, i) or "" for i in range(model.ngeom)]
+    refined = [i for i, name in enumerate(names) if "_omni_" in name]
+    assert refined
+    assert all(model.geom_type[i] == mujoco.mjtGeom.mjGEOM_MESH for i in refined)
+    assert all(model.geom_contype[i] == model.geom_conaffinity[i] == 1 for i in refined)
+    assert any(name.startswith("pelvis_contour_omni_") for name in names)
+    assert model.geom_priority[rung_id] == 2
+    assert model.geom_priority[rail_id] == 2
 
     left_ladder_geoms = {
         mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, geom_id)
@@ -822,7 +778,6 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
         ).startswith("left_ladder_")
     }
     assert left_ladder_geoms == {
-        "left_ladder_body_blocker",
         "left_ladder_rail_01",
         "left_ladder_rail_02",
         *(f"left_ladder_rung_{index:02d}" for index in range(1, 10)),
@@ -862,6 +817,7 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
         )
         >= 0
     )
+
 
 
 def test_ladder_fsm_executes_stabilize_hands_then_feet_in_order() -> None:
@@ -1556,13 +1512,14 @@ def test_ladder_curriculum_state_round_trip() -> None:
     assert restored.drain_curriculum_outcomes() == [1, 0]
 
 
-def test_ladder_curriculum_rejects_pre_phase_potential_checkpoint() -> None:
+@pytest.mark.parametrize("version", [1, 2])
+def test_ladder_curriculum_rejects_old_reward_or_collision_checkpoint(version) -> None:
     command = _dummy_ladder_command()
 
     with pytest.raises(ValueError, match="Unsupported ladder curriculum"):
         command.load_curriculum_state_dict(
             {
-                "version": 1,
+                "version": version,
                 "unlocked_phase": int(LadderPhase.STABILIZE),
                 "phase_start_step": 0,
             }

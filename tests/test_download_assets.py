@@ -75,3 +75,23 @@ def test_clear_cached_entry_sources_removes_stale_data_files(tmp_path: Path) -> 
     _clear_cached_entry_sources(tmp_path, [entry])
 
     assert not dataset_cache.exists()
+
+
+def test_robot_download_precedes_collision_build(monkeypatch):
+    from scripts.setup import download_assets, download_g1_collision
+    calls = []
+    monkeypatch.setattr(sys, "argv", ["download_assets.py", "--only", "robots", "g1_collision"])
+    monkeypatch.setattr(download_assets, "download_all", lambda groups, cache: calls.append(tuple(groups)))
+    monkeypatch.setattr(download_g1_collision, "build_assets", lambda: calls.append("collision"))
+    download_assets.main()
+    assert calls == [("robots",), "collision"]
+
+
+def test_collision_only_does_not_download_hosted_assets(monkeypatch):
+    from scripts.setup import download_assets, download_g1_collision
+    calls = []
+    monkeypatch.setattr(sys, "argv", ["download_assets.py", "--only", "g1_collision"])
+    monkeypatch.setattr(download_assets, "download_all", lambda *_: calls.append("hosted"))
+    monkeypatch.setattr(download_g1_collision, "build_assets", lambda: calls.append("collision"))
+    download_assets.main()
+    assert calls == ["collision"]
