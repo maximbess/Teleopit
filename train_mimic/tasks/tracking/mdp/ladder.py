@@ -5,6 +5,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import IntEnum
 import math
+import re
 from typing import TYPE_CHECKING, Literal, cast
 
 import mujoco
@@ -2962,6 +2963,71 @@ class LadderFootRecoveryReward:
         self._previous_key[:] = key
         self._valid_previous[:] = valid
         return reward
+
+
+class LadderStabilizationPoseCost:
+    """Deviation from the fixed climbing keyframe, never from a reset-bank pose."""
+
+    def __init__(self, cfg: object, env: ManagerBasedRlEnv) -> None:
+        params = getattr(cfg, "params")
+        command = _ladder_command(env, params["command_name"])
+        names = command.robot.joint_names
+        reference = params["reference_joint_pos"]
+        weights = params["joint_weights"]
+
+        def resolve(mapping: dict[str, float], default: float) -> torch.Tensor:
+            values = []
+            for name in names:
+                matches = [value for pattern, value in mapping.items() if re.fullmatch(pattern, name)]
+                if len(matches) > 1:
+                    raise ValueError(f"Ambiguous ladder pose parameter for {name}")
+                values.append(matches[0] if matches else default)
+            return torch.tensor(values, device=env.device)
+
+        self._reference = resolve(reference, 0.0)
+        self._weights = resolve(weights, 0.5)
+        self._sigma = float(params["sigma"])
+        if self._sigma <= 0 or not bool((self._weights > 0).all()):
+            raise ValueError("Ladder pose sigma and joint weights must be positive")
+
+    def reset(self, env_ids: torch.Tensor | slice | None = None) -> None:
+        # The reference is intentionally independent of reset and bank sampling.
+        pass
+
+    def __call__(self, env: ManagerBasedRlEnv, command_name: str,
+                 reference_joint_pos: dict[str, float], joint_weights: dict[str, float],
+                 sigma: float) -> torch.Tensor:
+        command = _ladder_command(env, command_name)
+        error = ((command.robot.data.joint_pos - self._reference) / self._sigma).square()
+        active = command.initialized & ~command.finished & command.is_stabilization_phase
+        return (error * self._weights).sum(-1) / self._weights.sum() * active.float()
+
+
+def ladder_stabilization_joint_velocity_l2(
+    env: ManagerBasedRlEnv, command_name: str,
+) -> torch.Tensor:
+    """Mean squared joint speed in units of 1 rad/s, with no dead zone."""
+    command = _ladder_command(env, command_name)
+    active = command.initialized & ~command.finished & command.is_stabilization_phase
+    return command.robot.data.joint_vel.square().mean(-1) * active.float()
+
+
+def ladder_unwanted_contact_cost(
+    env: ManagerBasedRlEnv, sensor_name: str | tuple[str, ...], force_threshold: float = 1.0,
+) -> torch.Tensor:
+    """Count bodies with a current ladder contact, not historical contact points."""
+    names = (sensor_name,) if isinstance(sensor_name, str) else sensor_name
+    hits = []
+    for name in names:
+        sensor = env.scene[name]
+        if sensor.cfg.num_slots != 1:
+            raise ValueError("Unwanted ladder contacts require one slot per body")
+        force = sensor.data.force
+        assert force is not None
+        hits.append(torch.linalg.vector_norm(force, dim=-1) > force_threshold)
+    # Both face sensors use the same ordered primary bodies. Count a body once
+    # even when it touches both faces simultaneously.
+    return torch.stack(hits).any(dim=0).sum(-1).float()
 
 
 def ladder_stabilization_violation(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:

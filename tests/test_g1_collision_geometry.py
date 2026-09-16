@@ -108,6 +108,43 @@ def test_refined_initial_contacts_and_mesh_budget():
     assert all(any("_foot_omni_" in name for name in pair) for pair, _ in contacts), contacts
 
 
+def test_unwanted_contact_sensors_compile_with_both_faces():
+    cfg = config.make_g1_ladder_rl_env_cfg()
+    robot = Entity(cfg.scene.entities["robot"])
+    scene = mujoco.MjSpec()
+    scene.attach(robot.spec, prefix="robot/", frame=scene.worldbody.add_frame())
+    sensors = [s.build() for s in cfg.scene.sensors
+               if s.name.startswith("ladder_unwanted_contact_")]
+    assert len(sensors) == 2
+    for sensor in sensors:
+        sensor.edit_spec(scene, {"robot": robot})
+    assert sensors[0].primary_names == sensors[1].primary_names
+    assert "pelvis" in sensors[0].primary_names
+    assert "torso_link" in sensors[0].primary_names
+    assert "left_knee_link" in sensors[0].primary_names
+    assert "left_elbow_link" in sensors[0].primary_names
+    assert not set(sensors[0].primary_names) & set(sensors[0].cfg.primary.exclude)
+    model = scene.compile()
+    reference_ids = {int(model.sensor_refid[i]) for i in range(model.nsensor)
+                     if model.sensor(i).name.startswith("ladder_unwanted_contact_")}
+    assert reference_ids == {model.body("robot/left_ladder_body").id,
+                             model.body("robot/right_ladder_body").id}
+
+
+def test_ladder_convex_contacts_have_zero_margin_for_warp_multiccd():
+    cfg = config.make_g1_ladder_training_robot_cfg()
+    # Check both assembly layers: the stock collision editor can overwrite
+    # values emitted by the scene builder before Warp receives the model.
+    for model in (cfg.spec_fn().compile(), Entity(cfg).spec.compile()):
+        ids = [i for i in range(model.ngeom)
+               if model.geom_contype[i] or model.geom_conaffinity[i]]
+        convex_ids = [i for i in ids if model.geom_type[i] in (
+            mujoco.mjtGeom.mjGEOM_BOX, mujoco.mjtGeom.mjGEOM_MESH)]
+        assert convex_ids
+        np.testing.assert_array_equal(model.geom_margin[convex_ids], 0.0)
+        np.testing.assert_array_equal(model.pair_margin, 0.0)
+
+
 def test_collision_surfaces_align_with_canonical_visuals():
     cfg = config.make_g1_ladder_training_robot_cfg()
     model = Entity(cfg).spec.compile()

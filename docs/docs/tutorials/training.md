@@ -229,6 +229,9 @@ fixed throughout training:
 | Missing required foot support (per foot) | -2 |
 | Contact-independent held-foot recovery progress | 4 |
 | Stabilization threshold violation | -1 |
+| Stabilization normalized fixed-pose deviation | -2 |
+| Stabilization mean squared joint speed | -0.2 |
+| Unwanted ladder-contact bodies above 1 N, all phases | -2 |
 | Action rate | -0.1 |
 | Joint limits | -10 |
 | Self-contact slots above 1 N | -0.1 |
@@ -244,7 +247,19 @@ the tracking task's self-contact sensor and ankle-joint selection; there is no
 additional all-joint acceleration penalty.
 
 The reward per control step is
-`dt * (20 H + sum_p I_p (8 P_p + 8 F_p) + 4 R - 2 M - I_stabilize (O + V) + 3 (1 - I_stabilize) - 0.1 A - 10 L - 0.1 C - 2.5e-6 Q) + 25 B - 50 D + 100 S`.
+`dt * (20 H + sum_p I_p (8 P_p + 8 F_p) + 4 R - 2 M - I_stabilize (O + V + 2 E_q + 0.2 E_v) - 2 N_bad + 3 (1 - I_stabilize) - 0.1 A - 10 L - 0.1 C - 2.5e-6 Q) + 25 B - 50 D + 100 S`.
+
+The stabilization pose cost is `E_q = sum_j w_j ((q_j-q_start_j)/0.25)^2 / sum_j w_j`.
+The reference is the fixed initial ladder keyframe, including zero for unspecified
+joints; reset-bank states never replace it. Hip, knee and waist weights are 2,
+ankle weights are 1, and arm weights are 0.5. `E_v = mean_j (joint_vel_j / 1 rad/s)^2`
+has no dead zone and also applies only during stabilization. `N_bad` counts bodies
+whose current maximum ladder-contact force exceeds 1 N, excluding wrist-yaw hand
+bodies and ankle-roll foot bodies. A dedicated body sensor covers both ladder
+faces (rails and rungs), with one slot per body and no contact history. This cost
+applies in every phase; convex decomposition does not multiply the body count.
+There is no invisible face blocker. Height shaping and phase-transition gates
+are unchanged. The reward manager applies `dt` once to these three new costs.
 Here H is the supported novel-height rate, P and F are the existing clipped
 progress and foot-placement rates, O is squared torso-orientation error,
 A is squared action change, L is soft joint-limit excess, C counts self-contact
@@ -418,7 +433,9 @@ uses its own rubber-hand grip mechanic. The canonical G1 XML still owns all 29
 joints, masses, inertias, actuator settings and visual meshes. Tracking and
 inference keep their original collision model.
 
-Rails and rungs retain their declared stiff contact parameters and use higher
+Rails and rungs use zero collision margins with MULTICCD enabled: MuJoCo Warp
+does not support nonzero margins for MULTICCD box/mesh pairs.
+They retain their declared stiff contact parameters and use higher
 contact priority than robot feet (`condim=4`, sliding friction 1.4 on rails and
 1.8 on rungs). Robot-material randomization alone therefore does not vary the
 ladder contact material. More collision parts increase collision work; measure

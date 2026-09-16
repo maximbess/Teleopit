@@ -161,7 +161,7 @@ def _add_ladder_to_g1_spec(spec: mujoco.MjSpec) -> None:
                 friction=(1.4, 0.02, 0.002),
                 solref=(0.005, 1.0),
                 solimp=(0.99, 0.999, 0.001, 0.5, 2.0),
-                margin=0.002,
+                margin=0.0,
                 rgba=(0.55, 0.55, 0.58, 1.0),
             )
 
@@ -193,7 +193,7 @@ def _add_ladder_to_g1_spec(spec: mujoco.MjSpec) -> None:
                 friction=(1.8, 0.02, 0.002),
                 solref=(0.005, 1.0),
                 solimp=(0.99, 0.999, 0.001, 0.5, 2.0),
-                margin=0.002,
+                margin=0.0,
                 rgba=(0.55, 0.55, 0.58, 1.0),
             )
             side_body.add_site(
@@ -331,6 +331,8 @@ def make_g1_ladder_training_robot_cfg(robot_xml: str | Path | None = None):
     # match ``.*_collision``.  The generated ladder uses semantic names, so it
     # must be explicitly re-enabled after the default editor runs. Robot and
     # ladder collide through their real surfaces; no invisible face blocker.
+    # MuJoCo Warp rejects nonzero margins on box/mesh pairs with MULTICCD.
+    # Preserve MULTICCD and use zero margins in both raw and edited geometry.
     robot_cfg.collisions = (
         *robot_cfg.collisions,
         spec_cfg.CollisionCfg(
@@ -342,7 +344,7 @@ def make_g1_ladder_training_robot_cfg(robot_xml: str | Path | None = None):
             friction=(1.4, 0.02, 0.002),
             solref=(0.005, 1.0),
             solimp=(0.99, 0.999, 0.001, 0.5, 2.0),
-            margin=0.002,
+            margin=0.0,
             disable_other_geoms=False,
         ),
         spec_cfg.CollisionCfg(
@@ -354,7 +356,7 @@ def make_g1_ladder_training_robot_cfg(robot_xml: str | Path | None = None):
             friction=(1.8, 0.02, 0.002),
             solref=(0.005, 1.0),
             solimp=(0.99, 0.999, 0.001, 0.5, 2.0),
-            margin=0.002,
+            margin=0.0,
             disable_other_geoms=False,
         ),
     )
@@ -843,6 +845,29 @@ def make_g1_ladder_rl_env_cfg(
             func=mdp.LadderFootRecoveryReward, weight=4.0,
             params={"command_name": "ladder", "reach_distance": 0.35},
         ),
+        "ladder_stabilization_pose": RewardTermCfg(
+            func=mdp.LadderStabilizationPoseCost, weight=-2.0,
+            params={
+                "command_name": "ladder",
+                "reference_joint_pos": dict(_LADDER_INITIAL_JOINT_POS),
+                "joint_weights": {
+                    ".*_hip_.*_joint": 2.0,
+                    ".*_knee_joint": 2.0,
+                    "waist_.*_joint": 2.0,
+                    ".*_ankle_.*_joint": 1.0,
+                },
+                "sigma": 0.25,
+            },
+        ),
+        "ladder_stabilization_joint_velocity": RewardTermCfg(
+            func=mdp.ladder_stabilization_joint_velocity_l2, weight=-0.2,
+            params={"command_name": "ladder"},
+        ),
+        "ladder_unwanted_contact": RewardTermCfg(
+            func=mdp.ladder_unwanted_contact_cost, weight=-2.0,
+            params={"sensor_name": ("ladder_unwanted_contact_left", "ladder_unwanted_contact_right"),
+                    "force_threshold": 1.0},
+        ),
         "ladder_stabilization_violation": RewardTermCfg(
             func=mdp.ladder_stabilization_violation, weight=-1.0,
             params={"command_name": "ladder"},
@@ -925,6 +950,20 @@ def make_g1_ladder_rl_env_cfg(
                     num_slots=1,
                     history_length=4,
                 ),
+                *(ContactSensorCfg(
+                    name=f"ladder_unwanted_contact_{side}",
+                    primary=ContactMatch(
+                        mode="body", pattern=r"pelvis|.*_link", entity="robot",
+                        exclude=("left_wrist_yaw_link", "right_wrist_yaw_link",
+                                 "left_ankle_roll_link", "right_ankle_roll_link"),
+                    ),
+                    secondary=ContactMatch(
+                        mode="body", pattern=f"{side}_ladder_body",
+                        entity="robot",
+                    ),
+                    fields=("found", "force"), reduce="maxforce", num_slots=1,
+                    history_length=0,
+                ) for side in ("left", "right")),
             ),
             num_envs=1,
             env_spacing=0.0,

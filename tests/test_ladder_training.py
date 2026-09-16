@@ -339,6 +339,9 @@ def test_ladder_task_is_rl_only() -> None:
         "ladder_missing_foot_support",
         "ladder_foot_recovery",
         "ladder_stabilization_violation",
+        "ladder_stabilization_pose",
+        "ladder_stabilization_joint_velocity",
+        "ladder_unwanted_contact",
         "action_rate",
         "survival",
         "self_collisions",
@@ -446,6 +449,8 @@ def test_ladder_task_is_rl_only() -> None:
     assert cfg.viewer.enable_reflections is False
     assert tuple(sensor.name for sensor in cfg.scene.sensors) == (
         "ladder_foot_contact",
+        "ladder_unwanted_contact_left",
+        "ladder_unwanted_contact_right",
         "self_collision",
     )
     assert load_runner_cls(LADDER_RL_TASK) is LadderOnPolicyRunner
