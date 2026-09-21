@@ -115,7 +115,8 @@ rewind options. It uses a TemporalCNN policy with separate Conv1d encoders for
 state history and ladder geometry. The 24D ladder command produces the 117D
 current actor group and a 120D clean critic group; each side also receives a
 10-frame history and a `9 x 15` torso-frame rung-token tensor. The critic alone
-receives a separate current-only 14D privileged vector. It exposes whole-body
+receives a separate current-only 15D privileged vector, including normalized
+remaining episode time. It exposes whole-body
 height, episode height record and record gap, cycle/phase ascent, torso speed,
 torso-orientation and support-offset errors, joint-speed RMS, two physical foot
 supports, phase-required support validity, release-ramp progress, and normalized
@@ -379,7 +380,7 @@ exported with `save_onnx.py`.
 The multi-group TemporalCNN contract is incompatible with earlier 105D/108D and
 flat 117D/120D MLP ladder checkpoints. The base current-frame dimensions stay
 117D/120D, but the model now requires history, `9 x 15` target-aware
-ladder-geometry inputs, and the critic-only current 14D reward/FSM state.
+ladder-geometry inputs, and the critic-only current 15D reward/FSM/time state.
 Standard full resume from a checkpoint without that critic group is unsupported;
 reusing such a policy requires an explicit actor-only warm start with a newly
 initialized critic. TemporalCNN checkpoints using the earlier `9 x 7`
@@ -442,8 +443,17 @@ ladder contact material. More collision parts increase collision work; measure
 training throughput on the intended GPU before choosing an environment count.
 Train a fresh policy for this contact model; loading old weights does not
 restore the previous collision physics or make cached boundary states valid.
-Curriculum checkpoint version 3 rejects full training resume from earlier
-reward/contact models. Playback may evaluate old weights under the new physics.
+Curriculum checkpoint version 4 rejects full training resume from earlier
+reward/contact models. Older actor weights also use different phase-normalization
+semantics, so playback under the new model is not an equivalent reproduction.
+
+Ladder phase indicators bypass empirical normalization in the actor and critic,
+including their histories and exported policies. Continuous features retain
+running normalization. Self-collision sensors select only G1 body links, excluding
+the ladder bodies embedded in the same entity. The 20-second task deadline is a
+terminal failure with a -50 impulse and no PPO timeout bootstrap. The critic sees
+normalized remaining time in its current-only privileged group; successful locked
+curriculum boundaries remain truncations and incur no failure penalty.
 
 Multi-GPU launch uses the same per-GPU environment convention:
 

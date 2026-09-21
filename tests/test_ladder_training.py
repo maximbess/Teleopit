@@ -327,7 +327,7 @@ def test_ladder_task_is_rl_only() -> None:
     assert cfg.observations["actor_history"].history_length == 10
     assert cfg.observations["actor_history"].flatten_history_dim is False
     assert set(cfg.observations["actor_ladder"].terms) == {"rung_tokens_torso"}
-    assert set(cfg.observations["critic_privileged"].terms) == {"ladder_privileged"}
+    assert set(cfg.observations["critic_privileged"].terms) == {"ladder_privileged", "remaining_time"}
     assert cfg.observations["critic_privileged"].history_length is None
     assert not any(name.startswith("motion_") for name in cfg.rewards)
     assert set(cfg.rewards) == {
@@ -508,8 +508,8 @@ def test_ladder_task_uses_temporal_geometry_ppo_config() -> None:
     rl_cfg = load_rl_cfg(LADDER_RL_TASK)
 
     assert rl_cfg.experiment_name == LADDER_RL_EXPERIMENT_NAME
-    assert rl_cfg.actor.class_name.endswith(":TemporalCNNModel")
-    assert rl_cfg.critic.class_name.endswith(":TemporalCNNModel")
+    assert rl_cfg.actor.class_name.endswith(":LadderTemporalCNNModel")
+    assert rl_cfg.critic.class_name.endswith(":LadderTemporalCNNModel")
     assert rl_cfg.actor.hidden_dims == (2048, 1024, 512, 256, 128)
     assert rl_cfg.critic.hidden_dims == (2048, 1024, 512, 256, 128)
     assert rl_cfg.obs_groups == {
@@ -1517,7 +1517,7 @@ def test_ladder_curriculum_state_round_trip() -> None:
     assert restored.drain_curriculum_outcomes() == [1, 0]
 
 
-@pytest.mark.parametrize("version", [1, 2])
+@pytest.mark.parametrize("version", [1, 2, 3])
 def test_ladder_curriculum_rejects_old_reward_or_collision_checkpoint(version) -> None:
     command = _dummy_ladder_command()
 

@@ -1063,7 +1063,7 @@ class LadderClimbCommand(CommandTerm):
         """Serialize adaptive curriculum state for a training checkpoint."""
 
         return {
-            "version": 3,
+            "version": 4,
             "unlocked_phase": self._unlocked_phase,
             "phase_start_step": self._curriculum_phase_start_step,
             "recent_outcomes": list(self._recent_curriculum_outcomes),
@@ -1079,7 +1079,7 @@ class LadderClimbCommand(CommandTerm):
             self._recent_curriculum_outcomes.clear()
             self._pending_curriculum_outcomes.clear()
             return
-        if state.get("version") != 3:
+        if state.get("version") != 4:
             raise ValueError(
                 "Unsupported ladder curriculum checkpoint version: train a fresh "
                 "policy for the refined G1 contact model; old boundary states "
@@ -3531,6 +3531,11 @@ def ladder_rung_tokens_torso(
     """Expose target-aware ladder geometry as ``(B, num_rungs, 15)`` tokens."""
 
     return _ladder_command(env, command_name).rung_tokens_torso
+
+
+def ladder_remaining_time(env: ManagerBasedRlEnv) -> torch.Tensor:
+    """Normalized time to the terminal deadline, current critic frame only."""
+    return (1.0 - env.episode_length_buf.float() / env.max_episode_length).clamp(0.0, 1.0).unsqueeze(-1)
 
 
 def ladder_critic_privileged(

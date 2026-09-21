@@ -129,6 +129,12 @@ def test_unwanted_contact_sensors_compile_with_both_faces():
                      if model.sensor(i).name.startswith("ladder_unwanted_contact_")}
     assert reference_ids == {model.body("robot/left_ladder_body").id,
                              model.body("robot/right_ladder_body").id}
+    self_sensor = next(s for s in cfg.scene.sensors if s.name == "self_collision").build()
+    self_sensor.edit_spec(scene, {"robot": robot})
+    assert "pelvis" in self_sensor.primary_names
+    assert "torso_link" in self_sensor.primary_names
+    assert not any("ladder" in name or "anchor" in name for name in self_sensor.primary_names)
+    scene.compile()
 
 
 def test_ladder_convex_contacts_have_zero_margin_for_warp_multiccd():

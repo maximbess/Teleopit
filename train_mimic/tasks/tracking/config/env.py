@@ -461,7 +461,7 @@ def _configure_self_collision_reward(cfg: ManagerBasedRlEnvCfg) -> None:
             # Exclude only primary wrist bodies; wrist vs torso is still caught by torso.
             primary=ContactMatch(
                 mode="body",
-                pattern=r".*",
+                pattern=r"pelvis|.*_link",
                 entity="robot",
                 exclude=excluded_body_names,
             ),
@@ -652,7 +652,8 @@ def make_g1_ladder_rl_env_cfg(
                 "ladder_privileged": ObservationTermCfg(
                     func=mdp.ladder_critic_privileged,
                     params={"command_name": "ladder"},
-                )
+                ),
+                "remaining_time": ObservationTermCfg(func=mdp.ladder_remaining_time),
             },
             concatenate_terms=True,
             enable_corruption=False,
@@ -893,7 +894,8 @@ def make_g1_ladder_rl_env_cfg(
             )
 
     terminations = {
-        "time_out": TerminationTermCfg(func=mdp.time_out, time_out=True),
+        # The task deadline is a terminal failure, not a bootstrapped truncation.
+        "time_out": TerminationTermCfg(func=mdp.time_out, time_out=False),
         "success": TerminationTermCfg(
             func=mdp.ladder_success,
             params={"command_name": "ladder"},
