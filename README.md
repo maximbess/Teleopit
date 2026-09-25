@@ -319,6 +319,16 @@ sync metadata in the HDF5 episode. The low-dimensional HDF5 schema records
 reference qpos sent to the policy path, and `action.hand(12)` as the latest
 LinkerHand left/right 6D pose commands.
 
+## Autoresearch
+
+`autoresearch/` is a file-backed controller for repository tasks. It invokes Cursor CLI, runs the configured validation commands, and commits the result on the `autoresearch` branch. Usage, including task restart and the `cursor-agent` prerequisite, is in [`autoresearch/README.md`](autoresearch/README.md).
+
+```bash
+python -m autoresearch.controller new --from-file idea.txt
+python -m autoresearch.controller run 0001
+python -m autoresearch.controller status
+```
+
 ## Documentation
 
 Full docs at **[BotRunner64.github.io/Teleopit](https://BotRunner64.github.io/Teleopit/)**, covering installation profiles, all tutorials, configuration reference, and architecture.

@@ -1,0 +1,26 @@
+# Cursor-driven task controller. `run` refuses to start unless the
+# checkout is on `branch` with no unexpected uncommitted changes.
+branch: autoresearch
+model: grok-4.7
+max_validation_attempts: 4
+push: true
+remote: origin
+
+cursor:
+  bin: cursor-agent
+  sandbox: disabled
+  force: true
+
+validation:
+  commands:
+    - python -m compileall -q teleopit train_mimic autoresearch
+    - pytest tests/ -q
+
+# The agent may write under autoresearch/runs/<task_id>/. Other matches
+# fail validation and are sent back to the same Cursor session.
+protected_paths:
+  - autoresearch/controller.py
+  - autoresearch/agent.py
+  - autoresearch/events.py
+  - autoresearch/config.yaml
+  - autoresearch/prompts

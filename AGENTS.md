@@ -87,6 +87,15 @@ train_mimic/              # Training package
     └── save_onnx.py      # Export TemporalCNN ONNX
 ```
 
+```
+autoresearch/             # File-backed Cursor task controller
+├── controller.py         # Task lifecycle, validation, and git
+├── agent.py              # Cursor CLI adapter
+├── events.py             # Append-only events.jsonl
+├── config.yaml           # Model, validation commands, protected paths
+└── prompts/              # Standing agent instructions
+```
+
 ## Key Technical Details
 
 ### Sim2Sim Pipeline
@@ -342,6 +351,21 @@ Critical note: align robot root orientation to the BVH human forward direction b
 pip install -e .
 pytest tests/ -v
 ```
+
+### Autoresearch
+
+`autoresearch/` runs repository tasks through Cursor CLI (`cursor-agent`) and then checks the result itself. Task state is the append-only log `autoresearch/runs/<id>/events.jsonl`. `run` is safe to repeat after a crash. Tasks run on the `autoresearch` branch. After validation passes, the controller commits and pushes that branch to `origin`.
+
+Cluster result import is not part of this controller yet. A task that needs training stops after writing `cluster.md` and committing the pre-training change.
+
+```bash
+python -m autoresearch.controller new --from-file idea.txt
+python -m autoresearch.controller run 0001
+python -m autoresearch.controller status
+python -m autoresearch.controller continue 0001 "follow-up"
+```
+
+Model, validation commands, and protected paths are in `autoresearch/config.yaml`. See `autoresearch/README.md`.
 
 ## Known Issues
 
