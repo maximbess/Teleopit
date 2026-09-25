@@ -1,0 +1,1 @@
+I want you to analyze changes done in the last two commits by maximbess and clean up some garbage files/artifacts he created and adding that to gitignore. Also clean up *Tidy up everything related to climbing so it still works, but code is smaller and more readable. If you identify any bugs - debug and report

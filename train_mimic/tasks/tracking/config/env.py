@@ -178,7 +178,8 @@ def _add_ladder_to_g1_spec(spec: mujoco.MjSpec) -> None:
             condim=1,
             solref=(0.005, 1.0),
             solimp=(0.99, 0.999, 0.001, 0.5, 2.0),
-            margin=0.002,
+            # Warp multi-CCD rejects a nonzero margin on box contacts.
+            margin=0.0,
             rgba=(0.0, 0.0, 0.0, 0.0),
         )
         for rail_index, y in enumerate(
@@ -228,7 +229,7 @@ def _add_ladder_to_g1_spec(spec: mujoco.MjSpec) -> None:
                 friction=(1.8, 0.02, 0.002),
                 solref=(0.005, 1.0),
                 solimp=(0.99, 0.999, 0.001, 0.5, 2.0),
-                margin=0.002,
+                margin=0.0,
                 rgba=(0.55, 0.55, 0.58, 1.0),
             )
             side_body.add_site(
@@ -366,6 +367,8 @@ def make_g1_ladder_training_robot_cfg(robot_xml: str | Path | None = None):
     # must be explicitly re-enabled after the default editor runs.  A separate
     # collision bit lets the invisible face blocker stop only the trunk while
     # hands and feet can still reach and stand on the physical rungs.
+    # The editor overwrites generated margins, so box rungs and the trunk
+    # blocker stay at zero here as well. Warp multi-CCD rejects any other value.
     robot_cfg.collisions = (
         *robot_cfg.collisions,
         spec_cfg.CollisionCfg(
@@ -387,7 +390,7 @@ def make_g1_ladder_training_robot_cfg(robot_xml: str | Path | None = None):
             friction=(1.8, 0.02, 0.002),
             solref=(0.005, 1.0),
             solimp=(0.99, 0.999, 0.001, 0.5, 2.0),
-            margin=0.002,
+            margin=0.0,
             disable_other_geoms=False,
         ),
         spec_cfg.CollisionCfg(
@@ -397,7 +400,7 @@ def make_g1_ladder_training_robot_cfg(robot_xml: str | Path | None = None):
             condim=1,
             solref=(0.005, 1.0),
             solimp=(0.99, 0.999, 0.001, 0.5, 2.0),
-            margin=0.002,
+            margin=0.0,
             disable_other_geoms=False,
         ),
         spec_cfg.CollisionCfg(

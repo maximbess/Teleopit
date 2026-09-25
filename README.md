@@ -91,7 +91,9 @@ python -c "import warp as wp; print(wp.__version__)"
 ```
 
 Both ladder faces use fixed collidable side rails and individual flat-topped
-box rungs. These bars are rigid, use stiff contacts, and cannot be crossed by
+box rungs. These bars are rigid and use stiff contacts. Box rungs and the trunk
+blocker use zero contact margin so MuJoCo Warp multi-CCD accepts the model;
+capsule rails keep a 2 mm margin. The bars cannot be crossed by
 the robot, while the visible space between adjacent rungs remains empty. A thin
 invisible blocker is offset behind each face and uses a separate collision mask:
 it stops the pelvis, torso, and head from entering the A-frame, but hands and

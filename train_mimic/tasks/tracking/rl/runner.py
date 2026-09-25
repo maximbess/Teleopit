@@ -321,7 +321,6 @@ class LadderOnPolicyRunner(MjlabOnPolicyRunner):
         map_location: str | None = None,
     ) -> dict:
         infos = super().load(path, load_cfg, strict, map_location)
-        self._project_actor_std()
         command = self._ladder_command()
         state = (infos or {}).get("ladder_curriculum_state")
         if state is None:
@@ -330,8 +329,10 @@ class LadderOnPolicyRunner(MjlabOnPolicyRunner):
                     "Checkpoint does not contain adaptive ladder curriculum state. "
                     "Start a fresh run instead of resuming a fixed-schedule checkpoint."
                 )
+            self._project_actor_std()
             return infos
         command.load_curriculum_state_dict(state)
+        self._project_actor_std()
         return infos
 
 

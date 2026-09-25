@@ -10,6 +10,9 @@ from train_mimic.tasks.tracking.config.constants import (
 _TEMPORAL_CNN_MODEL_CLASS = (
     "train_mimic.tasks.tracking.rl.temporal_cnn_model:TemporalCNNModel"
 )
+_LADDER_TEMPORAL_CNN_MODEL_CLASS = (
+    "train_mimic.tasks.tracking.rl.ladder_model:LadderTemporalCNNModel"
+)
 _CNN_CFG: dict = {
     "output_channels": (256, 128, 64),
     "kernel_size": 3,
@@ -74,7 +77,7 @@ def make_g1_ladder_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
 
     return RslRlOnPolicyRunnerCfg(
         actor=RslRlModelCfg(
-            class_name=_TEMPORAL_CNN_MODEL_CLASS,
+            class_name=_LADDER_TEMPORAL_CNN_MODEL_CLASS,
             hidden_dims=(2048, 1024, 512, 256, 128),
             activation="elu",
             obs_normalization=True,
@@ -87,7 +90,7 @@ def make_g1_ladder_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
             },
         ),
         critic=RslRlModelCfg(
-            class_name=_TEMPORAL_CNN_MODEL_CLASS,
+            class_name=_LADDER_TEMPORAL_CNN_MODEL_CLASS,
             hidden_dims=(2048, 1024, 512, 256, 128),
             activation="elu",
             obs_normalization=True,

@@ -324,7 +324,9 @@ invisible blocker is offset behind each face. Its separate collision mask stops
 the pelvis, torso, and head from entering the A-frame while allowing hands and
 feet to reach the exposed bars, so the gaps remain visually open. The ladder
 collision configuration explicitly re-enables all generated rails and rungs
-after G1's default collision editor. The five-phase FSM commands only one moving
+after G1's default collision editor. Box rungs and the trunk blocker use zero
+contact margin so MuJoCo Warp's multi-CCD solver accepts the model; capsule
+rails keep a 2 mm margin. The five-phase FSM commands only one moving
 limb at a time. Both hands are attached throughout both foot phases, and the
 non-moving foot remains a physical support.
 
@@ -342,7 +344,11 @@ artifacts. Checkpoints are saved under `logs/rsl_rl/g1_ladder_rl/` and are not
 exported with `save_onnx.py`.
 
 The multi-group TemporalCNN contract is incompatible with earlier 105D/108D and
-flat 117D/120D MLP ladder checkpoints. The base current-frame dimensions stay
+flat 117D/120D MLP ladder checkpoints. Ladder actor and critic normalization
+leaves the leading five phase one-hot values unchanged in the current frame and
+in history; tracking policies still normalize every feature. A checkpoint
+trained with the previous fully normalized phase bits is not equivalent under
+this model. The base current-frame dimensions stay
 117D/120D, but the model now requires history, `9 x 15` target-aware
 ladder-geometry inputs, and the critic-only current 14D reward/FSM state.
 Standard full resume from a checkpoint without that critic group is unsupported;

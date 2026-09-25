@@ -104,3 +104,12 @@ data/modelscope_upload/
 # Codex local workspace state
 .codex
 .omx/
+
+# Jupyter autosaves and local scratch notebooks
+.ipynb_checkpoints/
+/*.ipynb
+
+# Abandoned experimental ladder scene. Training generates the ladder onto
+# the canonical G1 XML; do not commit a second mesh tree.
+assets/ladder_g1/
+assets/ladders/

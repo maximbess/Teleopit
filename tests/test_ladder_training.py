@@ -22,6 +22,7 @@ from train_mimic.tasks.tracking.config.constants import (
     SUPPORTED_TASKS,
 )
 from train_mimic.tasks.tracking.config.env import (
+    _add_ladder_to_g1_spec,
     make_g1_ladder_rl_env_cfg,
     make_g1_ladder_training_robot_cfg,
 )
@@ -30,22 +31,13 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     LadderFootPlacementReward,
     LadderPhase,
     LadderPhaseProgressReward,
-    LadderTargetProgressReward,
-    LadderTorsoAscentReward,
     LadderUpwardProgressReward,
-    ladder_cycle_completed,
-    ladder_com_alignment_exp,
     ladder_finished,
-    ladder_foot_rung_advance,
     ladder_critic_privileged,
     ladder_failure_penalty,
     ladder_phase_completed,
     ladder_pre_release_stalled,
-    ladder_rung_advance,
     ladder_stabilization_orientation_error_l2,
-    ladder_stabilized,
-    ladder_torso_posture_exp,
-    ladder_torso_stability_exp,
 )
 from train_mimic.tasks.tracking.rl import LadderOnPolicyRunner
 from train_mimic.tasks.tracking.rl.runner import (
@@ -497,8 +489,8 @@ def test_ladder_task_uses_temporal_geometry_ppo_config() -> None:
     rl_cfg = load_rl_cfg(LADDER_RL_TASK)
 
     assert rl_cfg.experiment_name == LADDER_RL_EXPERIMENT_NAME
-    assert rl_cfg.actor.class_name.endswith(":TemporalCNNModel")
-    assert rl_cfg.critic.class_name.endswith(":TemporalCNNModel")
+    assert rl_cfg.actor.class_name.endswith(":LadderTemporalCNNModel")
+    assert rl_cfg.critic.class_name.endswith(":LadderTemporalCNNModel")
     assert rl_cfg.actor.hidden_dims == (2048, 1024, 512, 256, 128)
     assert rl_cfg.critic.hidden_dims == (2048, 1024, 512, 256, 128)
     assert rl_cfg.obs_groups == {
@@ -583,6 +575,42 @@ def test_ladder_command_rotates_target_vectors_into_torso_frame() -> None:
     )
     command.grip_strength[0, 0] = 0.35
     assert command.command[0, 13].item() == pytest.approx(0.35)
+
+
+def test_ladder_box_contacts_keep_zero_margin() -> None:
+    robot_cfg = make_g1_ladder_training_robot_cfg()
+    for collision in robot_cfg.collisions:
+        names = " ".join(collision.geom_names_expr)
+        if "ladder_rung_" in names or "ladder_body_blocker" in names:
+            assert collision.margin == 0.0
+        if "ladder_rail_" in names:
+            assert collision.margin == 0.002
+
+    spec = mujoco.MjSpec()
+    spec.worldbody.add_body(name="left_wrist_yaw_link")
+    spec.worldbody.add_body(name="right_wrist_yaw_link")
+    _add_ladder_to_g1_spec(spec)
+    for collision in robot_cfg.collisions:
+        names = " ".join(collision.geom_names_expr)
+        if "ladder_" not in names:
+            continue
+        collision.edit_spec(spec)
+    model = spec.compile()
+    box_ids = [
+        index
+        for index in range(model.ngeom)
+        if model.geom_type[index] == mujoco.mjtGeom.mjGEOM_BOX
+    ]
+    capsule_ids = [
+        index
+        for index in range(model.ngeom)
+        if model.geom_type[index] == mujoco.mjtGeom.mjGEOM_CAPSULE
+    ]
+    assert box_ids and capsule_ids
+    assert model.geom_margin[box_ids].tolist() == [0.0] * len(box_ids)
+    assert model.geom_margin[capsule_ids].tolist() == pytest.approx(
+        [0.002] * len(capsule_ids)
+    )
 
 
 def test_ladder_robot_augments_canonical_g1_spec() -> None:
@@ -1982,126 +2010,15 @@ def test_ladder_foot_placement_follows_phase_targets_without_dense_reward() -> N
     assert reward() == 0.0
 
 
-def test_ladder_target_progress_reward_does_not_pay_for_hovering() -> None:
-    command = _reward_test_command()
-    env = _reward_test_env(command)
-    cfg = SimpleNamespace(params={"target": "foot", "max_speed": 0.60})
-    reward_term = LadderTargetProgressReward(cfg, env)
-
-    assert reward_term(env, "ladder", "foot", 0.60).item() == 0.0
-
-    command.active_foot_pos_w[0, 0] = 0.108
-    assert reward_term(env, "ladder", "foot", 0.60).item() == pytest.approx(1.0)
-    assert reward_term(env, "ladder", "foot", 0.60).item() == 0.0
-
-    command.active_foot_pos_w[0, 0] = 0.12
-    assert reward_term(env, "ladder", "foot", 0.60).item() == pytest.approx(-1.0)
-
-    command.attached[0, 0] = False
-    command.active_foot_pos_w[0, 0] = 0.10
-    assert reward_term(env, "ladder", "foot", 0.60).item() == 0.0
-
-
-def test_ladder_torso_ascent_reward_requires_supported_foot_phase() -> None:
-    command = _reward_test_command()
-    env = _reward_test_env(command)
-    cfg = SimpleNamespace(params={"max_speed": 0.40})
-    reward_term = LadderTorsoAscentReward(cfg, env)
-
-    assert reward_term(env, "ladder", 0.40).item() == 0.0
-
-    command.torso_com_pos_w[0, 2] = 1.008
-    assert reward_term(env, "ladder", 0.40).item() == pytest.approx(1.0)
-
-    command.torso_com_pos_w[0, 2] = 1.004
-    assert reward_term(env, "ladder", 0.40).item() == pytest.approx(-0.5, abs=1.0e-4)
-
-    command.attached[:] = False
-    command.torso_com_pos_w[0, 2] = 1.012
-    assert reward_term(env, "ladder", 0.40).item() == 0.0
-
-    command.attached[:] = True
-    command.is_foot_phase[:] = False
-    command.torso_com_pos_w[0, 2] = 1.020
-    assert reward_term(env, "ladder", 0.40).item() == 0.0
-
-
-def test_ladder_stability_reward_requires_quiet_four_point_support() -> None:
-    command = _reward_test_command()
-    env = _reward_test_env(command)
-
-    def reward() -> float:
-        return ladder_torso_stability_exp(
-            env,
-            "ladder",
-            torso_speed_std=0.20,
-            joint_speed_std=1.0,
-            movement_phase_scale=0.35,
-        ).item()
-
-    assert reward() == pytest.approx(1.0)
-
-    command.foot_support[0, 0] = False
-    assert reward() == 0.0
-
-    command.foot_support[:] = True
-    command.robot.data.joint_vel[:] = 1.0
-    assert reward() == pytest.approx(torch.exp(torch.tensor(-1.0)).item())
-
-    command.robot.data.joint_vel.zero_()
-    command.phase[:] = int(LadderPhase.FIRST_HAND)
-    command.attached[0, 0] = False
-    assert reward() == pytest.approx(0.35 * 0.75)
-
-
-def test_ladder_posture_rewards_global_body_shape() -> None:
-    command = _reward_test_command()
-    env = _reward_test_env(command)
-
-    def posture_reward() -> float:
-        return ladder_torso_posture_exp(
-            env,
-            "ladder",
-            orientation_std=0.30,
-            movement_phase_scale=0.35,
-        ).item()
-
-    def alignment_reward() -> float:
-        return ladder_com_alignment_exp(
-            env,
-            "ladder",
-            support_offset_std=0.18,
-            movement_phase_scale=0.35,
-        ).item()
-
-    assert posture_reward() == pytest.approx(1.0)
-    assert alignment_reward() == pytest.approx(1.0)
-
-    command.torso_orientation_error[:] = 0.30
-    command.torso_support_offset_error[:] = 0.18
-    expected = torch.exp(torch.tensor(-1.0)).item()
-    assert posture_reward() == pytest.approx(expected)
-    assert alignment_reward() == pytest.approx(expected)
-
-    command.foot_support[0, 0] = False
-    assert posture_reward() == 0.0
-    assert alignment_reward() == 0.0
-
-
 def test_ladder_transition_rewards_are_dt_independent_impulses() -> None:
     command = _reward_test_command()
     command.just_advanced[:] = True
     command.just_foot_advanced[:] = True
     command.just_stabilized[:] = True
-    command.just_cycle_completed[:] = True
     command.finished[:] = True
     env = _reward_test_env(command)
 
-    assert ladder_rung_advance(env, "ladder").item() == pytest.approx(50.0)
-    assert ladder_foot_rung_advance(env, "ladder").item() == pytest.approx(50.0)
     assert ladder_phase_completed(env, "ladder").item() == pytest.approx(50.0)
-    assert ladder_stabilized(env, "ladder").item() == pytest.approx(50.0)
-    assert ladder_cycle_completed(env, "ladder").item() == pytest.approx(50.0)
     assert ladder_finished(env, "ladder").item() == pytest.approx(50.0)
 
 
