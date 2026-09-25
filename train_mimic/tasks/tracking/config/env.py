@@ -31,6 +31,7 @@ from train_mimic.tasks.tracking.config.constants import DEFAULT_TRAIN_MOTION_FIL
 from train_mimic.tasks.tracking.mdp import MotionCommandCfg
 from train_mimic.tasks.tracking.tracking_env_cfg import make_tracking_env_cfg
 from teleopit.runtime.assets import UNITREE_G1_XML, missing_gmr_assets_message
+from .g1_collision import apply_g1_collision_overlay
 
 _TRACKING_BODY_NAMES = (
     "pelvis",
@@ -65,8 +66,6 @@ _LADDER_RAIL_RADIUS = 0.050
 _LADDER_RUNG_HALF_DEPTH = 0.055
 _LADDER_RUNG_HALF_HEIGHT = 0.035
 _LADDER_GRIP_RADIUS = 0.075
-_LADDER_BODY_BLOCKER_HALF_THICKNESS = 0.015
-_LADDER_BODY_BLOCKER_MASK = 2
 _LADDER_START_RUNG = 4
 _LADDER_INITIAL_FOOT_RUNG = 1
 _LADDER_FOOT_CONTACT_SENSOR = "ladder_foot_contact"
@@ -75,19 +74,19 @@ _LADDER_CURRICULUM_MIN_PHASE_STEPS = (36_000, 120_000, 120_000, 120_000)
 # Symmetric climbing pose computed against the generated left ladder face.  The
 # sole sites sit just outside and above physical rung 2, while the grip sites
 # are within attachment range of rung 5.
-_LADDER_INITIAL_ROOT_POS = (-0.911384, 0.0, 1.357509)
+_LADDER_INITIAL_ROOT_POS = (-0.913384, 0.0, 1.364509)
 _LADDER_INITIAL_JOINT_POS = {
     ".*_hip_pitch_joint": -0.228917,
     ".*_knee_joint": 0.657862,
     ".*_ankle_pitch_joint": -0.333096,
     "waist_pitch_joint": -0.184737,
-    ".*_shoulder_pitch_joint": -0.070306,
+    ".*_shoulder_pitch_joint": -0.309773,
     "left_shoulder_roll_joint": 0.160023,
     "right_shoulder_roll_joint": -0.160023,
     "left_shoulder_yaw_joint": -0.034580,
     "right_shoulder_yaw_joint": 0.034580,
-    ".*_elbow_joint": 0.407197,
-    ".*_wrist_pitch_joint": -0.097974,
+    ".*_elbow_joint": 0.569849,
+    ".*_wrist_pitch_joint": -0.076011,
 }
 
 _LADDER_FLOOR_MATERIAL = spec_cfg.MaterialCfg(
@@ -147,41 +146,6 @@ def _add_ladder_to_g1_spec(spec: mujoco.MjSpec) -> None:
     world = spec.worldbody
     for side, base_x in (("left", -_LADDER_HALF_BASE), ("right", _LADDER_HALF_BASE)):
         side_body = world.add_body(name=f"{side}_ladder_body")
-        face_length = math.hypot(base_x, _LADDER_HEIGHT)
-        face_tilt = math.atan2(-base_x, _LADDER_HEIGHT)
-        blocker_offset = (
-            _LADDER_RUNG_HALF_DEPTH + _LADDER_BODY_BLOCKER_HALF_THICKNESS + 0.005
-        )
-        inward_normal_x = -math.copysign(_LADDER_HEIGHT / face_length, base_x)
-        inward_normal_z = -abs(base_x) / face_length
-        side_body.add_geom(
-            name=f"{side}_ladder_body_blocker",
-            type=mujoco.mjtGeom.mjGEOM_BOX,
-            pos=(
-                0.5 * base_x + blocker_offset * inward_normal_x,
-                0.0,
-                0.5 * _LADDER_HEIGHT + blocker_offset * inward_normal_z,
-            ),
-            quat=(
-                math.cos(0.5 * face_tilt),
-                0.0,
-                math.sin(0.5 * face_tilt),
-                0.0,
-            ),
-            size=(
-                _LADDER_BODY_BLOCKER_HALF_THICKNESS,
-                _LADDER_HALF_WIDTH,
-                0.5 * face_length,
-            ),
-            contype=_LADDER_BODY_BLOCKER_MASK,
-            conaffinity=_LADDER_BODY_BLOCKER_MASK,
-            condim=1,
-            solref=(0.005, 1.0),
-            solimp=(0.99, 0.999, 0.001, 0.5, 2.0),
-            # Warp multi-CCD rejects a nonzero margin on box contacts.
-            margin=0.0,
-            rgba=(0.0, 0.0, 0.0, 0.0),
-        )
         for rail_index, y in enumerate(
             (-_LADDER_HALF_WIDTH, _LADDER_HALF_WIDTH),
             start=1,
@@ -197,7 +161,7 @@ def _add_ladder_to_g1_spec(spec: mujoco.MjSpec) -> None:
                 friction=(1.4, 0.02, 0.002),
                 solref=(0.005, 1.0),
                 solimp=(0.99, 0.999, 0.001, 0.5, 2.0),
-                margin=0.002,
+                margin=0.0,
                 rgba=(0.55, 0.55, 0.58, 1.0),
             )
 
@@ -301,6 +265,7 @@ def _get_g1_ladder_training_spec(
     _remove_embedded_ladder_floor(spec)
     _remove_embedded_ladder_lights(spec)
     _add_ladder_to_g1_spec(spec)
+    apply_g1_collision_overlay(spec)
     return spec
 
 
@@ -364,26 +329,27 @@ def make_g1_ladder_training_robot_cfg(robot_xml: str | Path | None = None):
     robot_cfg.init_state.joint_vel = {".*": 0.0}
     # G1's default collision editor disables every geom whose name does not
     # match ``.*_collision``.  The generated ladder uses semantic names, so it
-    # must be explicitly re-enabled after the default editor runs.  A separate
-    # collision bit lets the invisible face blocker stop only the trunk while
-    # hands and feet can still reach and stand on the physical rungs.
-    # The editor overwrites generated margins, so box rungs and the trunk
-    # blocker stay at zero here as well. Warp multi-CCD rejects any other value.
+    # must be explicitly re-enabled after the default editor runs. Robot and
+    # ladder collide through their real surfaces; no invisible face blocker.
+    # MuJoCo Warp rejects nonzero margins on box/mesh pairs with MULTICCD.
+    # Preserve MULTICCD and use zero margins in both raw and edited geometry.
     robot_cfg.collisions = (
         *robot_cfg.collisions,
         spec_cfg.CollisionCfg(
             geom_names_expr=(r"^(left|right)_ladder_rail_[0-9]{2}$",),
+            priority=2,
             contype=1,
             conaffinity=1,
             condim=4,
             friction=(1.4, 0.02, 0.002),
             solref=(0.005, 1.0),
             solimp=(0.99, 0.999, 0.001, 0.5, 2.0),
-            margin=0.002,
+            margin=0.0,
             disable_other_geoms=False,
         ),
         spec_cfg.CollisionCfg(
             geom_names_expr=(r"^(left|right)_ladder_rung_[0-9]{2}$",),
+            priority=2,
             contype=1,
             conaffinity=1,
             condim=4,
@@ -393,22 +359,13 @@ def make_g1_ladder_training_robot_cfg(robot_xml: str | Path | None = None):
             margin=0.0,
             disable_other_geoms=False,
         ),
+    )
+    robot_cfg.collisions = (
+        *robot_cfg.collisions,
         spec_cfg.CollisionCfg(
-            geom_names_expr=(r"^(left|right)_ladder_body_blocker$",),
-            contype=_LADDER_BODY_BLOCKER_MASK,
-            conaffinity=_LADDER_BODY_BLOCKER_MASK,
-            condim=1,
-            solref=(0.005, 1.0),
-            solimp=(0.99, 0.999, 0.001, 0.5, 2.0),
-            margin=0.0,
-            disable_other_geoms=False,
-        ),
-        spec_cfg.CollisionCfg(
-            geom_names_expr=(r"^(pelvis|torso|head)_collision$",),
-            contype=1 | _LADDER_BODY_BLOCKER_MASK,
-            conaffinity=1 | _LADDER_BODY_BLOCKER_MASK,
-            condim=1,
-            disable_other_geoms=False,
+            geom_names_expr=(r"^(left|right)_foot_omni_[0-9]{3}_collision$",),
+            contype=1, conaffinity=1, condim=3, priority=1,
+            friction=(0.6, 0.005, 0.0001), disable_other_geoms=False,
         ),
     )
     xml_path = resolve_g1_training_xml(robot_xml)
@@ -504,7 +461,7 @@ def _configure_self_collision_reward(cfg: ManagerBasedRlEnvCfg) -> None:
             # Exclude only primary wrist bodies; wrist vs torso is still caught by torso.
             primary=ContactMatch(
                 mode="body",
-                pattern=r".*",
+                pattern=r"pelvis|.*_link",
                 entity="robot",
                 exclude=excluded_body_names,
             ),
@@ -695,7 +652,8 @@ def make_g1_ladder_rl_env_cfg(
                 "ladder_privileged": ObservationTermCfg(
                     func=mdp.ladder_critic_privileged,
                     params={"command_name": "ladder"},
-                )
+                ),
+                "remaining_time": ObservationTermCfg(func=mdp.ladder_remaining_time),
             },
             concatenate_terms=True,
             enable_corruption=False,
@@ -876,8 +834,46 @@ def make_g1_ladder_rl_env_cfg(
             weight=100.0,
             params={"command_name": "ladder"},
         ),
-        "survival": RewardTermCfg(func=mdp.survival, weight=3.0),
-        "action_rate": RewardTermCfg(func=mdp.action_rate_l2, weight=-0.5),
+        "survival": RewardTermCfg(
+            func=mdp.ladder_movement_survival, weight=3.0,
+            params={"command_name": "ladder"},
+        ),
+        "ladder_missing_foot_support": RewardTermCfg(
+            func=mdp.ladder_missing_foot_support, weight=-2.0,
+            params={"command_name": "ladder"},
+        ),
+        "ladder_foot_recovery": RewardTermCfg(
+            func=mdp.LadderFootRecoveryReward, weight=4.0,
+            params={"command_name": "ladder", "reach_distance": 0.35},
+        ),
+        "ladder_stabilization_pose": RewardTermCfg(
+            func=mdp.LadderStabilizationPoseCost, weight=-2.0,
+            params={
+                "command_name": "ladder",
+                "reference_joint_pos": dict(_LADDER_INITIAL_JOINT_POS),
+                "joint_weights": {
+                    ".*_hip_.*_joint": 2.0,
+                    ".*_knee_joint": 2.0,
+                    "waist_.*_joint": 2.0,
+                    ".*_ankle_.*_joint": 1.0,
+                },
+                "sigma": 0.25,
+            },
+        ),
+        "ladder_stabilization_joint_velocity": RewardTermCfg(
+            func=mdp.ladder_stabilization_joint_velocity_l2, weight=-0.2,
+            params={"command_name": "ladder"},
+        ),
+        "ladder_unwanted_contact": RewardTermCfg(
+            func=mdp.ladder_unwanted_contact_cost, weight=-2.0,
+            params={"sensor_name": ("ladder_unwanted_contact_left", "ladder_unwanted_contact_right"),
+                    "force_threshold": 1.0},
+        ),
+        "ladder_stabilization_violation": RewardTermCfg(
+            func=mdp.ladder_stabilization_violation, weight=-1.0,
+            params={"command_name": "ladder"},
+        ),
+        "action_rate": RewardTermCfg(func=mdp.action_rate_l2, weight=-0.1),
         "joint_limits": RewardTermCfg(
             func=mdp.joint_pos_limits,
             weight=-10.0,
@@ -898,7 +894,8 @@ def make_g1_ladder_rl_env_cfg(
             )
 
     terminations = {
-        "time_out": TerminationTermCfg(func=mdp.time_out, time_out=True),
+        # The task deadline is a terminal failure, not a bootstrapped truncation.
+        "time_out": TerminationTermCfg(func=mdp.time_out, time_out=False),
         "success": TerminationTermCfg(
             func=mdp.ladder_success,
             params={"command_name": "ladder"},
@@ -955,6 +952,20 @@ def make_g1_ladder_rl_env_cfg(
                     num_slots=1,
                     history_length=4,
                 ),
+                *(ContactSensorCfg(
+                    name=f"ladder_unwanted_contact_{side}",
+                    primary=ContactMatch(
+                        mode="body", pattern=r"pelvis|.*_link", entity="robot",
+                        exclude=("left_wrist_yaw_link", "right_wrist_yaw_link",
+                                 "left_ankle_roll_link", "right_ankle_roll_link"),
+                    ),
+                    secondary=ContactMatch(
+                        mode="body", pattern=f"{side}_ladder_body",
+                        entity="robot",
+                    ),
+                    fields=("found", "force"), reduce="maxforce", num_slots=1,
+                    history_length=0,
+                ) for side in ("left", "right")),
             ),
             num_envs=1,
             env_spacing=0.0,

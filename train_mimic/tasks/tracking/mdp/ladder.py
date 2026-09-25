@@ -5,6 +5,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import IntEnum
 import math
+import re
 from typing import TYPE_CHECKING, Literal, cast
 
 import mujoco
@@ -1062,7 +1063,7 @@ class LadderClimbCommand(CommandTerm):
         """Serialize adaptive curriculum state for a training checkpoint."""
 
         return {
-            "version": 2,
+            "version": 4,
             "unlocked_phase": self._unlocked_phase,
             "phase_start_step": self._curriculum_phase_start_step,
             "recent_outcomes": list(self._recent_curriculum_outcomes),
@@ -1078,8 +1079,12 @@ class LadderClimbCommand(CommandTerm):
             self._recent_curriculum_outcomes.clear()
             self._pending_curriculum_outcomes.clear()
             return
-        if state.get("version") != 2:
-            raise ValueError("Unsupported ladder curriculum checkpoint version")
+        if state.get("version") != 4:
+            raise ValueError(
+                "Unsupported ladder curriculum checkpoint version: train a fresh "
+                "policy for the refined G1 contact model; old boundary states "
+                "and curriculum outcomes are not valid under the new collisions"
+            )
         unlocked_phase = int(state["unlocked_phase"])
         if (
             not int(LadderPhase.STABILIZE)
@@ -2900,6 +2905,395 @@ class LadderFootPlacementReward:
         return reward
 
 
+def _ladder_required_feet(command: LadderClimbCommand) -> torch.Tensor:
+    """Exclude only the selected moving foot during foot phases."""
+    foot_ids = torch.arange(2, device=command.phase.device)
+    return ~(command.is_foot_phase[:, None] & (
+        foot_ids[None, :] == command.active_foot[:, None]
+    ))
+
+
+def ladder_movement_survival(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Keep the survival term outside stabilization only."""
+    command = _ladder_command(env, command_name)
+    return (command.phase != int(LadderPhase.STABILIZE)).float()
+
+
+def ladder_missing_foot_support(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Count missing required physical foot supports on every active step."""
+    command = _ladder_command(env, command_name)
+    missing = (_ladder_required_feet(command) & ~command.foot_support).sum(dim=1)
+    return missing.float() * (command.initialized & ~command.finished).float()
+
+
+class LadderFootRecoveryReward:
+    """Signed approach rate to held foot rungs, including before contact.
+
+    Histories are anchored again on reset or phase/held-rung changes. A selected
+    moving foot is excluded; its existing phase progress handles its new target.
+    """
+
+    def __init__(self, cfg: object, env: ManagerBasedRlEnv) -> None:
+        self._reach_distance = float(getattr(cfg, "params")["reach_distance"])
+        if self._reach_distance <= 0:
+            raise ValueError("reach_distance must be > 0")
+        self._previous_distance = torch.zeros(env.num_envs, device=env.device)
+        self._previous_key = torch.zeros((env.num_envs, 3), dtype=torch.long, device=env.device)
+        self._valid_previous = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+
+    def reset(self, env_ids: torch.Tensor | slice | None = None) -> None:
+        self._valid_previous[slice(None) if env_ids is None else env_ids] = False
+
+    def __call__(self, env: ManagerBasedRlEnv, command_name: str,
+                 reach_distance: float) -> torch.Tensor:
+        del reach_distance
+        command = _ladder_command(env, command_name)
+        required = _ladder_required_feet(command)
+        distances = torch.linalg.vector_norm(
+            command.foot_pos_w - command.held_foot_target_pos_w, dim=-1
+        )
+        # Use a fixed divisor so losing a support cannot change normalization.
+        distance = (distances * required.float()).sum(dim=1) / (2 * self._reach_distance)
+        key = torch.cat((command.phase[:, None], command.foot_rung), dim=1)
+        valid = command.initialized & ~command.finished
+        same_target = self._valid_previous & (key == self._previous_key).all(dim=1)
+        rate = (self._previous_distance - distance) / env.step_dt
+        reward = torch.where(valid & same_target, rate, 0.0)
+        self._previous_distance[:] = distance
+        self._previous_key[:] = key
+        self._valid_previous[:] = valid
+        return reward
+
+
+class LadderStabilizationPoseCost:
+    """Deviation from the fixed climbing keyframe, never from a reset-bank pose."""
+
+    def __init__(self, cfg: object, env: ManagerBasedRlEnv) -> None:
+        params = getattr(cfg, "params")
+        command = _ladder_command(env, params["command_name"])
+        names = command.robot.joint_names
+        reference = params["reference_joint_pos"]
+        weights = params["joint_weights"]
+
+        def resolve(mapping: dict[str, float], default: float) -> torch.Tensor:
+            values = []
+            for name in names:
+                matches = [value for pattern, value in mapping.items() if re.fullmatch(pattern, name)]
+                if len(matches) > 1:
+                    raise ValueError(f"Ambiguous ladder pose parameter for {name}")
+                values.append(matches[0] if matches else default)
+            return torch.tensor(values, device=env.device)
+
+        self._reference = resolve(reference, 0.0)
+        self._weights = resolve(weights, 0.5)
+        self._sigma = float(params["sigma"])
+        if self._sigma <= 0 or not bool((self._weights > 0).all()):
+            raise ValueError("Ladder pose sigma and joint weights must be positive")
+
+    def reset(self, env_ids: torch.Tensor | slice | None = None) -> None:
+        # The reference is intentionally independent of reset and bank sampling.
+        pass
+
+    def __call__(self, env: ManagerBasedRlEnv, command_name: str,
+                 reference_joint_pos: dict[str, float], joint_weights: dict[str, float],
+                 sigma: float) -> torch.Tensor:
+        command = _ladder_command(env, command_name)
+        error = ((command.robot.data.joint_pos - self._reference) / self._sigma).square()
+        active = command.initialized & ~command.finished & command.is_stabilization_phase
+        return (error * self._weights).sum(-1) / self._weights.sum() * active.float()
+
+
+def ladder_stabilization_joint_velocity_l2(
+    env: ManagerBasedRlEnv, command_name: str,
+) -> torch.Tensor:
+    """Mean squared joint speed in units of 1 rad/s, with no dead zone."""
+    command = _ladder_command(env, command_name)
+    active = command.initialized & ~command.finished & command.is_stabilization_phase
+    return command.robot.data.joint_vel.square().mean(-1) * active.float()
+
+
+def ladder_unwanted_contact_cost(
+    env: ManagerBasedRlEnv, sensor_name: str | tuple[str, ...], force_threshold: float = 1.0,
+) -> torch.Tensor:
+    """Count bodies with a current ladder contact, not historical contact points."""
+    names = (sensor_name,) if isinstance(sensor_name, str) else sensor_name
+    hits = []
+    for name in names:
+        sensor = env.scene[name]
+        if sensor.cfg.num_slots != 1:
+            raise ValueError("Unwanted ladder contacts require one slot per body")
+        force = sensor.data.force
+        assert force is not None
+        hits.append(torch.linalg.vector_norm(force, dim=-1) > force_threshold)
+    # Both face sensors use the same ordered primary bodies. Count a body once
+    # even when it touches both faces simultaneously.
+    return torch.stack(hits).any(dim=0).sum(-1).float()
+
+
+def ladder_stabilization_violation(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Dense squared threshold excess; improvement reduces the penalty.
+
+    The five continuous gates contribute equally. Already valid gates cost zero,
+    while hands and feet are handled by attachment mechanics and support costs.
+    """
+    command = _ladder_command(env, command_name)
+    gates = command._stabilization_conditions()
+    values = (
+        (gates["torso_speed"], command.cfg.max_stabilization_torso_speed),
+        (gates["joint_speed_rms"], command.cfg.max_stabilization_joint_speed),
+        (torch.maximum(gates["torso_angular_speed"], gates["pelvis_angular_speed"]),
+         command.cfg.max_stabilization_body_angular_speed),
+        (gates["waist_joint_speed"], command.cfg.max_stabilization_waist_joint_speed),
+        (command.torso_support_offset_error, command.cfg.max_stabilization_support_offset_error),
+    )
+    # A zero configured threshold uses unit scale rather than dividing by zero.
+    errors = [torch.square(torch.clamp(value - limit, min=0) / (limit if limit > 0 else 1.0))
+              for value, limit in values]
+    active = command.initialized & ~command.finished & command.is_stabilization_phase
+    return torch.stack(errors).mean(dim=0) * active.float()
+
+
+class LadderTargetProgressReward:
+    """Reward signed progress toward the active hand or foot target.
+
+    Absolute proximity rewards can be collected forever by hovering near a
+    target.  This stateful term instead returns normalized closing speed.  It
+    yields zero when the target or movement phase changes, positive reward
+    while approaching, zero while stationary, and negative reward while
+    retreating.
+    """
+
+    def __init__(self, cfg: object, env: ManagerBasedRlEnv) -> None:
+        params = getattr(cfg, "params")
+        self._target: Literal["hand", "foot"] = params["target"]
+        self._max_speed = float(params["max_speed"])
+        if self._target not in ("hand", "foot"):
+            raise ValueError("target must be either 'hand' or 'foot'")
+        if self._max_speed <= 0.0:
+            raise ValueError("max_speed must be > 0")
+
+        self._previous_distance = torch.zeros(env.num_envs, device=env.device)
+        self._previous_target_key = torch.full(
+            (env.num_envs,),
+            -1,
+            dtype=torch.long,
+            device=env.device,
+        )
+        self._valid_previous = torch.zeros(
+            env.num_envs,
+            dtype=torch.bool,
+            device=env.device,
+        )
+
+    def reset(self, env_ids: torch.Tensor | slice | None = None) -> None:
+        if env_ids is None:
+            env_ids = slice(None)
+        self._valid_previous[env_ids] = False
+
+    def __call__(
+        self,
+        env: ManagerBasedRlEnv,
+        command_name: str,
+        target: Literal["hand", "foot"],
+        max_speed: float,
+    ) -> torch.Tensor:
+        del target, max_speed
+        command = _ladder_command(env, command_name)
+
+        if self._target == "hand":
+            distance = torch.linalg.vector_norm(
+                command.active_hand_pos_w - command.target_pos_w,
+                dim=-1,
+            )
+            moving_hand_attached = command.attached.gather(
+                1,
+                command.active_hand[:, None],
+            ).squeeze(1)
+            eligible = (
+                command.initialized
+                & ~command.finished
+                & command.is_hand_phase
+                & ~moving_hand_attached
+            )
+            target_key = command.active_hand * command.num_rungs + command.target_rung
+        else:
+            distance = torch.linalg.vector_norm(
+                command.active_foot_pos_w - command.active_foot_target_pos_w,
+                dim=-1,
+            )
+            eligible = (
+                command.initialized
+                & ~command.finished
+                & command.is_foot_phase
+                & command.attached.all(dim=1)
+            )
+            target_key = (
+                command.active_foot * command.num_rungs + command.target_foot_rung
+            )
+
+        same_target = self._valid_previous & (target_key == self._previous_target_key)
+        closing_speed = (self._previous_distance - distance) / env.step_dt
+        reward = torch.clamp(closing_speed / self._max_speed, min=-1.0, max=1.0)
+        reward = torch.where(eligible & same_target, reward, 0.0)
+
+        self._previous_distance[:] = distance
+        self._previous_target_key[:] = target_key
+        self._valid_previous[:] = eligible
+        return reward
+
+
+class LadderTorsoAscentReward:
+    """Reward signed torso-COM ascent during the supported foot phases."""
+
+    def __init__(self, cfg: object, env: ManagerBasedRlEnv) -> None:
+        params = getattr(cfg, "params")
+        self._max_speed = float(params["max_speed"])
+        if self._max_speed <= 0.0:
+            raise ValueError("max_speed must be > 0")
+        self._previous_height = torch.zeros(env.num_envs, device=env.device)
+        self._valid_previous = torch.zeros(
+            env.num_envs,
+            dtype=torch.bool,
+            device=env.device,
+        )
+
+    def reset(self, env_ids: torch.Tensor | slice | None = None) -> None:
+        if env_ids is None:
+            env_ids = slice(None)
+        self._valid_previous[env_ids] = False
+
+    def __call__(
+        self,
+        env: ManagerBasedRlEnv,
+        command_name: str,
+        max_speed: float,
+    ) -> torch.Tensor:
+        del max_speed
+        command = _ladder_command(env, command_name)
+        height = command.torso_com_pos_w[:, 2]
+        gripping = (
+            command.initialized
+            & command.is_foot_phase
+            & command.attached.all(dim=1)
+            & ~command.finished
+        )
+        ascent_speed = (height - self._previous_height) / env.step_dt
+        reward = torch.clamp(ascent_speed / self._max_speed, min=-1.0, max=1.0)
+        reward = torch.where(gripping & self._valid_previous, reward, 0.0)
+
+        self._previous_height[:] = height
+        self._valid_previous[:] = gripping
+        return reward
+
+
+def ladder_support_hand(
+    env: ManagerBasedRlEnv,
+    command_name: str,
+) -> torch.Tensor:
+    command = _ladder_command(env, command_name)
+    attached = command.grip_strength * command.attached.float()
+    moving_hand = command.active_hand[:, None]
+    support_during_hand_phase = attached.scatter(1, moving_hand, 0.0).sum(dim=1)
+    return torch.where(
+        command.is_hand_phase,
+        support_during_hand_phase,
+        attached.mean(dim=1),
+    )
+
+
+def ladder_rung_advance(
+    env: ManagerBasedRlEnv,
+    command_name: str,
+) -> torch.Tensor:
+    return _ladder_command(env, command_name).just_advanced.float() / env.step_dt
+
+
+def ladder_foot_support(
+    env: ManagerBasedRlEnv,
+    command_name: str,
+) -> torch.Tensor:
+    """Reward real foot contact near the rung recorded by the foot FSM."""
+
+    command = _ladder_command(env, command_name)
+    return command.foot_support.float().mean(dim=1)
+
+
+def ladder_torso_stability_exp(
+    env: ManagerBasedRlEnv,
+    command_name: str,
+    torso_speed_std: float,
+    joint_speed_std: float,
+    movement_phase_scale: float,
+) -> torch.Tensor:
+    """Reward quiet support, with a strict four-point stabilization signal.
+
+    During ``STABILIZE`` the reward is non-zero only while both welded hands
+    and both physically contacting feet support the robot.  Later movement
+    phases retain a smaller stability signal based on the fraction of active
+    supports, so the selected limb can move without removing the incentive to
+    keep the rest of the body quiet.
+    """
+
+    command = _ladder_command(env, command_name)
+    torso_speed_sq = torch.sum(torch.square(command.torso_com_vel_w), dim=-1)
+    joint_speed_rms_sq = torch.mean(
+        torch.square(command.robot.data.joint_vel),
+        dim=1,
+    )
+    quiet = torch.exp(
+        -torso_speed_sq / torso_speed_std**2 - joint_speed_rms_sq / joint_speed_std**2
+    )
+
+    hand_support = (command.grip_strength * command.attached.float()).mean(dim=1)
+    foot_support = command.foot_support.float().mean(dim=1)
+    support_fraction = 0.5 * (hand_support + foot_support)
+    four_point_support = (
+        command.attached.all(dim=1) & command.foot_support.all(dim=1)
+    ).float()
+    stabilization_phase = command.phase == int(LadderPhase.STABILIZE)
+    support_quality = torch.where(
+        stabilization_phase,
+        four_point_support,
+        movement_phase_scale * support_fraction,
+    )
+    valid = command.initialized & ~command.finished
+    return quiet * support_quality * valid.float()
+
+
+def _ladder_posture_support_quality(
+    command: LadderClimbCommand,
+    movement_phase_scale: float,
+) -> torch.Tensor:
+    hand_support = (command.grip_strength * command.attached.float()).mean(dim=1)
+    foot_support = command.foot_support.float().mean(dim=1)
+    support_fraction = 0.5 * (hand_support + foot_support)
+    four_point_support = (
+        command.attached.all(dim=1) & command.foot_support.all(dim=1)
+    ).float()
+    return torch.where(
+        command.phase == int(LadderPhase.STABILIZE),
+        four_point_support,
+        movement_phase_scale * support_fraction,
+    )
+
+
+def ladder_torso_posture_exp(
+    env: ManagerBasedRlEnv,
+    command_name: str,
+    orientation_std: float,
+    movement_phase_scale: float,
+) -> torch.Tensor:
+    """Reward the nominal full torso orientation instead of individual joint angles."""
+
+    command = _ladder_command(env, command_name)
+    posture = torch.exp(
+        -torch.square(command.torso_orientation_error) / orientation_std**2
+    )
+    support_quality = _ladder_posture_support_quality(command, movement_phase_scale)
+    valid = command.initialized & ~command.finished
+    return posture * support_quality * valid.float()
+
+
 def ladder_stabilization_orientation_error_l2(
     env: ManagerBasedRlEnv,
     command_name: str,
@@ -2994,6 +3388,11 @@ def ladder_rung_tokens_torso(
     """Expose target-aware ladder geometry as ``(B, num_rungs, 15)`` tokens."""
 
     return _ladder_command(env, command_name).rung_tokens_torso
+
+
+def ladder_remaining_time(env: ManagerBasedRlEnv) -> torch.Tensor:
+    """Normalized time to the terminal deadline, current critic frame only."""
+    return (1.0 - env.episode_length_buf.float() / env.max_episode_length).clamp(0.0, 1.0).unsqueeze(-1)
 
 
 def ladder_critic_privileged(

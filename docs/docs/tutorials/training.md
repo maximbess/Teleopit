@@ -115,7 +115,8 @@ rewind options. It uses a TemporalCNN policy with separate Conv1d encoders for
 state history and ladder geometry. The 24D ladder command produces the 117D
 current actor group and a 120D clean critic group; each side also receives a
 10-frame history and a `9 x 15` torso-frame rung-token tensor. The critic alone
-receives a separate current-only 14D privileged vector. It exposes whole-body
+receives a separate current-only 15D privileged vector, including normalized
+remaining episode time. It exposes whole-body
 height, episode height record and record gap, cycle/phase ascent, torso speed,
 torso-orientation and support-offset errors, joint-speed RMS, two physical foot
 supports, phase-required support validity, release-ramp progress, and normalized
@@ -225,8 +226,14 @@ fixed throughout training:
 | Stabilization torso-orientation squared error | -1 |
 | Unsuccessful episode termination | -50 |
 | Final success | 100 |
-| Survival (constant one) | 3 |
-| Action rate | -0.5 |
+| Survival outside stabilization | 3 |
+| Missing required foot support (per foot) | -2 |
+| Contact-independent held-foot recovery progress | 4 |
+| Stabilization threshold violation | -1 |
+| Stabilization normalized fixed-pose deviation | -2 |
+| Stabilization mean squared joint speed | -0.2 |
+| Unwanted ladder-contact bodies above 1 N, all phases | -2 |
+| Action rate | -0.1 |
 | Joint limits | -10 |
 | Self-contact slots above 1 N | -0.1 |
 | Ankle-joint acceleration squared | -2.5e-6 |
@@ -241,13 +248,43 @@ the tracking task's self-contact sensor and ankle-joint selection; there is no
 additional all-joint acceleration penalty.
 
 The reward per control step is
-`dt * (20 H + sum_p I_p (8 P_p + 8 F_p) - I_stabilize O + 3 - 0.5 A - 10 L - 0.1 C - 2.5e-6 Q) + 25 B - 50 D + 100 S`.
+`dt * (20 H + sum_p I_p (8 P_p + 8 F_p) + 4 R - 2 M - I_stabilize (O + V + 2 E_q + 0.2 E_v) - 2 N_bad + 3 (1 - I_stabilize) - 0.1 A - 10 L - 0.1 C - 2.5e-6 Q) + 25 B - 50 D + 100 S`.
+
+The stabilization pose cost is `E_q = sum_j w_j ((q_j-q_start_j)/0.25)^2 / sum_j w_j`.
+The reference is the fixed initial ladder keyframe, including zero for unspecified
+joints; reset-bank states never replace it. Hip, knee and waist weights are 2,
+ankle weights are 1, and arm weights are 0.5. `E_v = mean_j (joint_vel_j / 1 rad/s)^2`
+has no dead zone and also applies only during stabilization. `N_bad` counts bodies
+whose current maximum ladder-contact force exceeds 1 N, excluding wrist-yaw hand
+bodies and ankle-roll foot bodies. A dedicated body sensor covers both ladder
+faces (rails and rungs), with one slot per body and no contact history. This cost
+applies in every phase; convex decomposition does not multiply the body count.
+There is no invisible face blocker. Height shaping and phase-transition gates
+are unchanged. The reward manager applies `dt` once to these three new costs.
 Here H is the supported novel-height rate, P and F are the existing clipped
 progress and foot-placement rates, O is squared torso-orientation error,
 A is squared action change, L is soft joint-limit excess, C counts self-contact
 slots above 1 N, and Q sums squared ankle-joint accelerations. B, D, and S are
 phase-completion, unsuccessful-termination, and success event indicators.
 The event terms already divide by dt internally, so their bonuses are impulses.
+
+
+M counts missing required physical foot supports on every active step. R is the
+signed decrease of summed required-foot distances to held rungs, divided by
+`2 * 0.35 m * dt`, without a contact multiplier. Foot phases exclude the selected
+moving foot from both terms. Recovery history reanchors on reset and phase or
+held-rung changes; stationary feet receive zero progress and retreat is negative.
+V is the mean squared normalized positive threshold excess for torso linear speed,
+joint-speed RMS, maximum torso/pelvis angular speed, waist-joint speed, and
+support-relative torso offset. Each uses the existing stabilization threshold as
+its scale (unit scale for a zero threshold); valid gates cost zero. This dense
+penalty provides a signal before all gates pass, without altering the dwell or
+phase-transition conditions. Survival is zero during stabilization.
+
+`record_ladder_video.py --ladder_phase first_hand` permits stabilization to advance
+into the first hand phase and freezes transitions only after that hand phase
+succeeds. Reward changes affect subsequent training; they do not change the actions
+of an already trained checkpoint during playback.
 
 The terminal failure term applies to ordinary timeout, stalled `PRE_RELEASE`,
 falls, and low-root endings. Final success and the intentional truncation at a
@@ -319,10 +356,9 @@ pollute the last-100 curriculum success window.
 The ladder geometry and grip sites are generated on top of the canonical
 `assets/robots/unitree_g1/g1_29dof.xml`. Each ladder face uses fixed collidable
 side rails and separate flat-topped box rungs with stiff contacts. The robot
-cannot pass through these bars and the flat rung tops support the feet. A thin
-invisible blocker is offset behind each face. Its separate collision mask stops
-the pelvis, torso, and head from entering the A-frame while allowing hands and
-feet to reach the exposed bars, so the gaps remain visually open. The ladder
+collides with these bars and the flat rung tops support the feet. Gaps are
+physically open: there are no invisible face blockers. The ladder-only G1
+collision overlay described below covers the actual body surfaces. The ladder
 collision configuration explicitly re-enables all generated rails and rungs
 after G1's default collision editor. Box rungs and the trunk blocker use zero
 contact margin so MuJoCo Warp's multi-CCD solver accepts the model; capsule
@@ -350,7 +386,7 @@ in history; tracking policies still normalize every feature. A checkpoint
 trained with the previous fully normalized phase bits is not equivalent under
 this model. The base current-frame dimensions stay
 117D/120D, but the model now requires history, `9 x 15` target-aware
-ladder-geometry inputs, and the critic-only current 14D reward/FSM state.
+ladder-geometry inputs, and the critic-only current 15D reward/FSM/time state.
 Standard full resume from a checkpoint without that critic group is unsupported;
 reusing such a policy requires an explicit actor-only warm start with a newly
 initialized critic. TemporalCNN checkpoints using the earlier `9 x 7`
@@ -358,9 +394,72 @@ endpoint-only geometry are also incompatible. The
 continuous grip-strength scalar and feedback-controlled soft-release mechanic
 also change the meaning and transition distribution of the 24D command. The
 phase one-hot semantics, ordered FSM, climbing keyframe, phase-potential reward and whole-body ascent gates,
-active bar contacts, and trunk-blocking collision geometry therefore require a
+active bar contacts, and refined surface collision geometry therefore require a
 new training run. The curriculum checkpoint version is bumped so attempting to
 resume a policy trained with the former scheduled multi-term reward fails fast.
+
+### Ladder collision assets
+
+Install the build extra and prepare the assets before training or playback:
+
+```bash
+pip install -e '.[train,collision-build]'
+python scripts/setup/download_assets.py --only robots g1_collision
+```
+
+`g1_collision` explicitly downloads the G1 collision surfaces from
+[OmniRetarget/Holosoma](https://github.com/amazon-far/holosoma/tree/bccd4d7451640a2800ddc77e469d911a84f91994/src/holosoma_retargeting/holosoma_retargeting/models/g1),
+pinned to commit `bccd4d7451640a2800ddc77e469d911a84f91994`. It is independent
+of the ModelScope/HuggingFace `--source` setting and is not included in the
+default hosted-asset download. The CPU build uses CoACD 1.0.14 to produce up to
+12 convex parts per source link, with at most 64 vertices per part. This is an
+approximate surface model, not exact triangle-to-triangle collision. Motor housings
+and ankle hinges use solid convex envelopes as decomposition input; internal CAD
+bores are excluded from the contact model. Motor housings
+and ankle hinges use solid convex envelopes as decomposition input; internal CAD
+bores are excluded from the contact model. The first
+build can take several minutes per link; completed parts are cached. The source
+revision, checksums, decomposition settings and upstream license notices are
+retained under `assets/robots/unitree_g1/omniretarget_collision/`. The part limit
+can override CoACD's requested concavity threshold; it is not an error bound.
+These assets
+are ignored by Git. Missing or corrupt parts stop ladder startup with rebuild
+instructions.
+
+The overlay replaces primitive colliders on 25 source links: pelvis contour,
+torso, head, hips, thighs, shins, ankles, feet, shoulder yaw links, elbows and
+wrists. Fixed accessory transforms are folded into their canonical parent.
+G1 rev. 1.0 uses a different waist assembly: its own torso surface is decomposed
+instead of the older donor torso. Four contiguous horizontal convex sections
+represent its exterior without reproducing internal CAD cavities. The head overlay is shifted 10 mm upward
+in the torso frame to match the canonical visual mesh. The source torso checksum
+is recorded and verified. Canonical joint-origin differences (waist roll +9 mm,
+waist pitch -19 mm, shoulder pitch +10 mm) remain unchanged.
+Canonical hand capsules and attachment sites are retained because this task
+uses its own rubber-hand grip mechanic. The canonical G1 XML still owns all 29
+joints, masses, inertias, actuator settings and visual meshes. Tracking and
+inference keep their original collision model.
+
+Rails and rungs use zero collision margins with MULTICCD enabled: MuJoCo Warp
+does not support nonzero margins for MULTICCD box/mesh pairs.
+They retain their declared stiff contact parameters and use higher
+contact priority than robot feet (`condim=4`, sliding friction 1.4 on rails and
+1.8 on rungs). Robot-material randomization alone therefore does not vary the
+ladder contact material. More collision parts increase collision work; measure
+training throughput on the intended GPU before choosing an environment count.
+Train a fresh policy for this contact model; loading old weights does not
+restore the previous collision physics or make cached boundary states valid.
+Curriculum checkpoint version 4 rejects full training resume from earlier
+reward/contact models. Older actor weights also use different phase-normalization
+semantics, so playback under the new model is not an equivalent reproduction.
+
+Ladder phase indicators bypass empirical normalization in the actor and critic,
+including their histories and exported policies. Continuous features retain
+running normalization. Self-collision sensors select only G1 body links, excluding
+the ladder bodies embedded in the same entity. The 20-second task deadline is a
+terminal failure with a -50 impulse and no PPO timeout bootstrap. The critic sees
+normalized remaining time in its current-only privileged group; successful locked
+curriculum boundaries remain truncations and incur no failure penalty.
 
 Multi-GPU launch uses the same per-GPU environment convention:
 

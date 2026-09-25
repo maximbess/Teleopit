@@ -31,6 +31,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+collision-build = [
+    "trimesh==5.1.0",
+    "coacd==1.0.14",
+    "shapely==2.1.2",
+]
 dev = [
     "pytest",
     "pytest-cov",

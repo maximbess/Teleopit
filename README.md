@@ -67,7 +67,8 @@ The ladder policy has its own entry point and does not use motion clips,
 retargeting, imitation rewards, or the tracking runner:
 
 ```bash
-pip install -e '.[train]'
+pip install -e '.[train,collision-build]'
+python scripts/setup/download_assets.py --only robots g1_collision
 python train_mimic/scripts/train_ladder.py \
     --num_envs 4096 \
     --max_iterations 60000
@@ -91,14 +92,16 @@ python -c "import warp as wp; print(wp.__version__)"
 ```
 
 Both ladder faces use fixed collidable side rails and individual flat-topped
-box rungs. These bars are rigid and use stiff contacts. Box rungs and the trunk
-blocker use zero contact margin so MuJoCo Warp multi-CCD accepts the model;
-capsule rails keep a 2 mm margin. The bars cannot be crossed by
-the robot, while the visible space between adjacent rungs remains empty. A thin
-invisible blocker is offset behind each face and uses a separate collision mask:
-it stops the pelvis, torso, and head from entering the A-frame, but hands and
-feet pass through it to reach the exposed bars. The flat rung tops give each
-foot a stable support surface. Episodes start directly in a climbing pose: both
+box rungs. These bars are rigid, use stiff contacts, and cannot be crossed by
+the robot. The space between adjacent rungs is physically open; there are no
+invisible face blockers. Ladder training replaces the coarse G1 body primitives
+with convex parts built from the OmniRetarget/Holosoma G1 collision surfaces.
+The overlay covers the pelvis, torso, head, legs, forearms and wrists; canonical
+hand capsules and grip sites are retained. It preserves the canonical 29 joints,
+mass, inertia, actuators and visual meshes. Other G1 tasks use the canonical
+collisions. See the [collision asset guide](docs/docs/tutorials/training.md#ladder-collision-assets)
+for the pinned source and build requirements. The flat rung tops give each
+foot a support surface. Episodes start directly in a climbing pose: both
 feet are on physical rung 2 and both hands initially hold rung 5. An explicit
 five-phase FSM repeats the same order on every rung: stabilize all four
 supports, move the first hand, move the second hand, step with the first foot,
@@ -154,12 +157,16 @@ unlock before iteration 16,500. A completed prefix episode ends only after its
 full randomized stabilization hold while its next phase is locked. Rewards are
 fixed throughout training: supported novel maximum whole-body height `20`,
 signed phase-aware foot placement `8`, phase progress `8`, any ordered phase
-completion `25`, stabilization orientation `-1`, final success `100`, survival `3`,
-action rate `-0.5`, joint limits `-10`, self-collisions `-0.1`, ankle-joint
+completion `25`, stabilization orientation `-1`, final success `100`, movement-only survival `3`,
+action rate `-0.1`, joint limits `-10`, self-collisions `-0.1`, ankle-joint
 acceleration `-2.5e-6`, and unsuccessful episode termination `-50`.
 Each of the five phases has separate progress and foot-placement terms (weight `8`
 each); their sum preserves the unsplit shaping reward. Other terms are shared,
 except orientation, which applies only during stabilization.
+Missing required foot support costs `-2` per foot per second. Contact-independent
+held-foot recovery progress has weight `4`; the selected moving foot is excluded.
+Stabilization additionally penalizes continuous speed/offset threshold violations
+with weight `-1`, and receives no survival reward. Transition gates remain unchanged.
 Success and a completed locked curriculum prefix are excluded from that failure
 penalty. The height term pays only the increase above
 the episode's previous maximum, so lowering and re-climbing cannot repeat the
@@ -210,7 +217,7 @@ moiré, duplicate-plane contacts, and shadow artifacts in video. The resulting
 policy fuses current state, temporal history, and ladder geometry through
 separate Conv1d encoders before the scaled `(2048, 1024, 512, 256, 128)` MLP.
 The ordered phase-command and adaptive-curriculum semantics, climbing keyframe,
-phase-potential reward, whole-body ascent gates, active bar contacts, trunk-blocking collision geometry, and
+phase-potential reward, whole-body ascent gates, active bar contacts, refined surface collision geometry, and
 multi-group TemporalCNN inputs require a fresh ladder training run. The
 critic-only 14D group also changes the critic input signature, so standard full
 checkpoint resume from an earlier ladder model is unsupported; preserving an

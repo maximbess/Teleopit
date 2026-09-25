@@ -319,7 +319,7 @@ def test_ladder_task_is_rl_only() -> None:
     assert cfg.observations["actor_history"].history_length == 10
     assert cfg.observations["actor_history"].flatten_history_dim is False
     assert set(cfg.observations["actor_ladder"].terms) == {"rung_tokens_torso"}
-    assert set(cfg.observations["critic_privileged"].terms) == {"ladder_privileged"}
+    assert set(cfg.observations["critic_privileged"].terms) == {"ladder_privileged", "remaining_time"}
     assert cfg.observations["critic_privileged"].history_length is None
     assert not any(name.startswith("motion_") for name in cfg.rewards)
     assert set(cfg.rewards) == {
@@ -328,6 +328,12 @@ def test_ladder_task_is_rl_only() -> None:
         "ladder_stabilization_orientation",
         "ladder_failure",
         "ladder_finished",
+        "ladder_missing_foot_support",
+        "ladder_foot_recovery",
+        "ladder_stabilization_violation",
+        "ladder_stabilization_pose",
+        "ladder_stabilization_joint_velocity",
+        "ladder_unwanted_contact",
         "action_rate",
         "survival",
         "self_collisions",
@@ -364,7 +370,10 @@ def test_ladder_task_is_rl_only() -> None:
     assert cfg.rewards["ladder_failure"].func is ladder_failure_penalty
     assert cfg.rewards["ladder_failure"].weight == -50.0
     assert cfg.rewards["ladder_finished"].weight == 100.0
-    assert cfg.rewards["action_rate"].weight == -0.5
+    assert cfg.rewards["action_rate"].weight == -0.1
+    assert cfg.rewards["ladder_missing_foot_support"].weight == -2.0
+    assert cfg.rewards["ladder_foot_recovery"].weight == 4.0
+    assert cfg.rewards["ladder_stabilization_violation"].weight == -1.0
     assert cfg.rewards["survival"].weight == 3.0
     assert cfg.rewards["joint_limits"].weight == -10.0
     assert cfg.rewards["feet_acc"].weight == -2.5e-6
@@ -432,6 +441,8 @@ def test_ladder_task_is_rl_only() -> None:
     assert cfg.viewer.enable_reflections is False
     assert tuple(sensor.name for sensor in cfg.scene.sensors) == (
         "ladder_foot_contact",
+        "ladder_unwanted_contact_left",
+        "ladder_unwanted_contact_right",
         "self_collision",
     )
     assert load_runner_cls(LADDER_RL_TASK) is LadderOnPolicyRunner
@@ -618,7 +629,7 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
     spec = robot_cfg.spec_fn()
     model = Entity(robot_cfg).spec.compile()
 
-    assert robot_cfg.init_state.pos == (-0.911384, 0.0, 1.357509)
+    assert robot_cfg.init_state.pos == (-0.913384, 0.0, 1.364509)
     arm_actuator_effort_limits = {
         actuator_cfg.effort_limit
         for actuator_cfg in robot_cfg.articulation.actuators
@@ -770,10 +781,9 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
     assert backstop_id == -1
     assert rung_id >= 0
     assert rail_id >= 0
-    assert blocker_id >= 0
+    assert blocker_id == -1
     assert model.geom_type[rung_id] == mujoco.mjtGeom.mjGEOM_BOX
     assert model.geom_type[rail_id] == mujoco.mjtGeom.mjGEOM_CAPSULE
-    assert model.geom_type[blocker_id] == mujoco.mjtGeom.mjGEOM_BOX
     assert model.geom_size[rung_id].tolist() == pytest.approx([0.055, 0.35, 0.035])
     assert model.geom_contype[rung_id] == 1
     assert model.geom_conaffinity[rung_id] == 1
@@ -783,58 +793,15 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
     assert model.geom_condim[rail_id] == 4
     assert model.geom_solref[rung_id].tolist() == pytest.approx([0.005, 1.0])
     assert model.geom_solref[rail_id].tolist() == pytest.approx([0.005, 1.0])
-    assert model.geom_contype[blocker_id] == 2
-    assert model.geom_conaffinity[blocker_id] == 2
-    assert model.geom_rgba[blocker_id, 3] == 0.0
-
-    torso_id = mujoco.mj_name2id(
-        model,
-        mujoco.mjtObj.mjOBJ_GEOM,
-        "torso_collision",
-    )
-    foot_id = mujoco.mj_name2id(
-        model,
-        mujoco.mjtObj.mjOBJ_GEOM,
-        "left_foot1_collision",
-    )
-
-    def collision_masks_match(first_id: int, second_id: int) -> bool:
-        return bool(
-            (model.geom_contype[first_id] & model.geom_conaffinity[second_id])
-            or (model.geom_contype[second_id] & model.geom_conaffinity[first_id])
-        )
-
-    assert model.geom_contype[torso_id] == 3
-    assert model.geom_conaffinity[torso_id] == 3
-    assert model.geom_contype[foot_id] == 1
-    assert model.geom_conaffinity[foot_id] == 1
-    assert collision_masks_match(torso_id, blocker_id)
-    assert not collision_masks_match(foot_id, blocker_id)
-    assert collision_masks_match(foot_id, rung_id)
-
-    # Move the initialized robot's trunk onto the left ladder face and verify
-    # that the configured model produces a real blocker contact.  This tests
-    # the post-Entity collision configuration used by MJLab/MJWarp, not merely
-    # the raw geom attributes emitted by the spec builder.
-    blocker_contact_data = mujoco.MjData(model)
-    blocker_contact_data.qpos[:] = data.qpos
-    blocker_contact_data.qpos[0] = -0.50
-    mujoco.mj_forward(model, blocker_contact_data)
-    blocker_contact_geoms = set()
-    for contact in blocker_contact_data.contact:
-        geom_pair = (int(contact.geom[0]), int(contact.geom[1]))
-        if blocker_id not in geom_pair:
-            continue
-        other_geom = geom_pair[1] if geom_pair[0] == blocker_id else geom_pair[0]
-        blocker_contact_geoms.add(
-            mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, other_geom)
-        )
-    assert blocker_contact_geoms & {
-        "pelvis_collision",
-        "torso_collision",
-        "head_collision",
-    }
-    assert not any(name.startswith("left_foot") for name in blocker_contact_geoms)
+    # Every refined surface remains enabled after the stock G1 editor.
+    names = [mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, i) or "" for i in range(model.ngeom)]
+    refined = [i for i, name in enumerate(names) if "_omni_" in name]
+    assert refined
+    assert all(model.geom_type[i] == mujoco.mjtGeom.mjGEOM_MESH for i in refined)
+    assert all(model.geom_contype[i] == model.geom_conaffinity[i] == 1 for i in refined)
+    assert any(name.startswith("pelvis_contour_omni_") for name in names)
+    assert model.geom_priority[rung_id] == 2
+    assert model.geom_priority[rail_id] == 2
 
     left_ladder_geoms = {
         mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, geom_id)
@@ -844,7 +811,6 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
         ).startswith("left_ladder_")
     }
     assert left_ladder_geoms == {
-        "left_ladder_body_blocker",
         "left_ladder_rail_01",
         "left_ladder_rail_02",
         *(f"left_ladder_rung_{index:02d}" for index in range(1, 10)),
@@ -884,6 +850,7 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
         )
         >= 0
     )
+
 
 
 def test_ladder_fsm_executes_stabilize_hands_then_feet_in_order() -> None:
@@ -1578,13 +1545,14 @@ def test_ladder_curriculum_state_round_trip() -> None:
     assert restored.drain_curriculum_outcomes() == [1, 0]
 
 
-def test_ladder_curriculum_rejects_pre_phase_potential_checkpoint() -> None:
+@pytest.mark.parametrize("version", [1, 2, 3])
+def test_ladder_curriculum_rejects_old_reward_or_collision_checkpoint(version) -> None:
     command = _dummy_ladder_command()
 
     with pytest.raises(ValueError, match="Unsupported ladder curriculum"):
         command.load_curriculum_state_dict(
             {
-                "version": 1,
+                "version": version,
                 "unlocked_phase": int(LadderPhase.STABILIZE),
                 "phase_start_step": 0,
             }
@@ -2149,3 +2117,90 @@ def test_phase_reward_partition_preserves_unsplit_reward(component: str) -> None
         for term in partition:
             term.reset(torch.tensor([0]))
     assert nonzero
+
+
+@pytest.mark.parametrize("phase", list(LadderPhase))
+def test_ladder_required_support_cost_and_survival(phase: LadderPhase) -> None:
+    from train_mimic.tasks.tracking.mdp.ladder import (
+        ladder_missing_foot_support, ladder_movement_survival,
+    )
+    command = _dummy_ladder_command(phase)
+    command._test_foot_support[:] = False
+    env = _reward_test_env(command)
+    expected = 1.0 if command.is_foot_phase.item() else 2.0
+    for _ in range(3):
+        assert ladder_missing_foot_support(env, "ladder").item() == expected
+    assert ladder_movement_survival(env, "ladder").item() == float(phase != LadderPhase.STABILIZE)
+    command._test_foot_support[:] = True
+    assert ladder_missing_foot_support(env, "ladder").item() == 0.0
+    command._test_foot_support[:] = False
+    command.finished[:] = True
+    assert ladder_missing_foot_support(env, "ladder").item() == 0.0
+
+
+def test_ladder_foot_recovery_before_contact_and_across_resets() -> None:
+    from train_mimic.tasks.tracking.mdp.ladder import LadderFootRecoveryReward
+    command = _reward_test_command()
+    command.is_foot_phase[:] = False
+    command.foot_rung = torch.ones((1, 2), dtype=torch.long)
+    command.foot_contact[:] = False
+    command.foot_pos_w[:, 0, 0] = 0.20
+    env = _reward_test_env(command)
+    params = {"command_name": "ladder", "reach_distance": 0.35}
+    term = LadderFootRecoveryReward(SimpleNamespace(params=params), env)
+    assert term(env, **params).item() == 0.0
+    command.foot_pos_w[:, 0, 0] = 0.10
+    approach = term(env, **params).item()
+    assert approach == pytest.approx(0.10 / (0.70 * env.step_dt))
+    command.foot_pos_w[:, 0, 0] = 0.20
+    assert term(env, **params).item() == pytest.approx(-approach)
+    command.foot_rung[:, 0] += 1
+    command.foot_pos_w[:, 0, 0] = 0.10
+    assert term(env, **params).item() == 0.0
+    term.reset(torch.tensor([0]))
+    command.foot_pos_w[:, 0, 0] = 0.0
+    assert term(env, **params).item() == 0.0
+    command.phase[:] = int(LadderPhase.FIRST_FOOT)
+    command.is_foot_phase[:] = True
+    command.active_foot[:] = 0
+    assert term(env, **params).item() == 0.0
+    command.foot_pos_w[:, 0, 0] = 0.50
+    assert term(env, **params).item() == 0.0
+    command.foot_pos_w[:, 1, 0] = 0.10
+    assert term(env, **params).item() < 0.0
+
+
+@pytest.mark.parametrize("gate", ["torso", "joint", "angular", "waist", "offset"])
+def test_ladder_stabilization_cost_rewards_partial_improvement(gate: str) -> None:
+    from train_mimic.tasks.tracking.mdp.ladder import ladder_stabilization_violation
+    command = _dummy_ladder_command()
+    env = _reward_test_env(command)
+    assert ladder_stabilization_violation(env, "ladder").item() == 0.0
+    if gate == "torso":
+        target, limit = command._test_torso_com_vel[:, 0], 0.20
+    elif gate == "joint":
+        target, limit = command.robot.data.joint_vel, 1.0
+    elif gate == "angular":
+        target, limit = command._test_pelvis_ang_vel[:, 0], 0.40
+    elif gate == "waist":
+        target, limit = command.robot.data.joint_vel[:, int(command._waist_joint_ids[0])], 0.60
+    else:
+        target, limit = command._test_torso_support_offset_error, 0.18
+    target[:] = 2 * limit
+    worse = ladder_stabilization_violation(env, "ladder").item()
+    target[:] = 1.5 * limit
+    better = ladder_stabilization_violation(env, "ladder").item()
+    assert worse > better > 0.0
+    command.phase[:] = int(LadderPhase.FIRST_HAND)
+    assert ladder_stabilization_violation(env, "ladder").item() == 0.0
+
+
+def test_first_hand_recording_prefix_advances_after_stabilization() -> None:
+    command = _dummy_ladder_command()
+    command.cfg.freeze_at_max_unlocked_phase = True
+    command._unlocked_phase = int(LadderPhase.FIRST_HAND)
+    command._test_foot_support[:] = True
+    command._advance_stabilization_phase(command.phase.clone())
+    assert command.phase.item() == int(LadderPhase.FIRST_HAND)
+    assert not command.phase_frozen.item()
+    assert not command.curriculum_stage_complete.item()

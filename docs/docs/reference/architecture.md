@@ -62,6 +62,7 @@ train_mimic/scripts/data
 | Ladder observations | Current actor 117D / clean critic 120D; critic-only current 14D reward/FSM state; 10-frame histories; `9 x 15` torso-frame target/support-aware rung tokens with continuous hand-support markers; 24D ordered phase command with torso-frame target vectors and active-hand grip strength |
 | Ladder hand release | Internal feedback-controlled `PRE_RELEASE`: 8-step load-transfer hold, reversible 20-step per-environment weld-softening ramp, then 5-step stable soft hold before detach |
 | Ladder action | 29D G1 joint-position targets |
+| Ladder collisions | Canonical G1 dynamics with a ladder-only OmniRetarget convex surface overlay; physical rails and box rungs, open gaps, no invisible blockers |
 | Ladder curriculum | `LadderOnPolicyRunner`; synchronized last-100 success window and checkpointed adaptive phase state |
 | Training sampling | Default `rewind`; also supports `uniform`; playback/benchmark use `start` |
 | Training `window_steps` | `[0]` |

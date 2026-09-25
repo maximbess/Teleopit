@@ -62,6 +62,7 @@ train_mimic/scripts/data
 | 梯子观测 | 当前 Actor 117D / 无噪声 Critic 120D；Critic 独有的当前 14D reward/FSM 状态；10 帧历史；带连续手部支撑标记的 `9 x 15` 躯干坐标系目标/支撑感知横档 token；含躯干坐标系目标向量和活动手抓握强度的 24D 有序阶段指令 |
 | 梯子手部释放 | 内部反馈控制的 `PRE_RELEASE`：8 步载荷转移保持、可逆的 20 步逐环境 weld 软化 ramp，以及 detach 前 5 步稳定软抓握保持 |
 | 梯子动作 | 29D G1 关节位置目标 |
+| 梯子碰撞 | 标准 G1 动力学加梯子专用 OmniRetarget 凸表面覆盖层；物理侧轨和箱形横档，开放间隙，无不可见阻挡器 |
 | 梯子课程 | `LadderOnPolicyRunner`；同步最近 100 回合成功窗口，并在检查点中保存自适应阶段状态 |
 | 训练采样 | 默认 `rewind`；也支持 `uniform`；播放/评估使用 `start` |
 | 训练 `window_steps` | `[0]` |
