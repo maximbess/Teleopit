@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 from copy import deepcopy
 from functools import partial
 from pathlib import Path
@@ -32,6 +31,7 @@ from train_mimic.tasks.tracking.mdp import MotionCommandCfg
 from train_mimic.tasks.tracking.tracking_env_cfg import make_tracking_env_cfg
 from teleopit.runtime.assets import UNITREE_G1_XML, missing_gmr_assets_message
 from .g1_collision import apply_g1_collision_overlay
+from .ladder_init import LADDER_INITIAL_JOINT_POS, LADDER_INITIAL_ROOT_POS
 
 _TRACKING_BODY_NAMES = (
     "pelvis",
@@ -71,23 +71,10 @@ _LADDER_INITIAL_FOOT_RUNG = 1
 _LADDER_FOOT_CONTACT_SENSOR = "ladder_foot_contact"
 _LADDER_ARM_EFFORT_SCALE = 0.70
 _LADDER_CURRICULUM_MIN_PHASE_STEPS = (36_000, 120_000, 120_000, 120_000)
-# Symmetric climbing pose computed against the generated left ladder face.  The
-# sole sites sit just outside and above physical rung 2, while the grip sites
-# are within attachment range of rung 5.
-_LADDER_INITIAL_ROOT_POS = (-0.913384, 0.0, 1.364509)
-_LADDER_INITIAL_JOINT_POS = {
-    ".*_hip_pitch_joint": -0.228917,
-    ".*_knee_joint": 0.657862,
-    ".*_ankle_pitch_joint": -0.333096,
-    "waist_pitch_joint": -0.184737,
-    ".*_shoulder_pitch_joint": -0.309773,
-    "left_shoulder_roll_joint": 0.160023,
-    "right_shoulder_roll_joint": -0.160023,
-    "left_shoulder_yaw_joint": -0.034580,
-    "right_shoulder_yaw_joint": 0.034580,
-    ".*_elbow_joint": 0.569849,
-    ".*_wrist_pitch_joint": -0.076011,
-}
+# Warp rejects a nonzero margin only for box/box, box/mesh, and mesh/mesh pairs.
+# Capsule rails keep a 2 mm skin. Box rungs stay at zero.
+_LADDER_RAIL_MARGIN = 0.002
+_LADDER_BOX_MARGIN = 0.0
 
 _LADDER_FLOOR_MATERIAL = spec_cfg.MaterialCfg(
     name="ladder_floor_material",
@@ -161,7 +148,7 @@ def _add_ladder_to_g1_spec(spec: mujoco.MjSpec) -> None:
                 friction=(1.4, 0.02, 0.002),
                 solref=(0.005, 1.0),
                 solimp=(0.99, 0.999, 0.001, 0.5, 2.0),
-                margin=0.0,
+                margin=_LADDER_RAIL_MARGIN,
                 rgba=(0.55, 0.55, 0.58, 1.0),
             )
 
@@ -193,7 +180,7 @@ def _add_ladder_to_g1_spec(spec: mujoco.MjSpec) -> None:
                 friction=(1.8, 0.02, 0.002),
                 solref=(0.005, 1.0),
                 solimp=(0.99, 0.999, 0.001, 0.5, 2.0),
-                margin=0.0,
+                margin=_LADDER_BOX_MARGIN,
                 rgba=(0.55, 0.55, 0.58, 1.0),
             )
             side_body.add_site(
@@ -324,15 +311,15 @@ def make_g1_ladder_training_robot_cfg(robot_xml: str | Path | None = None):
             f"found {arm_actuator_groups}; update the ladder effort-limit mapping"
         )
     robot_cfg.init_state = deepcopy(robot_cfg.init_state)
-    robot_cfg.init_state.pos = _LADDER_INITIAL_ROOT_POS
-    robot_cfg.init_state.joint_pos = dict(_LADDER_INITIAL_JOINT_POS)
+    robot_cfg.init_state.pos = LADDER_INITIAL_ROOT_POS
+    robot_cfg.init_state.joint_pos = dict(LADDER_INITIAL_JOINT_POS)
     robot_cfg.init_state.joint_vel = {".*": 0.0}
     # G1's default collision editor disables every geom whose name does not
     # match ``.*_collision``.  The generated ladder uses semantic names, so it
     # must be explicitly re-enabled after the default editor runs. Robot and
     # ladder collide through their real surfaces; no invisible face blocker.
     # MuJoCo Warp rejects nonzero margins on box/mesh pairs with MULTICCD.
-    # Preserve MULTICCD and use zero margins in both raw and edited geometry.
+    # Box rungs stay at zero. Capsule rails keep a 2 mm margin.
     robot_cfg.collisions = (
         *robot_cfg.collisions,
         spec_cfg.CollisionCfg(
@@ -344,7 +331,7 @@ def make_g1_ladder_training_robot_cfg(robot_xml: str | Path | None = None):
             friction=(1.4, 0.02, 0.002),
             solref=(0.005, 1.0),
             solimp=(0.99, 0.999, 0.001, 0.5, 2.0),
-            margin=0.0,
+            margin=_LADDER_RAIL_MARGIN,
             disable_other_geoms=False,
         ),
         spec_cfg.CollisionCfg(
@@ -356,7 +343,7 @@ def make_g1_ladder_training_robot_cfg(robot_xml: str | Path | None = None):
             friction=(1.8, 0.02, 0.002),
             solref=(0.005, 1.0),
             solimp=(0.99, 0.999, 0.001, 0.5, 2.0),
-            margin=0.0,
+            margin=_LADDER_BOX_MARGIN,
             disable_other_geoms=False,
         ),
     )
@@ -449,7 +436,11 @@ _VELCMD_CRITIC_TERMS: dict[str, ObservationTermCfg] = {
 }
 
 
-def _configure_self_collision_reward(cfg: ManagerBasedRlEnvCfg) -> None:
+def _configure_self_collision_reward(
+    cfg: ManagerBasedRlEnvCfg,
+    *,
+    primary_pattern: str = r".*",
+) -> None:
     excluded_body_names = (
         "left_wrist_yaw_link",
         "right_wrist_yaw_link",
@@ -459,9 +450,11 @@ def _configure_self_collision_reward(cfg: ManagerBasedRlEnvCfg) -> None:
         ContactSensorCfg(
             name="self_collision",
             # Exclude only primary wrist bodies; wrist vs torso is still caught by torso.
+            # Tracking keeps every body. Ladder narrows the pattern so the ladder
+            # and grip-anchor bodies embedded in the same entity are not self-collisions.
             primary=ContactMatch(
                 mode="body",
-                pattern=r"pelvis|.*_link",
+                pattern=primary_pattern,
                 entity="robot",
                 exclude=excluded_body_names,
             ),
@@ -850,7 +843,7 @@ def make_g1_ladder_rl_env_cfg(
             func=mdp.LadderStabilizationPoseCost, weight=-2.0,
             params={
                 "command_name": "ladder",
-                "reference_joint_pos": dict(_LADDER_INITIAL_JOINT_POS),
+                "reference_joint_pos": dict(LADDER_INITIAL_JOINT_POS),
                 "joint_weights": {
                     ".*_hip_.*_joint": 2.0,
                     ".*_knee_joint": 2.0,
@@ -1002,7 +995,7 @@ def make_g1_ladder_rl_env_cfg(
         episode_length_s=20.0,
     )
 
-    _configure_self_collision_reward(cfg)
+    _configure_self_collision_reward(cfg, primary_pattern=r"pelvis|.*_link")
     _configure_feet_acc_reward(cfg)
     _add_history_obs_groups(cfg)
 

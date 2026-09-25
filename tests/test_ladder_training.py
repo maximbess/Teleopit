@@ -23,6 +23,9 @@ from train_mimic.tasks.tracking.config.constants import (
 )
 from train_mimic.tasks.tracking.config.env import (
     _add_ladder_to_g1_spec,
+    _get_g1_training_spec,
+    _remove_embedded_ladder_floor,
+    _remove_embedded_ladder_lights,
     make_g1_ladder_rl_env_cfg,
     make_g1_ladder_training_robot_cfg,
 )
@@ -445,6 +448,7 @@ def test_ladder_task_is_rl_only() -> None:
         "ladder_unwanted_contact_right",
         "self_collision",
     )
+    assert cfg.scene.sensors[-1].primary.pattern == r"pelvis|.*_link"
     assert load_runner_cls(LADDER_RL_TASK) is LadderOnPolicyRunner
 
     play_cfg = make_g1_ladder_rl_env_cfg(play=True)
@@ -622,6 +626,28 @@ def test_ladder_box_contacts_keep_zero_margin() -> None:
     assert model.geom_margin[capsule_ids].tolist() == pytest.approx(
         [0.002] * len(capsule_ids)
     )
+
+
+def test_composed_ladder_scene_has_one_ground_plane() -> None:
+    robot = _get_g1_training_spec()
+    _remove_embedded_ladder_floor(robot)
+    _remove_embedded_ladder_lights(robot)
+    _add_ladder_to_g1_spec(robot)
+    scene = mujoco.MjSpec()
+    scene.worldbody.add_body(name="terrain").add_geom(
+        name="terrain",
+        type=mujoco.mjtGeom.mjGEOM_PLANE,
+        size=(0, 0, 0.01),
+    )
+    scene.attach(robot, prefix="robot/", frame=scene.worldbody.add_frame())
+    model = scene.compile()
+    plane_names = [
+        mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, index)
+        for index in range(model.ngeom)
+        if model.geom_type[index] == mujoco.mjtGeom.mjGEOM_PLANE
+    ]
+    assert plane_names == ["terrain"]
+    assert model.nlight == 0
 
 
 def test_ladder_robot_augments_canonical_g1_spec() -> None:

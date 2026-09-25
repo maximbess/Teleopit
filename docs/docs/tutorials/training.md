@@ -360,9 +360,9 @@ collides with these bars and the flat rung tops support the feet. Gaps are
 physically open: there are no invisible face blockers. The ladder-only G1
 collision overlay described below covers the actual body surfaces. The ladder
 collision configuration explicitly re-enables all generated rails and rungs
-after G1's default collision editor. Box rungs and the trunk blocker use zero
-contact margin so MuJoCo Warp's multi-CCD solver accepts the model; capsule
-rails keep a 2 mm margin. The five-phase FSM commands only one moving
+after G1's default collision editor. Box rungs use zero contact margin so
+MuJoCo Warp's multi-CCD solver accepts the model; capsule rails keep a 2 mm
+margin. The five-phase FSM commands only one moving
 limb at a time. Both hands are attached throughout both foot phases, and the
 non-moving foot remains a physical support.
 
@@ -440,8 +440,9 @@ uses its own rubber-hand grip mechanic. The canonical G1 XML still owns all 29
 joints, masses, inertias, actuator settings and visual meshes. Tracking and
 inference keep their original collision model.
 
-Rails and rungs use zero collision margins with MULTICCD enabled: MuJoCo Warp
-does not support nonzero margins for MULTICCD box/mesh pairs.
+Box rungs use zero collision margin with MULTICCD enabled: MuJoCo Warp
+does not support nonzero margins for MULTICCD box/mesh pairs. Capsule rails
+keep a 2 mm margin.
 They retain their declared stiff contact parameters and use higher
 contact priority than robot feet (`condim=4`, sliding friction 1.4 on rails and
 1.8 on rungs). Robot-material randomization alone therefore does not vary the

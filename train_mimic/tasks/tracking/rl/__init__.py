@@ -4,6 +4,7 @@ from train_mimic.tasks.tracking.rl.runner import (
 from train_mimic.tasks.tracking.rl.runner import (
     MotionTrackingOnPolicyRunner as MotionTrackingOnPolicyRunner,
 )
+from train_mimic.tasks.tracking.rl.isolated import train as train_isolated
 from train_mimic.tasks.tracking.rl.ladder_model import (
     LadderTemporalCNNModel as LadderTemporalCNNModel,
 )

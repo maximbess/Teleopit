@@ -4,6 +4,8 @@
 This entry point intentionally has no motion dataset, sampling mode, imitation
 reward, or motion-tracking runner.  The policy learns directly from the ladder
 command, robot state, sparse rung progress, and dense reach/height rewards.
+Prototyping a model, reward, and initial state without MuJoCo uses
+``train_mimic.tasks.tracking.rl.isolated.train`` instead of this script.
 
 Example:
     python train_mimic/scripts/train_ladder.py \
