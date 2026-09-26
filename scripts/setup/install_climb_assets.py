@@ -11,11 +11,14 @@ assets, sample BVH, or motion datasets.
 The canonical robot lands in ``assets/robots/unitree_g1/``. Convex collision
 parts are built beside it. Pinned CoACD, trimesh, and shapely packages are
 installed only when the active environment does not already have them.
+Name resolution is forced to IPv4: some hosts advertise a broken IPv6 route
+to ``raw.githubusercontent.com``, and Python does not fall back the way curl does.
 """
 
 from __future__ import annotations
 
 import argparse
+import socket
 import subprocess
 import sys
 from importlib.metadata import PackageNotFoundError, version
@@ -27,6 +30,16 @@ if str(PROJECT_ROOT) not in sys.path:
 
 # Keep these pins aligned with the collision-build extra in pyproject.toml.
 COLLISION_PINS = ("trimesh==5.1.0", "coacd==1.0.14", "shapely==2.1.2")
+
+
+def force_ipv4() -> None:
+    """Resolve every hostname in this process with IPv4 only."""
+    original = socket.getaddrinfo
+
+    def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+        return original(host, port, socket.AF_INET, type, proto, flags)
+
+    socket.getaddrinfo = getaddrinfo
 
 
 def _installed_version(name: str) -> str | None:
@@ -62,19 +75,24 @@ def install_climb_assets(
     """Download the canonical G1 model, then build its collision parts."""
     if source not in {"modelscope", "huggingface"}:
         raise ValueError(f"Unsupported asset source: {source}")
-    if not skip_deps:
-        ensure_collision_build()
+    previous = socket.getaddrinfo
+    force_ipv4()
+    try:
+        if not skip_deps:
+            ensure_collision_build()
 
-    from scripts.setup import download_assets
-    from scripts.setup.download_g1_collision import build_assets
+        from scripts.setup import download_assets
+        from scripts.setup.download_g1_collision import build_assets
 
-    if source == "huggingface":
-        cache = cache_dir or PROJECT_ROOT / "data" / "huggingface_cache"
-        download_assets.download_all_hf(["robots"], cache)
-    else:
-        cache = cache_dir or PROJECT_ROOT / "data" / "modelscope_cache"
-        download_assets.download_all(["robots"], cache)
-    build_assets()
+        if source == "huggingface":
+            cache = cache_dir or PROJECT_ROOT / "data" / "huggingface_cache"
+            download_assets.download_all_hf(["robots"], cache)
+        else:
+            cache = cache_dir or PROJECT_ROOT / "data" / "modelscope_cache"
+            download_assets.download_all(["robots"], cache)
+        build_assets()
+    finally:
+        socket.getaddrinfo = previous
 
 
 def main(argv: list[str] | None = None) -> None:

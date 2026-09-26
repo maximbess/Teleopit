@@ -87,6 +87,39 @@ def test_robot_download_precedes_collision_build(monkeypatch):
     assert calls == [("robots",), "collision"]
 
 
+def test_collision_source_download_retries_read_timeout(monkeypatch, tmp_path: Path) -> None:
+    from scripts.setup import download_g1_collision
+
+    payload = b"mesh"
+    blob_sha = download_g1_collision._git_blob_sha1(payload)
+    attempts = []
+
+    class _Response:
+        def read(self):
+            return payload
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+    def urlopen(_request, timeout=0):
+        attempts.append(timeout)
+        if len(attempts) < 3:
+            raise TimeoutError("The read operation timed out")
+        return _Response()
+
+    monkeypatch.setattr(download_g1_collision.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(download_g1_collision.time, "sleep", lambda _seconds: None)
+    output = tmp_path / "link.obj"
+    download_g1_collision._download("models/g1/link.obj", output, blob_sha)
+
+    assert len(attempts) == 3
+    assert attempts[0] == download_g1_collision.DOWNLOAD_TIMEOUT_SECONDS
+    assert output.read_bytes() == payload
+
+
 def test_collision_only_does_not_download_hosted_assets(monkeypatch):
     from scripts.setup import download_assets, download_g1_collision
     calls = []

@@ -1,8 +1,36 @@
 from __future__ import annotations
 
+import socket
 from pathlib import Path
 
 from scripts.setup import install_climb_assets
+
+
+def test_force_ipv4_resolves_with_af_inet(monkeypatch) -> None:
+    seen = []
+
+    def fake(host, port, family=0, type=0, proto=0, flags=0):
+        seen.append((host, family))
+        return []
+
+    monkeypatch.setattr(socket, "getaddrinfo", fake)
+    install_climb_assets.force_ipv4()
+    socket.getaddrinfo("raw.githubusercontent.com", 443)
+    assert seen == [("raw.githubusercontent.com", socket.AF_INET)]
+
+
+def test_install_forces_ipv4_before_downloads(monkeypatch, tmp_path: Path) -> None:
+    order = []
+    monkeypatch.setattr(install_climb_assets, "force_ipv4", lambda: order.append("ipv4"))
+
+    import scripts.setup.download_assets as download_assets
+    import scripts.setup.download_g1_collision as collision
+
+    monkeypatch.setattr(download_assets, "download_all", lambda *_: order.append("robots"))
+    monkeypatch.setattr(collision, "build_assets", lambda: order.append("collision"))
+
+    install_climb_assets.install_climb_assets(cache_dir=tmp_path, skip_deps=True)
+    assert order == ["ipv4", "robots", "collision"]
 
 
 def test_missing_collision_pins_lists_only_mismatched_packages(monkeypatch) -> None:

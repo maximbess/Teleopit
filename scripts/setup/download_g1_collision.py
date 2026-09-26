@@ -10,6 +10,8 @@ import hashlib
 import json
 import os
 import sys
+import time
+import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -26,18 +28,39 @@ from teleopit.runtime.g1_collision_assets import (
 )
 
 
+DOWNLOAD_ATTEMPTS = 5
+DOWNLOAD_TIMEOUT_SECONDS = 120
+
+
+def _git_blob_sha1(data: bytes) -> str:
+    return hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest()
+
+
+def _read_url(url: str) -> bytes:
+    """Read a URL, retrying stalls that show up as read or handshake timeouts."""
+    request = urllib.request.Request(url, headers={"User-Agent": "Teleopit-collision-assets"})
+    for attempt in range(1, DOWNLOAD_ATTEMPTS + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=DOWNLOAD_TIMEOUT_SECONDS) as response:
+                return response.read()
+        except urllib.error.HTTPError as exc:
+            if exc.code < 500 or attempt == DOWNLOAD_ATTEMPTS:
+                raise
+            error = exc
+        except (TimeoutError, urllib.error.URLError) as exc:
+            if attempt == DOWNLOAD_ATTEMPTS:
+                raise
+            error = exc
+        print(f"Retrying {url} ({attempt}/{DOWNLOAD_ATTEMPTS}) after {error}", flush=True)
+        time.sleep(min(2 ** (attempt - 1), 30))
+    raise RuntimeError(f"Download failed: {url}")
+
+
 def _download(path: str, output: Path, blob_sha: str) -> None:
-    def git_hash(data: bytes) -> str:
-        return hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest()
-    if output.is_file() and git_hash(output.read_bytes()) == blob_sha:
+    if output.is_file() and _git_blob_sha1(output.read_bytes()) == blob_sha:
         return
-    request = urllib.request.Request(
-        f"https://raw.githubusercontent.com/{REPOSITORY}/{REVISION}/{path}",
-        headers={"User-Agent": "Teleopit-collision-assets"},
-    )
-    with urllib.request.urlopen(request, timeout=120) as response:
-        data = response.read()
-    if git_hash(data) != blob_sha:
+    data = _read_url(f"https://raw.githubusercontent.com/{REPOSITORY}/{REVISION}/{path}")
+    if _git_blob_sha1(data) != blob_sha:
         raise RuntimeError(f"Source checksum mismatch: {path}")
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_bytes(data)
@@ -111,12 +134,9 @@ def build_assets() -> None:
     if version("coacd") != "1.0.14":
         raise RuntimeError("Collision assets require coacd==1.0.14 for reproducible builds")
     ASSET_DIR.mkdir(parents=True, exist_ok=True)
-    request = urllib.request.Request(
-        f"https://api.github.com/repos/{REPOSITORY}/git/trees/{REVISION}?recursive=1",
-        headers={"User-Agent": "Teleopit-collision-assets"},
-    )
-    with urllib.request.urlopen(request, timeout=120) as response:
-        tree = json.load(response)
+    tree = json.loads(_read_url(
+        f"https://api.github.com/repos/{REPOSITORY}/git/trees/{REVISION}?recursive=1"
+    ))
     blobs = {entry["path"]: entry["sha"] for entry in tree["tree"] if entry["type"] == "blob"}
     sources = {}
     canonical_sources = {}
