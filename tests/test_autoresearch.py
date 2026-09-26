@@ -41,6 +41,24 @@ task = workspace / "autoresearch" / "runs" / "0001"
 def emit(kind, **fields):
     print(json.dumps({"type": kind, **fields}), flush=True)
 
+def record():
+    task.mkdir(parents=True, exist_ok=True)
+    (task / "agent").mkdir(parents=True, exist_ok=True)
+    mode = "resume" if "--resume" in args else "fresh"
+    flags = []
+    if prompt.startswith("system"):
+        flags.append("system")
+    if "Independent validation failed" in prompt:
+        flags.append("validation")
+    if "Write the final report" in prompt:
+        flags.append("report")
+    if "idea.md:" in prompt:
+        flags.append("brief")
+    with (task / "agent" / "invocations.log").open("a", encoding="utf-8") as handle:
+        handle.write(mode + "\\t" + " ".join(flags) + "\\n")
+
+record()
+
 if scenario == "resume_fail" and "--resume" in args:
     emit("system", subtype="init", session_id=session, model="grok-4.7")
     sys.exit(2)
@@ -166,6 +184,15 @@ def _names(repo: Path) -> list[str]:
     return [event["event"] for event in _events(repo)]
 
 
+def _invocations(repo: Path) -> list[tuple[str, str]]:
+    path = repo / "autoresearch" / "runs" / "0001" / "agent" / "invocations.log"
+    rows = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        mode, _, flags = line.partition("\t")
+        rows.append((mode, flags))
+    return rows
+
+
 @pytest.fixture
 def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     checkout = tmp_path / "repo"
@@ -226,7 +253,7 @@ def test_run_validates_commits_and_is_idempotent(repo: Path) -> None:
     assert _git(repo, "rev-list", "--count", "HEAD").stdout.strip() == count
 
 
-def test_validation_failure_resumes_until_the_fix_passes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_validation_failure_starts_a_fresh_session(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     checkout = tmp_path / "repo"
     _init_repo(checkout, commands=["python -m py_compile broken.py"])
     _install_fake(monkeypatch, tmp_path, "fail_once")
@@ -234,6 +261,12 @@ def test_validation_failure_resumes_until_the_fix_passes(tmp_path: Path, monkeyp
     assert run_task(checkout, "0001") == COMPLETE
     assert _names(checkout).count("local_validation_failed") == 1
     assert (checkout / "broken.py").read_text(encoding="utf-8").startswith("def f()")
+    start, repair, review = _invocations(checkout)
+    assert start == ("fresh", "system")
+    assert repair[0] == "fresh"
+    assert "system" in repair[1] and "validation" in repair[1] and "brief" in repair[1]
+    assert review[0] == "fresh"
+    assert "system" in review[1] and "report" in review[1] and "brief" in review[1]
 
 
 def test_retry_limit_stops_for_a_human(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -288,9 +321,20 @@ def test_cluster_handoff_commits_and_stops(tmp_path: Path, monkeypatch: pytest.M
 def test_resume_failure_starts_a_fresh_session(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FAKE_SCENARIO", "resume_fail")
     create_task(repo, "Add a marker")
+    task = repo / "autoresearch" / "runs" / "0001"
+    output = task / "agent" / "output"
+    output.mkdir(parents=True)
+    (output / "001.jsonl").write_text(
+        json.dumps({"type": "system", "subtype": "init", "session_id": "session-1", "model": "grok-4.7"}) + "\n",
+        encoding="utf-8",
+    )
+    append_event(task / "events.jsonl", "agent_started", task_id="0001", session_id="session-1")
     assert run_task(repo, "0001") == COMPLETE
     assert "resume_failed" in _names(repo)
-    assert (repo / "autoresearch" / "runs" / "0001" / "report.md").is_file()
+    assert (task / "report.md").is_file()
+    resumed, recovered = _invocations(repo)[:2]
+    assert resumed == ("resume", "")
+    assert recovered[0] == "fresh" and "system" in recovered[1]
 
 
 def test_reconciles_successful_output_without_finish_event(repo: Path) -> None:
@@ -337,6 +381,7 @@ def test_interrupted_agent_is_resumed(repo: Path) -> None:
     append_event(task / "events.jsonl", "agent_started", task_id="0001", session_id="session-1")
     assert run_task(repo, "0001") == COMPLETE
     assert "agent_interrupted" in _names(repo)
+    assert _invocations(repo)[0] == ("resume", "")
 
 
 def test_existing_task_commit_is_not_duplicated(repo: Path) -> None:

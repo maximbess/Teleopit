@@ -23,11 +23,10 @@ Usage:
         --motion_file data/datasets_precomputed \
         --video
 
-    # Play only the stabilize/first-hand/second-hand ladder prefix
+    # Play the ladder policy. The rollout repeats one rung until N successes.
     python train_mimic/scripts/play.py \
         --task G1-Ladder-Climb-RL \
-        --checkpoint logs/rsl_rl/g1_ladder_rl/2026-.../model_60000.pt \
-        --ladder_phase second_hand
+        --checkpoint logs/rsl_rl/g1_ladder_rl/2026-.../model_60000.pt
 """
 
 from __future__ import annotations
@@ -44,10 +43,6 @@ from train_mimic.app import (
     resolve_device,
     validate_checkpoint_path,
     validate_motion_file,
-)
-from train_mimic.ladder_playback import (
-    LADDER_PLAY_PHASES,
-    configure_ladder_play_phase,
 )
 from train_mimic.tasks.tracking.config.constants import (
     LADDER_RL_TASK,
@@ -91,16 +86,6 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         choices=SUPPORTED_TASKS,
         help="Task id to play (default: %(default)s)",
     )
-    parser.add_argument(
-        "--ladder_phase",
-        type=str,
-        choices=tuple(LADDER_PLAY_PHASES),
-        default=None,
-        help=(
-            "Deepest ladder phase to play. Each episode starts with stabilize "
-            "and ends after this phase; default: second_foot (full climb)."
-        ),
-    )
     return parser.parse_args(argv)
 
 
@@ -110,8 +95,6 @@ def _validate_args(args: argparse.Namespace) -> None:
     if args.task in TRACKING_TASKS:
         if args.motion_file is None:
             raise ValueError("--motion_file is required for tracking tasks")
-        if args.ladder_phase is not None:
-            raise ValueError("--ladder_phase is only valid for G1-Ladder-Climb-RL")
         return
     if args.task == LADDER_RL_TASK and args.motion_file is not None:
         raise ValueError("--motion_file is not used by G1-Ladder-Climb-RL")
@@ -162,8 +145,8 @@ def main() -> None:
     if args.task in TRACKING_TASKS:
         env_cfg.commands["motion"].motion_file = args.motion_file
     else:
-        selected_phase = configure_ladder_play_phase(env_cfg, args.ladder_phase)
-        print(f"[INFO] Ladder playback prefix: stabilize through {selected_phase}.")
+        successes = env_cfg.commands["ladder"].successes_per_rollout
+        print(f"[INFO] Ladder playback ends after {successes} completed holds.")
 
     device = resolve_device(args.device, torch)
 

@@ -20,12 +20,6 @@ import platform
 from pathlib import Path
 from typing import Any, Sequence
 
-from train_mimic.ladder_playback import (
-    LADDER_PLAY_PHASES,
-    configure_ladder_play_phase,
-)
-
-
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -51,16 +45,6 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=int,
         default=0,
         help="Unrecorded policy steps before resetting and recording (default: 0).",
-    )
-    parser.add_argument(
-        "--ladder_phase",
-        type=str,
-        choices=tuple(LADDER_PLAY_PHASES),
-        default=None,
-        help=(
-            "Deepest ladder phase to record. Each episode starts with stabilize "
-            "and ends after this phase; default: second_foot (full climb)."
-        ),
     )
     parser.add_argument("--width", type=int, default=1280)
     parser.add_argument("--height", type=int, default=720)
@@ -252,14 +236,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     env_cfg.seed = args.seed
     env_cfg.scene.num_envs = 1
-    selected_phase = configure_ladder_play_phase(
-        env_cfg,
-        args.ladder_phase,
-        freeze_at_boundary=args.ladder_phase is not None,
-    )
-    print(f"[INFO] Ladder recording prefix: stabilize through {selected_phase}.")
-    if args.ladder_phase is not None:
-        print("[INFO] Selected ladder phase will remain active after completion.")
+    successes = env_cfg.commands["ladder"].successes_per_rollout
+    print(f"[INFO] Ladder recording ends after {successes} completed holds.")
     env_cfg.scene.entities["robot"] = make_g1_ladder_training_robot_cfg(robot_xml)
     env_cfg.robot_xml = str(robot_xml)
     env_cfg.viewer.width = args.width

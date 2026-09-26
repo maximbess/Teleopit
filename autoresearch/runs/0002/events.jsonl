@@ -12,3 +12,6 @@
 {"time": "2026-09-25T19:24:42Z", "event": "review_finished", "task_id": "0002", "exit_code": 0, "session_id": "03bc7de6-5723-445b-a706-cf0233472d18", "output": "autoresearch/runs/0002/agent/output/003.jsonl"}
 {"time": "2026-09-25T19:24:42Z", "event": "local_validation_started", "task_id": "0002", "attempt": 3, "commands": ["python -m compileall -q teleopit train_mimic autoresearch", "pytest tests/ -q"]}
 {"time": "2026-09-25T19:25:10Z", "event": "local_validation_passed", "task_id": "0002", "log": "autoresearch/runs/0002/validation/3.log"}
+{"time": "2026-09-25T19:25:10Z", "event": "committed", "task_id": "0002", "commit": "2cb32eba66fdcb7e5fea72f46cc2d166023e8133"}
+{"time": "2026-09-25T19:25:13Z", "event": "pushed", "task_id": "0002", "remote": "origin", "branch": "autoresearch"}
+{"time": "2026-09-25T19:25:13Z", "event": "completed", "task_id": "0002"}

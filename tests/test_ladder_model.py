@@ -1,4 +1,4 @@
-"""Ladder normalization keeps the phase one-hot out of the running statistics."""
+"""Ladder observations are normalized like any other continuous features."""
 
 from __future__ import annotations
 
@@ -8,14 +8,14 @@ from tensordict import TensorDict
 from train_mimic.tasks.tracking.rl.ladder_model import LadderTemporalCNNModel
 
 
-def test_phase_switch_stays_one_hot_after_normalization() -> None:
-    current = torch.zeros(4, 8)
-    current[:, 0] = 1.0
-    current[:, 5:] = torch.arange(4, dtype=torch.float32)[:, None]
-    history = current[:, None].repeat(1, 10, 1)
+def test_ladder_normalizer_scales_every_feature() -> None:
+    current = torch.zeros(8, 6)
+    current[:, 0] = torch.arange(8, dtype=torch.float32)
+    current[:, 1:] = 1.0
+    history = current[:, None].repeat(1, 4, 1)
     obs = TensorDict(
         {"actor": current, "actor_history": history},
-        batch_size=[4],
+        batch_size=[8],
     )
     model = LadderTemporalCNNModel(
         obs,
@@ -31,22 +31,13 @@ def test_phase_switch_stays_one_hot_after_normalization() -> None:
         },
     )
     model.update_normalization(obs)
-    model.load_state_dict(model.state_dict())
     model.eval()
 
-    obs["actor"][:, 0] = 0.0
-    obs["actor"][:, 1] = 1.0
-    obs["actor_history"][:, :, 0] = 0.0
-    obs["actor_history"][:, :, 1] = 1.0
+    probe = torch.zeros(8, 6)
+    probe[:, 0] = 100.0
+    normalized = model.obs_normalizer(probe)
+    assert not torch.allclose(normalized[:, 0], probe[:, 0])
 
-    normalized = model.obs_normalizer(obs["actor"])
-    torch.testing.assert_close(normalized[:, :5], obs["actor"][:, :5])
-    assert not torch.equal(normalized[:, 5:], obs["actor"][:, 5:])
-
-    history_norm = model.obs_normalizers_3d["actor_history"]
-    torch.testing.assert_close(
-        history_norm(obs["actor_history"])[..., :5],
-        obs["actor_history"][..., :5],
-    )
-    scripted = torch.jit.script(model.obs_normalizer)
-    torch.testing.assert_close(scripted(obs["actor"]), normalized)
+    history_probe = probe[:, None].repeat(1, 4, 1)
+    history_norm = model.obs_normalizers_3d["actor_history"](history_probe)
+    assert not torch.allclose(history_norm[..., 0], history_probe[..., 0])

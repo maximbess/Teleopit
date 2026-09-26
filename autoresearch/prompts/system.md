@@ -42,5 +42,7 @@ When the task requires expensive cluster training, write `cluster.md` in the tas
 
 Do not modify the autoresearch controller, its config, or its prompts. Task artifacts belong under that task's run directory.
 
+When diagnosing a dependency failure, grep a specific file or directory under that package. Do not search or read all of site-packages.
+
 Do not claim tests succeeded unless they were actually executed.
 Do not hide failed approaches or unexpected behavior.

@@ -16,6 +16,11 @@ from teleopit.runtime.g1_collision_assets import (
     CANONICAL_MESH_OVERRIDES, DONOR_TO_CANONICAL_TRANSLATIONS,
 )
 
+# Bit 0 is the climb face and the ground. Robot geoms use bit 1 and listen
+# for bit 0, so they hit the ladder and the floor without hitting each other.
+ROBOT_CONTYPE = 2
+ROBOT_CONAFFINITY = 1
+
 
 def apply_g1_collision_overlay(spec: mujoco.MjSpec, asset_dir: Path = ASSET_DIR) -> None:
     manifest_path = asset_dir / "manifest.json"
@@ -53,8 +58,9 @@ def apply_g1_collision_overlay(spec: mujoco.MjSpec, asset_dir: Path = ASSET_DIR)
     for name in REPLACED_GEOMS:
         spec.delete(geoms[name])
     # The foot shell encloses the distal shin/ankle bearing across the two
-    # ankle axes. This is one mechanical joint assembly, not self-collision.
-    # Its contacts with the opposite leg and with the ladder remain enabled.
+    # ankle axes. Keep that pair excluded so the shell and its own shin stay
+    # one assembly. Robot-robot contacts are also off via the geom bitmask;
+    # ladder contacts stay on.
     for side in ("left", "right"):
         spec.add_exclude(bodyname1=f"{side}_knee_link", bodyname2=f"{side}_ankle_roll_link")
     for index, part in enumerate(parts):
@@ -69,7 +75,7 @@ def apply_g1_collision_overlay(spec: mujoco.MjSpec, asset_dir: Path = ASSET_DIR)
         bodies[part["body"]].add_geom(
             name=f"{prefix}_omni_{index:03d}_collision",
             type=mujoco.mjtGeom.mjGEOM_MESH, meshname=mesh_name,
-            density=0.0, contype=1, conaffinity=1, group=3,
+            density=0.0, contype=ROBOT_CONTYPE, conaffinity=ROBOT_CONAFFINITY, group=3,
             pos=DONOR_TO_CANONICAL_TRANSLATIONS.get(source, (0.0, 0.0, 0.0)),
             condim=3 if source.endswith("ankle_roll_link") else 1,
             rgba=(0.2, 0.7, 0.35, 0.4),

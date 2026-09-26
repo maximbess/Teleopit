@@ -89,7 +89,8 @@ def test_refined_initial_contacts_and_mesh_budget():
     assert refined_ids
     assert len(refined_ids) <= len(BODY_MAP) * 12
     for i in refined_ids:
-        assert model.geom_contype[i] == model.geom_conaffinity[i] == 1
+        assert model.geom_contype[i] == 2
+        assert model.geom_conaffinity[i] == 1
         assert model.mesh_vertnum[model.geom_dataid[i]] <= 64
     contacts = []
     foot_sides = set()
@@ -108,33 +109,35 @@ def test_refined_initial_contacts_and_mesh_budget():
     assert all(any("_foot_omni_" in name for name in pair) for pair, _ in contacts), contacts
 
 
-def test_unwanted_contact_sensors_compile_with_both_faces():
+def _geoms_collide(model, first: int, second: int) -> bool:
+    return bool(
+        (int(model.geom_contype[first]) & int(model.geom_conaffinity[second]))
+        or (int(model.geom_contype[second]) & int(model.geom_conaffinity[first]))
+    )
+
+
+def test_far_face_is_visual_and_robot_geoms_do_not_self_collide():
     cfg = config.make_g1_ladder_rl_env_cfg()
-    robot = Entity(cfg.scene.entities["robot"])
-    scene = mujoco.MjSpec()
-    scene.attach(robot.spec, prefix="robot/", frame=scene.worldbody.add_frame())
-    sensors = [s.build() for s in cfg.scene.sensors
-               if s.name.startswith("ladder_unwanted_contact_")]
-    assert len(sensors) == 2
-    for sensor in sensors:
-        sensor.edit_spec(scene, {"robot": robot})
-    assert sensors[0].primary_names == sensors[1].primary_names
-    assert "pelvis" in sensors[0].primary_names
-    assert "torso_link" in sensors[0].primary_names
-    assert "left_knee_link" in sensors[0].primary_names
-    assert "left_elbow_link" in sensors[0].primary_names
-    assert not set(sensors[0].primary_names) & set(sensors[0].cfg.primary.exclude)
-    model = scene.compile()
-    reference_ids = {int(model.sensor_refid[i]) for i in range(model.nsensor)
-                     if model.sensor(i).name.startswith("ladder_unwanted_contact_")}
-    assert reference_ids == {model.body("robot/left_ladder_body").id,
-                             model.body("robot/right_ladder_body").id}
-    self_sensor = next(s for s in cfg.scene.sensors if s.name == "self_collision").build()
-    self_sensor.edit_spec(scene, {"robot": robot})
-    assert "pelvis" in self_sensor.primary_names
-    assert "torso_link" in self_sensor.primary_names
-    assert not any("ladder" in name or "anchor" in name for name in self_sensor.primary_names)
-    scene.compile()
+    assert tuple(sensor.name for sensor in cfg.scene.sensors) == ("ladder_foot_contact",)
+    assert not any(s.name == "self_collision" for s in cfg.scene.sensors)
+
+    model = Entity(cfg.scene.entities["robot"]).spec.compile()
+    names = [model.geom(i).name for i in range(model.ngeom)]
+    left_rung = model.geom("left_ladder_rung_02").id
+    right_rung = model.geom("right_ladder_rung_02").id
+    right_rail = model.geom("right_ladder_rail_01").id
+    foot = next(i for i, name in enumerate(names) if name.startswith("left_foot_omni_"))
+    torso = next(i for i, name in enumerate(names) if name.startswith("torso_link_omni_") or name.startswith("torso_omni_"))
+
+    assert model.geom_contype[right_rung] == model.geom_conaffinity[right_rung] == 0
+    assert model.geom_contype[right_rail] == model.geom_conaffinity[right_rail] == 0
+    assert model.geom_contype[left_rung] == 1 and model.geom_conaffinity[left_rung] == 0
+    assert model.geom_contype[foot] == 2 and model.geom_conaffinity[foot] == 1
+    assert _geoms_collide(model, foot, left_rung)
+    assert not _geoms_collide(model, foot, right_rung)
+    assert not _geoms_collide(model, foot, torso)
+    # The scene ground keeps MuJoCo's default contype=1, conaffinity=1.
+    assert (1 & int(model.geom_conaffinity[foot])) or (int(model.geom_contype[foot]) & 1)
 
 
 def test_ladder_convex_contacts_have_zero_margin_for_warp_multiccd():

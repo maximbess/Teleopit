@@ -312,12 +312,12 @@ def _step(repo: Path, task_id: str, cfg, state: str) -> str:
             _commit(repo, task_id)
             return "continue"
         if not (_task_dir(repo, task_id) / "report.md").is_file():
-            _invoke(repo, task_id, cfg, _prompt(repo, "review.md", task_id), kind="review")
+            _invoke(repo, task_id, cfg, _review_prompt(repo, task_id), kind="review", fresh=True)
             return "continue"
         _commit(repo, task_id)
         return "continue"
     if state == REVIEW:
-        _invoke(repo, task_id, cfg, _prompt(repo, "review.md", task_id), kind="review")
+        _invoke(repo, task_id, cfg, _review_prompt(repo, task_id), kind="review", fresh=True)
         return "continue"
     if state == REVIEW_FAILED:
         _resume_repair(repo, task_id, cfg, kind="review")
@@ -414,7 +414,7 @@ def _begin_follow_up(repo: Path, task_id: str, cfg, message: str) -> None:
     _log(repo, task_id, "repair_budget_reset")
     _log(repo, task_id, "human_follow_up")
     prompt = (
-        f"{_system(repo)}\n\nTask {task_id}\n\nThe researcher replied:\n\n{message}\n\n"
+        f"Task {task_id}\n\nThe researcher replied:\n\n{message}\n\n"
         "Continue the task. Update plan.md and implementation.md in the task directory."
     )
     _invoke(repo, task_id, cfg, prompt, kind="agent")
@@ -425,7 +425,7 @@ def _resume_interrupted(repo: Path, task_id: str, cfg) -> None:
         return
     _log(repo, task_id, "agent_interrupted")
     prompt = (
-        f"{_system(repo)}\n\nTask {task_id}\n\n{INTERRUPT_MARKER} before it finished. "
+        f"Task {task_id}\n\n{INTERRUPT_MARKER} before it finished. "
         "Continue from the current files. Do not repeat work that is already present."
     )
     _invoke(repo, task_id, cfg, prompt, kind="agent")
@@ -438,21 +438,23 @@ def _resume_repair(repo: Path, task_id: str, cfg, kind: str) -> None:
         {"local_validation_failed", "protected_paths_modified", "agent_failed", "review_failed"},
     )
     cause_name = cause.get("event") if cause else None
+    fresh = False
     if cause_name == "local_validation_failed" and cause is not None:
         reason = "validation failed and the retry limit was reached"
         prompt = _validation_prompt(repo, task_id, cause)
+        fresh = True
     elif cause_name == "protected_paths_modified":
         reason = "protected files stayed modified and the retry limit was reached"
         prompt = _protected_prompt(repo, task_id, cause)
     else:
         reason = "the agent failed and the retry limit was reached"
         prompt = (
-            f"{_system(repo)}\n\nTask {task_id}\n\nThe previous agent invocation failed. "
+            f"Task {task_id}\n\nThe previous agent invocation failed. "
             "Inspect the task directory and continue the task."
         )
     if not _budget_left(repo, task_id, cfg, reason):
         return
-    _invoke(repo, task_id, cfg, prompt, kind=kind)
+    _invoke(repo, task_id, cfg, prompt, kind=kind, fresh=fresh)
 
 
 def _request_notes(repo: Path, task_id: str, cfg, kind: str) -> None:
@@ -462,10 +464,10 @@ def _request_notes(repo: Path, task_id: str, cfg, kind: str) -> None:
         return
     _log(repo, task_id, "artifacts_missing", missing=missing)
     if kind == "review":
-        prompt = _prompt(repo, "review.md", task_id)
+        prompt = _prompt(repo, "review.md", task_id, include_system=False)
     else:
         prompt = (
-            f"{_system(repo)}\n\nTask {task_id}\n\n"
+            f"Task {task_id}\n\n"
             f"{missing} is missing. Write both files in the task directory, then stop."
         )
     _invoke(repo, task_id, cfg, prompt, kind=kind)
@@ -572,7 +574,7 @@ def _push(repo: Path, task_id: str, cfg) -> None:
     _log(repo, task_id, "pushed", remote=remote, branch=branch)
 
 
-def _invoke(repo: Path, task_id: str, cfg, prompt: str, kind: str) -> None:
+def _invoke(repo: Path, task_id: str, cfg, prompt: str, kind: str, fresh: bool = False) -> None:
     _raise_if_agent_alive(repo, task_id)
     agent = CursorAgent(
         bin_name=str(cfg.cursor.bin),
@@ -583,7 +585,7 @@ def _invoke(repo: Path, task_id: str, cfg, prompt: str, kind: str) -> None:
     start_event = "agent_started" if kind == "agent" else "review_started"
     finish_event = "agent_finished" if kind == "agent" else "review_finished"
     fail_event = "agent_failed" if kind == "agent" else "review_failed"
-    session_id = _latest_session_id(read_events(_events_path(repo, task_id)))
+    session_id = None if fresh else _latest_session_id(read_events(_events_path(repo, task_id)))
     output = _next_output(repo, task_id)
     try:
         result = _spawn(repo, task_id, agent, prompt, output, start_event, session_id)
@@ -679,22 +681,60 @@ def _validation_prompt(repo: Path, task_id: str, failure: dict[str, Any]) -> str
         f"Command: {failure.get('command')}\n"
         f"Exit code: {failure.get('exit_code')}\n"
         f"Output tail:\n{excerpt}\n\n"
+        f"{_worktree_summary(repo, task_id)}\n\n"
         "Diagnose and fix the failure. Do not claim success unless the fix is applied."
+    )
+
+
+def _review_prompt(repo: Path, task_id: str) -> str:
+    return (
+        f"{_prompt(repo, 'review.md', task_id)}\n\n"
+        "Use the task notes and diff below. Do not re-explore the repository to reconstruct them.\n\n"
+        f"{_worktree_summary(repo, task_id)}"
     )
 
 
 def _protected_prompt(repo: Path, task_id: str, event: dict[str, Any] | None) -> str:
     paths = ", ".join(event.get("paths", [])) if event else ""
     return (
-        f"{_system(repo)}\n\nTask {task_id}\n\n{PROTECTED_MARKER}:\n{paths}\n\n"
+        f"Task {task_id}\n\n{PROTECTED_MARKER}:\n{paths}\n\n"
         "Return those files to the current HEAD contents. "
         f"Put task notes only under autoresearch/runs/{task_id}/."
     )
 
 
-def _prompt(repo: Path, name: str, task_id: str) -> str:
+def _worktree_summary(repo: Path, task_id: str) -> str:
+    events = read_events(_events_path(repo, task_id))
+    base = _latest(events, "base_recorded", "commit") or "HEAD"
+    stat = _git(repo, "diff", "--stat", str(base), check=False).stdout.strip() or "(no tracked diff)"
+    status = _git(repo, "status", "--porcelain", check=False).stdout.strip() or "(clean)"
+    task = _task_dir(repo, task_id)
+    return (
+        f"idea.md:\n{_read_capped(task / 'idea.md', 4000)}\n\n"
+        f"implementation.md:\n{_read_capped(task / 'implementation.md', 12000)}\n\n"
+        f"git diff --stat {base}:\n{_cap_text(stat, 8000)}\n\n"
+        f"git status --porcelain:\n{_cap_text(status, 4000)}"
+    )
+
+
+def _read_capped(path: Path, limit: int) -> str:
+    if not path.is_file():
+        return "(missing)"
+    return _cap_text(path.read_text(encoding="utf-8").strip() or "(empty)", limit)
+
+
+def _cap_text(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    return text[:limit] + "\n…(truncated)"
+
+
+def _prompt(repo: Path, name: str, task_id: str, include_system: bool = True) -> str:
     body = (repo / "autoresearch" / "prompts" / name).read_text(encoding="utf-8")
-    return f"{_system(repo)}\n\n{body.replace('{task_id}', task_id)}"
+    text = body.replace("{task_id}", task_id)
+    if include_system:
+        return f"{_system(repo)}\n\n{text}"
+    return text
 
 
 def _system(repo: Path) -> str:

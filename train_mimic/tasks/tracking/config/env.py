@@ -30,7 +30,7 @@ from train_mimic.tasks.tracking.config.constants import DEFAULT_TRAIN_MOTION_FIL
 from train_mimic.tasks.tracking.mdp import MotionCommandCfg
 from train_mimic.tasks.tracking.tracking_env_cfg import make_tracking_env_cfg
 from teleopit.runtime.assets import UNITREE_G1_XML, missing_gmr_assets_message
-from .g1_collision import apply_g1_collision_overlay
+from .g1_collision import ROBOT_CONAFFINITY, ROBOT_CONTYPE, apply_g1_collision_overlay
 from .ladder_init import LADDER_INITIAL_JOINT_POS, LADDER_INITIAL_ROOT_POS
 
 _TRACKING_BODY_NAMES = (
@@ -70,11 +70,14 @@ _LADDER_START_RUNG = 4
 _LADDER_INITIAL_FOOT_RUNG = 1
 _LADDER_FOOT_CONTACT_SENSOR = "ladder_foot_contact"
 _LADDER_ARM_EFFORT_SCALE = 0.70
-_LADDER_CURRICULUM_MIN_PHASE_STEPS = (36_000, 120_000, 120_000, 120_000)
+_LADDER_SUCCESSES_PER_ROLLOUT = 4
 # Warp rejects a nonzero margin only for box/box, box/mesh, and mesh/mesh pairs.
 # Capsule rails keep a 2 mm skin. Box rungs stay at zero.
 _LADDER_RAIL_MARGIN = 0.002
 _LADDER_BOX_MARGIN = 0.0
+# Climb-face geoms advertise bit 0 and listen to nothing. See ROBOT_CONTYPE.
+_LADDER_CONTYPE = 1
+_LADDER_CONAFFINITY = 0
 
 _LADDER_FLOOR_MATERIAL = spec_cfg.MaterialCfg(
     name="ladder_floor_material",
@@ -131,7 +134,10 @@ def _add_ladder_to_g1_spec(spec: mujoco.MjSpec) -> None:
     )
 
     world = spec.worldbody
+    # The robot stands on the negative-x face. The positive-x face is the back
+    # of the A-frame: keep it for rendering, and leave it out of collision.
     for side, base_x in (("left", -_LADDER_HALF_BASE), ("right", _LADDER_HALF_BASE)):
+        collides = side == "left"
         side_body = world.add_body(name=f"{side}_ladder_body")
         for rail_index, y in enumerate(
             (-_LADDER_HALF_WIDTH, _LADDER_HALF_WIDTH),
@@ -142,8 +148,8 @@ def _add_ladder_to_g1_spec(spec: mujoco.MjSpec) -> None:
                 type=mujoco.mjtGeom.mjGEOM_CAPSULE,
                 fromto=(base_x, y, 0.0, 0.0, y, _LADDER_HEIGHT),
                 size=(_LADDER_RAIL_RADIUS,),
-                contype=1,
-                conaffinity=1,
+                contype=_LADDER_CONTYPE if collides else 0,
+                conaffinity=_LADDER_CONAFFINITY,
                 condim=4,
                 friction=(1.4, 0.02, 0.002),
                 solref=(0.005, 1.0),
@@ -174,8 +180,8 @@ def _add_ladder_to_g1_spec(spec: mujoco.MjSpec) -> None:
                     _LADDER_HALF_WIDTH,
                     _LADDER_RUNG_HALF_HEIGHT,
                 ),
-                contype=1,
-                conaffinity=1,
+                contype=_LADDER_CONTYPE if collides else 0,
+                conaffinity=_LADDER_CONAFFINITY,
                 condim=4,
                 friction=(1.8, 0.02, 0.002),
                 solref=(0.005, 1.0),
@@ -314,19 +320,26 @@ def make_g1_ladder_training_robot_cfg(robot_xml: str | Path | None = None):
     robot_cfg.init_state.pos = LADDER_INITIAL_ROOT_POS
     robot_cfg.init_state.joint_pos = dict(LADDER_INITIAL_JOINT_POS)
     robot_cfg.init_state.joint_vel = {".*": 0.0}
-    # G1's default collision editor disables every geom whose name does not
-    # match ``.*_collision``.  The generated ladder uses semantic names, so it
-    # must be explicitly re-enabled after the default editor runs. Robot and
-    # ladder collide through their real surfaces; no invisible face blocker.
-    # MuJoCo Warp rejects nonzero margins on box/mesh pairs with MULTICCD.
-    # Box rungs stay at zero. Capsule rails keep a 2 mm margin.
+    # The stock editor enables every ``.*_collision`` geom, including
+    # self-collision, and disables the rest. Replace it so robot surfaces
+    # keep their contact parameters but only collide with the climb face and
+    # the ground. The far A-frame face stays in the model for rendering and
+    # is not re-enabled. MuJoCo Warp rejects nonzero margins on box/mesh
+    # pairs with MULTICCD. Box rungs stay at zero. Capsule rails keep 2 mm.
     robot_cfg.collisions = (
-        *robot_cfg.collisions,
         spec_cfg.CollisionCfg(
-            geom_names_expr=(r"^(left|right)_ladder_rail_[0-9]{2}$",),
+            geom_names_expr=(".*_collision",),
+            contype=ROBOT_CONTYPE,
+            conaffinity=ROBOT_CONAFFINITY,
+            condim={r"^(left|right)_foot[1-7]_collision$": 3, ".*_collision": 1},
+            priority={r"^(left|right)_foot[1-7]_collision$": 1},
+            friction={r"^(left|right)_foot[1-7]_collision$": (0.6,)},
+        ),
+        spec_cfg.CollisionCfg(
+            geom_names_expr=(r"^left_ladder_rail_[0-9]{2}$",),
             priority=2,
-            contype=1,
-            conaffinity=1,
+            contype=_LADDER_CONTYPE,
+            conaffinity=_LADDER_CONAFFINITY,
             condim=4,
             friction=(1.4, 0.02, 0.002),
             solref=(0.005, 1.0),
@@ -335,10 +348,10 @@ def make_g1_ladder_training_robot_cfg(robot_xml: str | Path | None = None):
             disable_other_geoms=False,
         ),
         spec_cfg.CollisionCfg(
-            geom_names_expr=(r"^(left|right)_ladder_rung_[0-9]{2}$",),
+            geom_names_expr=(r"^left_ladder_rung_[0-9]{2}$",),
             priority=2,
-            contype=1,
-            conaffinity=1,
+            contype=_LADDER_CONTYPE,
+            conaffinity=_LADDER_CONAFFINITY,
             condim=4,
             friction=(1.8, 0.02, 0.002),
             solref=(0.005, 1.0),
@@ -346,13 +359,14 @@ def make_g1_ladder_training_robot_cfg(robot_xml: str | Path | None = None):
             margin=_LADDER_BOX_MARGIN,
             disable_other_geoms=False,
         ),
-    )
-    robot_cfg.collisions = (
-        *robot_cfg.collisions,
         spec_cfg.CollisionCfg(
             geom_names_expr=(r"^(left|right)_foot_omni_[0-9]{3}_collision$",),
-            contype=1, conaffinity=1, condim=3, priority=1,
-            friction=(0.6, 0.005, 0.0001), disable_other_geoms=False,
+            contype=ROBOT_CONTYPE,
+            conaffinity=ROBOT_CONAFFINITY,
+            condim=3,
+            priority=1,
+            friction=(0.6, 0.005, 0.0001),
+            disable_other_geoms=False,
         ),
     )
     xml_path = resolve_g1_training_xml(robot_xml)
@@ -659,7 +673,11 @@ def make_g1_ladder_rl_env_cfg(
             actuator_names=(".*",),
             scale=G1_ACTION_SCALE,
             use_default_offset=True,
-        )
+        ),
+        "grip": mdp.LadderGripActionCfg(
+            entity_name="robot",
+            command_name="ladder",
+        ),
     }
 
     commands = {
@@ -676,58 +694,24 @@ def make_g1_ladder_rl_env_cfg(
             ),
             torso_body_name="torso_link",
             pelvis_body_name="pelvis",
-            first_moving_hand="left",
-            first_moving_foot="left",
             start_rung=_LADDER_START_RUNG,
             initialize_on_reset=True,
             initial_foot_rung=_LADDER_INITIAL_FOOT_RUNG,
-            curriculum_enabled=not play,
-            curriculum_success_threshold=0.80,
-            curriculum_window_size=100,
-            curriculum_min_phase_steps=_LADDER_CURRICULUM_MIN_PHASE_STEPS,
-            boundary_state_reset_prob=0.0 if play else 0.50,
-            boundary_state_bank_size=0 if play else 1_024,
+            successes_per_rollout=_LADDER_SUCCESSES_PER_ROLLOUT,
             stabilization_dwell_steps=50,
-            stabilization_dwell_max_steps=100,
-            hand_target_dwell_steps=3,
-            foot_target_dwell_steps=5,
             max_stabilization_torso_speed=0.20,
             max_stabilization_joint_speed=1.0,
             max_stabilization_body_angular_speed=0.40,
             max_stabilization_waist_joint_speed=0.60,
             max_stabilization_support_offset_error=0.18,
-            max_phase_torso_orientation_error=0.30,
-            max_phase_support_offset_error=0.15,
-            max_phase_completion_torso_speed=0.20,
-            max_phase_completion_joint_speed=1.0,
-            first_foot_max_body_drop=0.03,
-            cycle_min_body_ascent=0.12,
-            release_preload_dwell_steps=8,
-            release_ramp_steps=20,
-            release_final_dwell_steps=5,
-            release_recovery_steps=2,
-            pre_release_timeout_steps=300,
-            max_release_torso_speed=0.12,
-            max_release_torso_orientation_error=0.25,
-            max_release_support_offset_error=0.12,
-            release_soft_timeconst=0.18,
-            release_soft_impedance=0.05,
             attach_distance=0.10,
             max_attach_speed=0.35,
             grip_half_span=0.18,
-            foot_reach_distance=0.10,
             foot_support_distance=0.11,
-            max_foot_speed=0.35,
-            foot_target_height=_LADDER_RUNG_HALF_HEIGHT + 0.01,
-            hand_foot_lead_rungs=3,
         ),
     }
 
     events = {
-        "prepare_ladder_weld_model": EventTermCfg(
-            func=mdp.prepare_ladder_weld_model,
-            mode="startup",
-        ),
         "reset_base": EventTermCfg(
             func=mdp.reset_root_state_uniform,
             mode="reset",
@@ -778,128 +762,33 @@ def make_g1_ladder_rl_env_cfg(
     }
 
     rewards = {
-        "ladder_upward_progress": RewardTermCfg(
-            func=mdp.LadderUpwardProgressReward,
-            weight=20.0,
+        "ladder_climb": RewardTermCfg(
+            func=mdp.ladder_climb,
+            weight=1.0,
             params={"command_name": "ladder"},
         ),
-        "ladder_foot_placement": RewardTermCfg(
-            func=mdp.LadderFootPlacementReward,
-            weight=8.0,
-            params={
-                "command_name": "ladder",
-                "distance_std": 0.06,
-                "max_abs_rate": 50.0,
-            },
-        ),
-        "ladder_phase_progress": RewardTermCfg(
-            func=mdp.LadderPhaseProgressReward,
-            weight=8.0,
-            params={
-                "command_name": "ladder",
-                "rung_spacing": _LADDER_HEIGHT / (_LADDER_NUM_RUNGS + 1),
-                "reach_distance": 0.35,
-                "first_hand_body_weight": 0.0,
-                "second_hand_body_weight": 0.0,
-                "foot_body_weight": 0.0,
-                "release_progress_weight": 1.0,
-                "unsupported_progress_scale": 0.25,
-                "max_abs_rate": 10.0,
-            },
-        ),
-        "ladder_phase_completed": RewardTermCfg(
-            func=mdp.ladder_phase_completed,
-            weight=25.0,
+        "ladder_hold": RewardTermCfg(
+            func=mdp.ladder_hold,
+            weight=1.0,
             params={"command_name": "ladder"},
         ),
-        "ladder_stabilization_orientation": RewardTermCfg(
-            func=mdp.ladder_stabilization_orientation_error_l2,
-            weight=-1.0,
+        "ladder_hold_completed": RewardTermCfg(
+            func=mdp.ladder_hold_completed,
+            weight=1.0,
             params={"command_name": "ladder"},
         ),
-        "ladder_failure": RewardTermCfg(
-            func=mdp.ladder_failure_penalty,
-            weight=-50.0,
+        "ladder_flight": RewardTermCfg(
+            func=mdp.ladder_flight,
+            weight=1.0,
             params={"command_name": "ladder"},
-        ),
-        "ladder_finished": RewardTermCfg(
-            func=mdp.ladder_finished,
-            weight=100.0,
-            params={"command_name": "ladder"},
-        ),
-        "survival": RewardTermCfg(
-            func=mdp.ladder_movement_survival, weight=3.0,
-            params={"command_name": "ladder"},
-        ),
-        "ladder_missing_foot_support": RewardTermCfg(
-            func=mdp.ladder_missing_foot_support, weight=-2.0,
-            params={"command_name": "ladder"},
-        ),
-        "ladder_foot_recovery": RewardTermCfg(
-            func=mdp.LadderFootRecoveryReward, weight=4.0,
-            params={"command_name": "ladder", "reach_distance": 0.35},
-        ),
-        "ladder_stabilization_pose": RewardTermCfg(
-            func=mdp.LadderStabilizationPoseCost, weight=-2.0,
-            params={
-                "command_name": "ladder",
-                "reference_joint_pos": dict(LADDER_INITIAL_JOINT_POS),
-                "joint_weights": {
-                    ".*_hip_.*_joint": 2.0,
-                    ".*_knee_joint": 2.0,
-                    "waist_.*_joint": 2.0,
-                    ".*_ankle_.*_joint": 1.0,
-                },
-                "sigma": 0.25,
-            },
-        ),
-        "ladder_stabilization_joint_velocity": RewardTermCfg(
-            func=mdp.ladder_stabilization_joint_velocity_l2, weight=-0.2,
-            params={"command_name": "ladder"},
-        ),
-        "ladder_unwanted_contact": RewardTermCfg(
-            func=mdp.ladder_unwanted_contact_cost, weight=-2.0,
-            params={"sensor_name": ("ladder_unwanted_contact_left", "ladder_unwanted_contact_right"),
-                    "force_threshold": 1.0},
-        ),
-        "ladder_stabilization_violation": RewardTermCfg(
-            func=mdp.ladder_stabilization_violation, weight=-1.0,
-            params={"command_name": "ladder"},
-        ),
-        "action_rate": RewardTermCfg(func=mdp.action_rate_l2, weight=-0.1),
-        "joint_limits": RewardTermCfg(
-            func=mdp.joint_pos_limits,
-            weight=-10.0,
-            params={"asset_cfg": SceneEntityCfg("robot", joint_names=(".*",))},
         ),
     }
-
-    # Keep event bonuses and the episode height record shared. Each phase owns
-    # its potential terms, with independent weights and separate reward logs.
-    progress = rewards.pop("ladder_phase_progress")
-    placement = rewards.pop("ladder_foot_placement")
-    for phase in mdp.LadderPhase:
-        for name, template in (("progress", progress), ("foot_placement", placement)):
-            rewards[f"ladder_{phase.name.lower()}_{name}"] = RewardTermCfg(
-                func=template.func,
-                weight=template.weight,
-                params={**template.params, "phase": int(phase)},
-            )
 
     terminations = {
         # The task deadline is a terminal failure, not a bootstrapped truncation.
         "time_out": TerminationTermCfg(func=mdp.time_out, time_out=False),
         "success": TerminationTermCfg(
             func=mdp.ladder_success,
-            params={"command_name": "ladder"},
-        ),
-        "curriculum_stage_complete": TerminationTermCfg(
-            func=mdp.ladder_curriculum_stage_complete,
-            params={"command_name": "ladder"},
-            time_out=True,
-        ),
-        "pre_release_stalled": TerminationTermCfg(
-            func=mdp.ladder_pre_release_stalled,
             params={"command_name": "ladder"},
         ),
         "fell_over": TerminationTermCfg(
@@ -945,20 +834,6 @@ def make_g1_ladder_rl_env_cfg(
                     num_slots=1,
                     history_length=4,
                 ),
-                *(ContactSensorCfg(
-                    name=f"ladder_unwanted_contact_{side}",
-                    primary=ContactMatch(
-                        mode="body", pattern=r"pelvis|.*_link", entity="robot",
-                        exclude=("left_wrist_yaw_link", "right_wrist_yaw_link",
-                                 "left_ankle_roll_link", "right_ankle_roll_link"),
-                    ),
-                    secondary=ContactMatch(
-                        mode="body", pattern=f"{side}_ladder_body",
-                        entity="robot",
-                    ),
-                    fields=("found", "force"), reduce="maxforce", num_slots=1,
-                    history_length=0,
-                ) for side in ("left", "right")),
             ),
             num_envs=1,
             env_spacing=0.0,
@@ -995,8 +870,6 @@ def make_g1_ladder_rl_env_cfg(
         episode_length_s=20.0,
     )
 
-    _configure_self_collision_reward(cfg, primary_pattern=r"pelvis|.*_link")
-    _configure_feet_acc_reward(cfg)
     _add_history_obs_groups(cfg)
 
     if play:

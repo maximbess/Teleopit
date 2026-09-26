@@ -2,7 +2,6 @@ import os
 import pathlib
 import statistics
 import time
-from itertools import chain
 from math import exp, log
 
 import torch
@@ -33,6 +32,14 @@ def _resolve_total_iterations(
             f"Got num_learning_iterations={num_learning_iterations}."
         )
     return start_iteration + num_learning_iterations
+
+
+def _mean_episode_length_s(lengths: list[float], step_dt: float) -> float:
+    """Convert the step-counted episode lengths to seconds."""
+
+    if step_dt <= 0.0:
+        raise ValueError(f"step_dt must be positive, got {step_dt}")
+    return statistics.mean(lengths) * step_dt
 
 
 def _format_duration(seconds: float) -> str:
@@ -119,32 +126,15 @@ def _set_distribution_std(distribution, target_std: float) -> torch.nn.Parameter
 
 
 class LadderOnPolicyRunner(MjlabOnPolicyRunner):
-    """Plain PPO runner with persistent, multi-GPU ladder curriculum state."""
+    """PPO runner for the repeated one-rung ladder skill."""
 
     env: RslRlVecEnvWrapper
-
-    def _ladder_command(self):
-        return self.env.unwrapped.command_manager.get_term("ladder")
 
     def _actor_distribution(self):
         distribution = self.alg.get_policy().distribution
         if distribution is None:
             raise RuntimeError("Ladder PPO actor must define a Gaussian distribution")
         return distribution
-
-    def _restore_exploration_after_promotion(self) -> tuple[float, float]:
-        """Reset std, its optimizer momentum, and LR for a newly opened phase."""
-
-        target_std = float(self.cfg["actor"]["distribution_cfg"]["init_std"])
-        distribution = self._actor_distribution()
-        std_parameter = _set_distribution_std(distribution, target_std)
-        self.alg.optimizer.state.pop(std_parameter, None)
-
-        target_learning_rate = float(self.cfg["algorithm"]["learning_rate"])
-        self.alg.learning_rate = target_learning_rate
-        for param_group in self.alg.optimizer.param_groups:
-            param_group["lr"] = target_learning_rate
-        return target_std, target_learning_rate
 
     def _project_actor_std(self) -> None:
         """Project actor std and discard optimizer momentum that crossed a bound."""
@@ -155,72 +145,12 @@ class LadderOnPolicyRunner(MjlabOnPolicyRunner):
         if projected:
             self.alg.optimizer.state.pop(std_parameter, None)
 
-    def _synchronize_ladder_curriculum(self, iteration: int) -> None:
-        command = self._ladder_command()
-        local_outcomes = command.drain_curriculum_outcomes()
-        if self.is_distributed:
-            gathered: list[list[int] | None] = [None] * self.gpu_world_size
-            torch.distributed.all_gather_object(gathered, local_outcomes)
-            outcomes = list(chain.from_iterable(batch or [] for batch in gathered))
-        else:
-            outcomes = local_outcomes
-
-        promoted = command.update_curriculum(outcomes)
-        promotion_std = None
-        promotion_learning_rate = None
-        if promoted:
-            promotion_std, promotion_learning_rate = (
-                self._restore_exploration_after_promotion()
-            )
-        if promoted and self.gpu_global_rank == 0:
-            phase_name = command.phase_name(command.max_unlocked_phase)
-            print(
-                "[INFO] Ladder curriculum promoted to "
-                f"phase {command.max_unlocked_phase} ({phase_name}) at "
-                f"iteration {iteration}; actor std reset to {promotion_std:.3f}, "
-                f"learning rate reset to {promotion_learning_rate:.3g}."
-            )
-
-        writer = self.logger.writer
-        if writer is not None:
-            writer.add_scalar(
-                "Curriculum/ladder_unlocked_phase",
-                command.max_unlocked_phase,
-                iteration,
-            )
-            writer.add_scalar(
-                "Curriculum/ladder_success_rate_100",
-                command.curriculum_success_rate,
-                iteration,
-            )
-            writer.add_scalar(
-                "Curriculum/ladder_window_fill",
-                command.curriculum_window_fill,
-                iteration,
-            )
-            writer.add_scalar(
-                "Curriculum/ladder_phase_steps",
-                command.curriculum_phase_steps,
-                iteration,
-            )
-            if promoted:
-                writer.add_scalar(
-                    "Curriculum/ladder_promotion_actor_std",
-                    promotion_std,
-                    iteration,
-                )
-                writer.add_scalar(
-                    "Curriculum/ladder_promotion_learning_rate",
-                    promotion_learning_rate,
-                    iteration,
-                )
-
     def learn(
         self,
         num_learning_iterations: int,
         init_at_random_ep_len: bool = False,
     ) -> None:
-        """Run PPO and evaluate curriculum promotion once per rollout."""
+        """Run PPO. The rung count N lives in the environment, not in this loop."""
 
         if init_at_random_ep_len:
             self.env.episode_length_buf = torch.randint_like(
@@ -265,7 +195,6 @@ class LadderOnPolicyRunner(MjlabOnPolicyRunner):
                         intrinsic_rewards,
                     )
 
-                self._synchronize_ladder_curriculum(it)
                 stop = time.time()
                 collect_time = stop - start
                 start = stop
@@ -308,11 +237,6 @@ class LadderOnPolicyRunner(MjlabOnPolicyRunner):
             )
             self.logger.stop_logging_writer()
 
-    def save(self, path: str, infos=None) -> None:
-        curriculum_state = self._ladder_command().curriculum_state_dict()
-        infos = {**(infos or {}), "ladder_curriculum_state": curriculum_state}
-        super().save(path, infos=infos)
-
     def load(
         self,
         path: str,
@@ -321,17 +245,6 @@ class LadderOnPolicyRunner(MjlabOnPolicyRunner):
         map_location: str | None = None,
     ) -> dict:
         infos = super().load(path, load_cfg, strict, map_location)
-        command = self._ladder_command()
-        state = (infos or {}).get("ladder_curriculum_state")
-        if state is None:
-            if command.cfg.curriculum_enabled:
-                raise RuntimeError(
-                    "Checkpoint does not contain adaptive ladder curriculum state. "
-                    "Start a fresh run instead of resuming a fixed-schedule checkpoint."
-                )
-            self._project_actor_std()
-            return infos
-        command.load_curriculum_state_dict(state)
         self._project_actor_std()
         return infos
 
@@ -490,7 +403,11 @@ class MotionTrackingOnPolicyRunner(MjlabOnPolicyRunner):
         logger.writer.add_scalar("Perf/collection_time", collect_time, it)
         logger.writer.add_scalar("Perf/learning_time", learn_time, it)
 
+        mean_episode_length_s = None
         if len(logger.rewbuffer) > 0:
+            mean_episode_length_s = _mean_episode_length_s(
+                logger.lenbuffer, float(self.env.unwrapped.step_dt)
+            )
             if logger.cfg["algorithm"]["rnd_cfg"]:
                 logger.writer.add_scalar(
                     "Rnd/mean_extrinsic_reward", statistics.mean(logger.erewbuffer), it
@@ -503,7 +420,7 @@ class MotionTrackingOnPolicyRunner(MjlabOnPolicyRunner):
                 "Train/mean_reward", statistics.mean(logger.rewbuffer), it
             )
             logger.writer.add_scalar(
-                "Train/mean_episode_length", statistics.mean(logger.lenbuffer), it
+                "Train/mean_episode_length_s", mean_episode_length_s, it
             )
             if logger.logger_type != "wandb":
                 logger.writer.add_scalar(
@@ -512,8 +429,8 @@ class MotionTrackingOnPolicyRunner(MjlabOnPolicyRunner):
                     int(logger.tot_time),
                 )
                 logger.writer.add_scalar(
-                    "Train/mean_episode_length/time",
-                    statistics.mean(logger.lenbuffer),
+                    "Train/mean_episode_length_s/time",
+                    mean_episode_length_s,
                     int(logger.tot_time),
                 )
 
@@ -552,7 +469,7 @@ class MotionTrackingOnPolicyRunner(MjlabOnPolicyRunner):
 """
             log_string += f"""{"Mean reward:":>{pad}} {statistics.mean(logger.rewbuffer):.2f}
 """
-            log_string += f"""{"Mean episode length:":>{pad}} {statistics.mean(logger.lenbuffer):.2f}
+            log_string += f"""{"Mean episode length (s):":>{pad}} {mean_episode_length_s:.3f}
 """
 
         log_string += f"""{"Mean action std:":>{pad}} {action_std.mean().item():.2f}

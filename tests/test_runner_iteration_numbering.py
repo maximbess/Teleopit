@@ -4,6 +4,7 @@ import pytest
 
 from train_mimic.tasks.tracking.rl.runner import (
     _format_duration,
+    _mean_episode_length_s,
     _one_based_iteration_range,
     _ordered_episode_extra_keys,
     _resolve_total_iterations,
@@ -38,6 +39,15 @@ def test_resolve_total_iterations_adds_requested_iterations_on_resume() -> None:
 def test_resolve_total_iterations_rejects_negative_requested_iterations() -> None:
     with pytest.raises(ValueError, match='non-negative'):
         _resolve_total_iterations(10, -1)
+
+
+def test_mean_episode_length_is_reported_in_seconds() -> None:
+    assert _mean_episode_length_s([50.0, 70.0], 0.02) == pytest.approx(1.2)
+
+
+def test_mean_episode_length_rejects_a_non_positive_step() -> None:
+    with pytest.raises(ValueError, match="step_dt"):
+        _mean_episode_length_s([10.0], 0.0)
 
 
 def test_format_duration_keeps_hours_above_one_day() -> None:

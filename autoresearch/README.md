@@ -30,7 +30,7 @@ python -m autoresearch.controller status 0001
 python -m autoresearch.controller continue 0001 "what to do next"
 ```
 
-`new` without `--from-file` reads an idea from the terminal when stdin is a TTY. `continue` resumes the stored Cursor session and gives the agent another validation budget. Use it after `NEEDS_HUMAN`.
+`new` without `--from-file` reads an idea from the terminal when stdin is a TTY. `continue` resumes the stored Cursor session and gives the agent another validation budget. Use it after `NEEDS_HUMAN`. A resumed session already has the standing system prompt, so the follow-up does not send it again.
 
 ## What the agent must write
 
@@ -43,7 +43,7 @@ The controller commits as `autoresearch: task 0001 - <first line of idea.md>` an
 
 ## Validation
 
-`config.yaml` lists the commands. The defaults compile the Python packages and run `pytest tests/ -q`. A failure is sent back to the same Cursor session with the command, exit code, and log tail. After `max_validation_attempts` (default 4), the task stops in `NEEDS_HUMAN`.
+`config.yaml` lists the commands. The defaults compile the Python packages and run `pytest tests/ -q`. A failure starts a new Cursor session with the idea, implementation notes, diff stat, and log tail. The review that writes `report.md` is also a new session. After `max_validation_attempts` (default 4), the task stops in `NEEDS_HUMAN`. An agent that stops mid-run is still resumed.
 
 ## Crash recovery
 
