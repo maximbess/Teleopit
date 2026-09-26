@@ -34,6 +34,14 @@ pip install -e '.[train]'
 
 额外安装 `rsl-rl-lib`、`mjlab`、`wandb`、`swanlab` 等训练相关依赖。
 
+### 攀爬资产（G1）
+
+```bash
+python scripts/setup/install_climb_assets.py
+```
+
+下载梯子训练使用的 Unitree G1 标准模型，并构建凸碰撞部件。缺少固定版本的碰撞构建包时会安装它们。不会安装训练依赖，也不会下载其他资源组。加上 `--source huggingface` 可改为从 HuggingFace 获取机器人模型。
+
 ### Sim2Real（硬件部署）
 
 ```bash

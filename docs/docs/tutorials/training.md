@@ -400,11 +400,10 @@ resume a policy trained with the former scheduled multi-term reward fails fast.
 
 ### Ladder collision assets
 
-Install the build extra and prepare the assets before training or playback:
+Prepare the G1 model and collision parts before training or playback. The training stack stays a separate install (`pip install -e '.[train]'`):
 
 ```bash
-pip install -e '.[train,collision-build]'
-python scripts/setup/download_assets.py --only robots g1_collision
+python scripts/setup/install_climb_assets.py
 ```
 
 `g1_collision` explicitly downloads the G1 collision surfaces from

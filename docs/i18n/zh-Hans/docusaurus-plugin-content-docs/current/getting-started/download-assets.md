@@ -23,6 +23,12 @@ python scripts/setup/download_assets.py
 python scripts/setup/download_assets.py --only robots gmr ckpt bvh
 ```
 
+梯子攀爬只需要 G1 标准模型和凸碰撞部件：
+
+```bash
+python scripts/setup/install_climb_assets.py
+```
+
 ## 资源清单
 
 checkpoint、数据集和资源包更新后，下载文件大小会变化。下表中的仓库路径才是稳定约定。

@@ -67,8 +67,8 @@ The ladder policy has its own entry point and does not use motion clips,
 retargeting, imitation rewards, or the tracking runner:
 
 ```bash
-pip install -e '.[train,collision-build]'
-python scripts/setup/download_assets.py --only robots g1_collision
+pip install -e '.[train]'
+python scripts/setup/install_climb_assets.py
 python train_mimic/scripts/train_ladder.py \
     --num_envs 4096 \
     --max_iterations 60000

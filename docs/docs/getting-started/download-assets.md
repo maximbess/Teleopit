@@ -23,6 +23,12 @@ Download only what you need for inference:
 python scripts/setup/download_assets.py --only robots gmr ckpt bvh
 ```
 
+Ladder climbing needs only the canonical G1 model and its convex collision parts:
+
+```bash
+python scripts/setup/install_climb_assets.py
+```
+
 ## Asset Inventory
 
 Downloaded file sizes change as checkpoints, datasets, and asset bundles are updated. Use the repository paths below as the stable contract.

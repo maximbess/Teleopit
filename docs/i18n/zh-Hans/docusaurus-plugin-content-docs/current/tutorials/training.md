@@ -292,11 +292,10 @@ Actor，并重新初始化 Critic。使用早期 `9 x 7`
 
 ### 梯子碰撞资产
 
-训练或播放前，安装构建依赖并准备资产：
+训练或播放前，准备 G1 模型与碰撞部件。训练依赖仍单独安装（`pip install -e '.[train]'`）：
 
 ```bash
-pip install -e '.[train,collision-build]'
-python scripts/setup/download_assets.py --only robots g1_collision
+python scripts/setup/install_climb_assets.py
 ```
 
 `g1_collision` 显式下载

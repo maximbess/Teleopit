@@ -34,6 +34,14 @@ pip install -e '.[train]'
 
 Adds `rsl-rl-lib`, `mjlab`, `wandb`, `swanlab`, and training dependencies.
 
+### Climbing assets (G1)
+
+```bash
+python scripts/setup/install_climb_assets.py
+```
+
+Downloads the canonical Unitree G1 model and builds the convex collision parts used by ladder training. It installs the pinned collision-build packages when they are missing. It does not install the training stack or any other asset group. Add `--source huggingface` to fetch the robot model from HuggingFace instead of ModelScope.
+
 ### Sim2Real (Hardware Deployment)
 
 ```bash
