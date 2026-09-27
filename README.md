@@ -80,7 +80,7 @@ the A-frame ladder and grip constraints on top of the canonical
 `assets/robots/unitree_g1/g1_29dof.xml`; no copied G1 model or motion dataset is
 required. Checkpoints are written under `logs/rsl_rl/g1_ladder_rl/`.
 
-The `train` extra installs PyTorch 2.7.1 for CUDA 11.8 on Linux x86_64. That build runs on a driver whose newest CUDA is 12.4. A CUDA 13 PyTorch wheel leaves `torch.cuda` unavailable on that driver, and training then falls back to CPU.
+The package pins PyTorch 2.7.1 for CUDA 11.8 on Linux x86_64. That build runs on a driver whose newest CUDA is 12.4. A CUDA 13 PyTorch wheel leaves `torch.cuda` unavailable on that driver, and training then falls back to CPU.
 
 The same extra pins `warp-lang==1.15.0`. Do not use Warp 1.16.0
 with the supported `mjlab==1.4.0` / MuJoCo Warp 3.8 stack: its sensor-kernel
