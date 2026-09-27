@@ -46,7 +46,13 @@ sim2real = [
     #   bash scripts/setup/setup_g1_bridge.sh
 ]
 train = [
-    "torch>=2.7.0",
+    # CUDA 11.8 wheels run on drivers that only advertise CUDA 12.4.
+    # The default PyPI wheel is a CUDA 13 build and leaves torch.cuda unavailable there.
+    "torch @ https://download.pytorch.org/whl/cu118/torch-2.7.1%2Bcu118-cp310-cp310-manylinux_2_28_x86_64.whl ; python_version == '3.10' and platform_system == 'Linux' and platform_machine == 'x86_64'",
+    "torch @ https://download.pytorch.org/whl/cu118/torch-2.7.1%2Bcu118-cp311-cp311-manylinux_2_28_x86_64.whl ; python_version == '3.11' and platform_system == 'Linux' and platform_machine == 'x86_64'",
+    "torch @ https://download.pytorch.org/whl/cu118/torch-2.7.1%2Bcu118-cp312-cp312-manylinux_2_28_x86_64.whl ; python_version == '3.12' and platform_system == 'Linux' and platform_machine == 'x86_64'",
+    "torch @ https://download.pytorch.org/whl/cu118/torch-2.7.1%2Bcu118-cp313-cp313-manylinux_2_28_x86_64.whl ; python_version == '3.13' and platform_system == 'Linux' and platform_machine == 'x86_64'",
+    "torch==2.7.1 ; platform_system != 'Linux' or platform_machine != 'x86_64' or python_version >= '3.14'",
     "numpy>=1.20.0",
     "rsl-rl-lib==5.2.0",
     "mjlab==1.4.0",

@@ -18,6 +18,8 @@ conda activate teleopit
 pip install -e '.[train]'
 ```
 
+On Linux x86_64 this installs PyTorch 2.7.1 for CUDA 11.8, which a CUDA 12.4 driver can run. The default PyPI wheel is CUDA 13 and leaves the GPU unused.
+
 Verify:
 ```bash
 python -c "import train_mimic.tasks; print('training OK')"
