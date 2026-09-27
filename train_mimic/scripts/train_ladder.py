@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Train the G1 ladder-climbing policy with plain PPO reinforcement learning.
-
-This entry point intentionally has no motion dataset, sampling mode, imitation
-reward, or motion-tracking runner.  The policy learns directly from the ladder
-command, robot state, sparse rung progress, and dense reach/height rewards.
+"""Train either the full ladder PPO policy or a residual first-hand motion policy.
 
 Example:
     python train_mimic/scripts/train_ladder.py \
@@ -27,7 +23,7 @@ from train_mimic.app import (
     validate_checkpoint_path,
 )
 from train_mimic.scripts import train as shared_train
-from train_mimic.tasks.tracking.config.constants import LADDER_RL_TASK
+from train_mimic.tasks.tracking.config.constants import LADDER_RL_TASK, LADDER_TASKS, FIRST_HAND_MOTION_TASK
 from train_mimic.tasks.tracking.config.env import (
     make_g1_ladder_training_robot_cfg,
     resolve_g1_training_xml,
@@ -36,9 +32,11 @@ from train_mimic.tasks.tracking.config.env import (
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Train the G1 ladder policy with RL-only PPO (mjlab)."
+        description="Train the G1 ladder or first-hand motion policy with PPO (mjlab)."
     )
     parser.add_argument("--num_envs", type=int, default=None)
+    parser.add_argument("--task", choices=LADDER_TASKS, default=LADDER_RL_TASK)
+    parser.add_argument("--reference_file", default=None, help="Authored JSON for the first-hand motion task")
     parser.add_argument(
         "--max_iterations",
         type=int,
@@ -109,7 +107,7 @@ def _run_worker(args: argparse.Namespace) -> None:
 
     configure_torch_backends()
     _task_name, env_cfg, agent_cfg, runner_cls = load_task_components(
-        LADDER_RL_TASK,
+        args.task,
         load_env_cfg=load_env_cfg,
         load_rl_cfg=load_rl_cfg,
         load_runner_cls=load_runner_cls,
@@ -121,6 +119,12 @@ def _run_worker(args: argparse.Namespace) -> None:
         raise FileNotFoundError(f"G1 training MuJoCo XML not found: {robot_xml}")
     env_cfg.scene.entities["robot"] = make_g1_ladder_training_robot_cfg(robot_xml)
     env_cfg.robot_xml = str(robot_xml)
+    if args.task == FIRST_HAND_MOTION_TASK:
+        env_cfg.commands["ladder"].reference_robot_xml = str(robot_xml)
+        if args.reference_file is not None:
+            env_cfg.commands["ladder"].reference_file = os.path.abspath(args.reference_file)
+    elif args.reference_file is not None:
+        raise ValueError("--reference_file requires --task G1-Ladder-FirstHand-Motion")
     if args.num_envs is not None:
         if args.num_envs <= 0:
             raise ValueError(f"--num_envs must be positive, got {args.num_envs}")
@@ -151,7 +155,7 @@ def _run_worker(args: argparse.Namespace) -> None:
         env_cfg=env_cfg,
         log_dir=log_dir,
         run_config={
-            "task": LADDER_RL_TASK,
+            "task": args.task,
             "experiment_name": agent_cfg.experiment_name,
             "robot_xml": str(robot_xml),
             "num_envs": env_cfg.scene.num_envs,

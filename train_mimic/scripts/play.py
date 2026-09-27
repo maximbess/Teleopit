@@ -51,6 +51,7 @@ from train_mimic.ladder_playback import (
 )
 from train_mimic.tasks.tracking.config.constants import (
     LADDER_RL_TASK,
+    FIRST_HAND_MOTION_TASK,
     SUPPORTED_TASKS,
     TRACKING_TASKS,
 )
@@ -84,6 +85,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="Record video instead of interactive viewer",
     )
     parser.add_argument("--device", type=str, default=None)
+    parser.add_argument("--reference_file", default=None)
     parser.add_argument(
         "--task",
         type=str,
@@ -107,6 +109,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 def _validate_args(args: argparse.Namespace) -> None:
     if args.num_envs <= 0:
         raise ValueError(f"--num_envs must be positive, got {args.num_envs}")
+    if args.task == FIRST_HAND_MOTION_TASK:
+        if args.motion_file is not None or args.ladder_phase is not None:
+            raise ValueError("The first-hand task uses its authored reference and fixed terminal hold")
+        return
+    if getattr(args, "reference_file", None) is not None:
+        raise ValueError("--reference_file is only valid for the first-hand task")
     if args.task in TRACKING_TASKS:
         if args.motion_file is None:
             raise ValueError("--motion_file is required for tracking tasks")
@@ -161,6 +169,9 @@ def main() -> None:
     env_cfg.scene.num_envs = args.num_envs
     if args.task in TRACKING_TASKS:
         env_cfg.commands["motion"].motion_file = args.motion_file
+    elif args.task == FIRST_HAND_MOTION_TASK:
+        if args.reference_file is not None:
+            env_cfg.commands["ladder"].reference_file = os.path.abspath(args.reference_file)
     else:
         selected_phase = configure_ladder_play_phase(env_cfg, args.ladder_phase)
         print(f"[INFO] Ladder playback prefix: stabilize through {selected_phase}.")

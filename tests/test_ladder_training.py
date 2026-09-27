@@ -2123,13 +2123,18 @@ def test_ladder_foot_contact_must_persist_for_configured_dwell() -> None:
     assert command.foot_rung.tolist() == [[2, 1]]
 
 
-def test_train_ladder_cli_has_no_motion_arguments() -> None:
+def test_train_ladder_cli_defaults_to_rl_and_accepts_authored_first_hand_task() -> None:
     args = train_ladder.parse_args([])
 
     assert args.logger == "tensorboard"
     assert not hasattr(args, "motion_file")
     assert not hasattr(args, "sampling_mode")
-    assert not hasattr(args, "task")
+    assert args.task == LADDER_RL_TASK
+    assert args.reference_file is None
+    motion_args = train_ladder.parse_args([
+        "--task", "G1-Ladder-FirstHand-Motion", "--reference_file", "first_hand.json"
+    ])
+    assert motion_args.reference_file == "first_hand.json"
     with pytest.raises(SystemExit):
         train_ladder.parse_args(["--motion_file", "data/datasets_precomputed"])
 

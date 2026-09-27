@@ -1,4 +1,4 @@
-"""Registry wiring for the G1 tracking and RL-only ladder tasks."""
+"""Registry wiring for tracking, ladder RL and first-hand residual motion tasks."""
 
 from mjlab.tasks.registry import register_mjlab_task
 
@@ -6,6 +6,7 @@ from train_mimic.tasks.tracking.config.constants import (
     GENERAL_TRACKING_EXPERIMENT_NAME,
     GENERAL_TRACKING_TASK,
     LADDER_RL_TASK,
+    FIRST_HAND_MOTION_TASK,
 )
 from train_mimic.tasks.tracking.config.env import (
     make_g1_ladder_rl_env_cfg,
@@ -19,6 +20,8 @@ from train_mimic.tasks.tracking.rl import (
     LadderOnPolicyRunner,
     MotionTrackingOnPolicyRunner,
 )
+from .first_hand import make_first_hand_env_cfg, make_first_hand_runner_cfg
+from train_mimic.tasks.tracking.rl.first_hand_runner import FirstHandOnPolicyRunner
 
 
 register_mjlab_task(
@@ -38,4 +41,12 @@ register_mjlab_task(
     play_env_cfg=make_g1_ladder_rl_env_cfg(play=True),
     rl_cfg=make_g1_ladder_ppo_runner_cfg(),
     runner_cls=LadderOnPolicyRunner,
+)
+
+register_mjlab_task(
+    task_id=FIRST_HAND_MOTION_TASK,
+    env_cfg=make_first_hand_env_cfg(),
+    play_env_cfg=make_first_hand_env_cfg(play=True),
+    rl_cfg=make_first_hand_runner_cfg(),
+    runner_cls=FirstHandOnPolicyRunner,
 )

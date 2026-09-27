@@ -104,3 +104,7 @@ data/modelscope_upload/
 # Codex local workspace state
 .codex
 .omx/
+AGENTS.md
+agents.md
+PROJECT_CONTEXT
+PROJECT_CONTEXT.*
