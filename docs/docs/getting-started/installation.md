@@ -32,7 +32,7 @@ This is sufficient for offline BVH playback and MuJoCo simulation.
 pip install -e '.[train]'
 ```
 
-Adds `rsl-rl-lib`, `mjlab`, `wandb`, `swanlab`, and training dependencies. On Linux x86_64 this pins PyTorch 2.7.1 built for CUDA 11.8, so a driver that only supports CUDA 12.4 can still use the GPU. The default PyPI wheel is a CUDA 13 build and does not.
+Adds `rsl-rl-lib`, `mjlab`, `wandb`, `swanlab`, and training dependencies. On Linux x86_64 the base install pins PyTorch 2.7.1 built for CUDA 11.8 and downloads it from the Aliyun wheel mirror, so a driver that only supports CUDA 12.4 can still use the GPU. The default PyPI wheel is a CUDA 13 build and does not.
 
 ### Climbing assets (G1)
 
