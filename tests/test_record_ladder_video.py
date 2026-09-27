@@ -27,7 +27,9 @@ def test_record_ladder_video_cli_has_no_benchmark_arguments() -> None:
     assert not hasattr(args, "num_eval_steps")
     assert not hasattr(args, "output_dir")
     assert not hasattr(args, "motion_file")
-    assert not hasattr(args, "task")
+    assert args.task == "auto"
+    assert args.reference_file is None
+    assert not args.allow_reference_mismatch
 
 
 @pytest.mark.parametrize(
@@ -193,3 +195,52 @@ def test_record_ladder_video_missing_checkpoint_fails_before_training_import(
     missing = tmp_path / "missing.pt"
 
     assert record_ladder_video.main(["--checkpoint", str(missing)]) == 1
+
+
+@pytest.mark.parametrize('requested', ['auto', 'G1-Ladder-FirstHand-Motion'])
+def test_motion_checkpoint_selects_first_hand_task(requested):
+    checkpoint = {'infos': {'first_hand_reference_signature': 'authored-reference'}}
+    assert record_ladder_video._resolve_recording_task(requested, checkpoint) == 'G1-Ladder-FirstHand-Motion'
+
+
+@pytest.mark.parametrize('checkpoint', [{}, {'infos': None}, {'infos': {'ladder_curriculum_state': {}}}])
+def test_legacy_ladder_checkpoint_keeps_original_task(checkpoint):
+    assert record_ladder_video._resolve_recording_task('auto', checkpoint) == 'G1-Ladder-Climb-RL'
+
+
+@pytest.mark.parametrize(('requested', 'checkpoint'), [
+    ('G1-Ladder-Climb-RL', {'infos': {'first_hand_reference_signature': 'reference'}}),
+    ('G1-Ladder-FirstHand-Motion', {'infos': {}}),
+])
+def test_wrong_explicit_task_fails_before_loading_policy(requested, checkpoint):
+    with pytest.raises(ValueError, match='Checkpoint belongs to'):
+        record_ladder_video._resolve_recording_task(requested, checkpoint)
+
+
+def test_first_hand_recording_preserves_residual_control_and_terminal_hold(tmp_path):
+    from train_mimic.app import load_task_components
+    from train_mimic.tasks.tracking.mdp.first_hand import ResidualReferenceActionCfg
+    from train_mimic.tasks.tracking.rl.first_hand_runner import FirstHandOnPolicyRunner
+    task = record_ladder_video._resolve_recording_task('auto', {'infos': {'first_hand_reference_signature': 'ref'}})
+    _, cfg, agent, runner = load_task_components(task, play=True)
+    args = record_ladder_video.parse_args(['--checkpoint', 'model.pt', '--reference_file', str(tmp_path/'motion.json')])
+    record_ladder_video._configure_recording_task(cfg, args, task, tmp_path/'robot.xml')
+    assert isinstance(cfg.actions['joint_pos'], ResidualReferenceActionCfg)
+    assert cfg.commands['ladder'].fixed_max_unlocked_phase == 1
+    assert not cfg.commands['ladder'].freeze_at_max_unlocked_phase
+    assert cfg.commands['ladder'].reference_file == str((tmp_path/'motion.json').resolve())
+    assert cfg.commands['ladder'].reference_robot_xml == str(tmp_path/'robot.xml')
+    assert agent.actor.hidden_dims == (512, 256, 128)
+    assert agent.actor.class_name.endswith(':FirstHandTemporalCNNModel')
+    assert runner is FirstHandOnPolicyRunner
+
+
+@pytest.mark.parametrize(('task', 'extra', 'message'), [
+    ('G1-Ladder-FirstHand-Motion', ['--ladder_phase', 'first_hand'], '--ladder_phase is not used'),
+    ('G1-Ladder-Climb-RL', ['--reference_file', 'motion.json'], '--reference_file is only valid'),
+    ('G1-Ladder-Climb-RL', ['--allow_reference_mismatch'], '--allow_reference_mismatch is only valid'),
+])
+def test_recording_rejects_incompatible_phase_or_reference(task, extra, message, tmp_path):
+    args = record_ladder_video.parse_args(['--checkpoint', 'model.pt', *extra])
+    with pytest.raises(ValueError, match=message):
+        record_ladder_video._configure_recording_task(SimpleNamespace(), args, task, tmp_path/'robot.xml')

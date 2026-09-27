@@ -23,6 +23,14 @@ class FirstHandStage(IntEnum):
     DONE = 5
 
 
+class FirstHandFailure(IntEnum):
+    NONE = 0
+    RIGHT_HAND_LOST = 1
+    SUPPORT_LOST = 2
+    RELEASE_STALLED = 3
+    STAGE_TIMEOUT = 4
+
+
 @dataclass(kw_only=True)
 class FirstHandCommandCfg(LadderClimbCommandCfg):
     reference_file: str = DEFAULT_FIRST_HAND_REFERENCE
@@ -67,6 +75,9 @@ class FirstHandCommand(LadderClimbCommand):
         self.hold_elapsed = torch.zeros_like(self.reference_time)
         self.support_loss_elapsed = torch.zeros_like(self.reference_time)
         self.motion_failed = torch.zeros(self.num_envs, device=self.device, dtype=torch.bool)
+        self.failure_reason = torch.zeros_like(self.motion_stage)
+        self.failure_stage = torch.full_like(self.motion_stage, -1)
+        self.max_motion_stage = torch.zeros_like(self.motion_stage)
         self.progress_pulse = torch.zeros_like(self.reference_time)
         self.grasp_pulse = torch.zeros_like(self.motion_failed)
         self.success_pulse = torch.zeros_like(self.motion_failed)
@@ -78,19 +89,35 @@ class FirstHandCommand(LadderClimbCommand):
         self.reference_position = self._position_reference[0].expand(self.num_envs, -1, -1).clone()
         self.reference_quaternion = self._quaternion_reference[0].expand(self.num_envs, -1, -1).clone()
         for name in ("motion_stage", "reference_time", "hand_tracking_error", "hold_progress",
-                     "motion_failed", "first_hand_success"):
+                     "motion_failed", "first_hand_success", "max_motion_stage"):
             self.metrics[name] = torch.zeros_like(self.reference_time)
+        for stage in FirstHandStage:
+            if stage == FirstHandStage.DONE:
+                continue
+            for reason in FirstHandFailure:
+                if reason != FirstHandFailure.NONE:
+                    self.metrics[f"failure/{stage.name.lower()}/{reason.name.lower()}"] = torch.zeros_like(self.reference_time)
 
     def compute(self, dt):
+        # CommandTerm.compute logs BEFORE advancing the command. Here a terminal
+        # flag must be logged AFTER the transition, before next step's auto-reset.
+        # Preserve its resampling/timer behavior, changing only the metric order.
         self._compute_dt = dt
-        super().compute(dt)
+        self.time_left -= dt
+        resample_ids = (self.time_left <= 0.).nonzero().flatten()
+        if len(resample_ids):
+            self._resample(resample_ids)
+        self._update_command()
+        self._update_metrics()
 
     def _resample_command(self, env_ids):
         super()._resample_command(env_ids)
         self.motion_stage[env_ids] = int(FirstHandStage.STABILIZE)
+        self.failure_stage[env_ids] = -1
         for buffer in (self.reference_time, self.stage_elapsed, self.hold_elapsed,
                        self.support_loss_elapsed, self.motion_failed, self.progress_pulse,
-                       self.grasp_pulse, self.success_pulse, self.best_reach, self._hold_hand_offset):
+                       self.grasp_pulse, self.success_pulse, self.best_reach, self._hold_hand_offset,
+                       self.failure_reason, self.max_motion_stage):
             buffer[env_ids] = 0
         self.reference_joint_pos[env_ids] = self._joint_reference[0]
         self.reference_joint_vel[env_ids] = 0
@@ -99,8 +126,17 @@ class FirstHandCommand(LadderClimbCommand):
 
     def _set_stage(self, env_ids, stage):
         self.motion_stage[env_ids] = int(stage)
+        self.max_motion_stage[env_ids] = torch.maximum(self.max_motion_stage[env_ids], self.motion_stage[env_ids])
         self.stage_elapsed[env_ids] = 0
         self._phase_dwell_count[env_ids] = 0
+
+    def _fail(self, mask, reason):
+        # Keep the first cause/stage for the rest of the episode. Call order gives
+        # a deterministic primary cause if several conditions fail simultaneously.
+        selected = mask & ~self.motion_failed & ~self.finished
+        self.failure_reason[selected] = int(reason)
+        self.failure_stage[selected] = self.motion_stage[selected]
+        self.motion_failed[selected] = True
 
     def _update_command(self):
         self._stage_at_start = self.motion_stage.clone()
@@ -116,16 +152,16 @@ class FirstHandCommand(LadderClimbCommand):
         live = self.initialized & ~self.finished & ~self._fresh_reset
         required = self.required_supports
         self.support_loss_elapsed[:] = torch.where(required, 0., self.support_loss_elapsed + self._dt)
-        self.motion_failed |= live & (self.support_loss_elapsed >= self.cfg.support_loss_grace_s)
-        self.motion_failed |= live & ~self.attached[:, 1]
+        self._fail(live & ~self.attached[:, 1], FirstHandFailure.RIGHT_HAND_LOST)
+        self._fail(live & (self.support_loss_elapsed >= self.cfg.support_loss_grace_s), FirstHandFailure.SUPPORT_LOST)
         limits = torch.tensor([
             self.cfg.stabilization_timeout_s, self.cfg.preparation_timeout_s*self.cfg.motion_time_scale,
             self.cfg.pre_release_timeout_steps*self._env.step_dt,
             .04 + 2.2*self.cfg.motion_time_scale + self.cfg.transfer_wait_timeout_s,
             self.cfg.hold_timeout_s, 1e9,
         ], device=self.device)
-        self.motion_failed |= ~self.finished & (self.stage_elapsed > limits[self.motion_stage])
-        self.motion_failed |= self.pre_release_stalled
+        self._fail(self.pre_release_stalled, FirstHandFailure.RELEASE_STALLED)
+        self._fail(self.stage_elapsed > limits[self.motion_stage], FirstHandFailure.STAGE_TIMEOUT)
         distance = torch.linalg.vector_norm(self.hand_pos_w[:, 0] - self._position_reference[-1, 0], dim=-1)
         initial_distance = torch.linalg.vector_norm(self._position_reference[-1, 0] - self._position_reference[0, 0])
         reach = (1 - distance/initial_distance.clamp_min(1e-6)).clamp(0, 1)
@@ -237,6 +273,15 @@ class FirstHandCommand(LadderClimbCommand):
         self.metrics["hold_progress"][:] = self.hold_elapsed/self.cfg.stable_hold_s
         self.metrics["motion_failed"][:] = self.motion_failed
         self.metrics["first_hand_success"][:] = self.finished
+        self.metrics["max_motion_stage"][:] = self.max_motion_stage
+        for stage in FirstHandStage:
+            if stage == FirstHandStage.DONE:
+                continue
+            for reason in FirstHandFailure:
+                if reason != FirstHandFailure.NONE:
+                    self.metrics[f"failure/{stage.name.lower()}/{reason.name.lower()}"][:] = (
+                        self.motion_failed & (self.failure_stage == int(stage)) & (self.failure_reason == int(reason))
+                    )
 
 
 @dataclass(kw_only=True)
@@ -293,6 +338,28 @@ def joint_tracking_cost(env, command_name="ladder", std=.2):
 def joint_velocity_tracking_cost(env, command_name="ladder", std=2.):
     c = command(env, command_name)
     return ((c.robot.data.joint_vel-c.reference_joint_vel)/std).square().clamp(max=9).mean(dim=1)
+
+
+def body_angular_velocity_cost(env, command_name="ladder", body="torso", std=.4):
+    """Quadratic angular-speed cost; one unit at the stabilization threshold."""
+    if not math.isfinite(std) or std <= 0:
+        raise ValueError("std must be positive and finite")
+    c = command(env, command_name)
+    if body == "torso":
+        velocity = c.torso_ang_vel_w
+    elif body == "pelvis":
+        velocity = c.pelvis_ang_vel_w
+    else:
+        raise ValueError("body must be torso or pelvis")
+    return velocity.square().sum(dim=-1)/std**2
+
+
+def waist_velocity_cost(env, command_name="ladder", std=.6):
+    """Penalize the fastest waist joint, matching the stabilization gate."""
+    if not math.isfinite(std) or std <= 0:
+        raise ValueError("std must be positive and finite")
+    c = command(env, command_name)
+    return c.robot.data.joint_vel[:, c._waist_joint_ids].square().amax(dim=-1)/std**2
 
 
 def position_tracking_cost(env, command_name="ladder", track_ids=(0,), std=.04):

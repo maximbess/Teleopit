@@ -37,6 +37,11 @@ def make_first_hand_env_cfg(*, play=False):
         "reference_orientation": RewardTermCfg(func=motion.orientation_tracking_cost, weight=-.5),
         "reference_joints": RewardTermCfg(func=motion.joint_tracking_cost, weight=-.25),
         "reference_joint_velocity": RewardTermCfg(func=motion.joint_velocity_tracking_cost, weight=-.05),
+        "torso_angular_velocity": RewardTermCfg(func=motion.body_angular_velocity_cost, weight=-.5,
+                                                params={"body": "torso", "std": .4}),
+        "pelvis_angular_velocity": RewardTermCfg(func=motion.body_angular_velocity_cost, weight=-.5,
+                                                 params={"body": "pelvis", "std": .4}),
+        "waist_velocity": RewardTermCfg(func=motion.waist_velocity_cost, weight=-.25, params={"std": .6}),
         "required_supports": RewardTermCfg(func=motion.support_reward, weight=.25),
         "lost_supports": RewardTermCfg(func=motion.missing_support_cost, weight=-4.),
         "new_hand_progress": RewardTermCfg(func=motion.event_reward, weight=10., params={"event": "progress"}),
@@ -63,9 +68,10 @@ def make_first_hand_runner_cfg():
     cfg.actor.hidden_dims = (512, 256, 128)
     cfg.critic.hidden_dims = (512, 256, 128)
     cfg.actor.distribution_cfg = {
-        "class_name": "GaussianDistribution", "init_std": .3,
-        "std_range": (.05, .6), "std_type": "scalar",
+        "class_name": "GaussianDistribution", "init_std": .1,
+        "std_range": (.03, .2), "std_type": "scalar",
     }
+    cfg.algorithm.entropy_coef = .0005
     cfg.max_iterations = 5000
     cfg.save_interval = 100
     return cfg

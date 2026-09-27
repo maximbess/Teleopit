@@ -55,7 +55,19 @@ def main():
                 if step % 50 == 0:
                     print(json.dumps(sample), flush=True)
             if (terminated | truncated).any():
+                terminal_log = {key: float(value) for key, value in extras["log"].items()
+                                if key.startswith("Metrics/ladder/")}
+                failed_fraction = terminal_log["Metrics/ladder/motion_failed"]
+                reason_sum = sum(value for key, value in terminal_log.items()
+                                 if key.startswith("Metrics/ladder/failure/"))
+                assert abs(reason_sum - failed_fraction) < 1e-6
+                done = terminated | truncated
+                expected_failed = env.termination_manager.get_term("motion_failed")[done].float().mean().item()
+                expected_success = env.termination_manager.get_term("success")[done].float().mean().item()
+                assert abs(failed_fraction - expected_failed) < 1e-6
+                assert abs(terminal_log["Metrics/ladder/first_hand_success"] - expected_success) < 1e-6
                 episodes.append({"step": step, "stage": before_stage, "reference_time": before_time,
+                                 "terminal_metrics": terminal_log,
                                  "success": env.termination_manager.get_term("success").cpu().tolist(),
                                  "terminations": {name: env.termination_manager.get_term(name).cpu().tolist()
                                                   for name in env.termination_manager.active_terms}})

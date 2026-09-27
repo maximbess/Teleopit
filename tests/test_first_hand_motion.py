@@ -6,7 +6,8 @@ import torch
 
 from train_mimic.tasks.tracking.mdp.first_hand import (
     FirstHandCommand, FirstHandCommandCfg, FirstHandStage as Stage,
-    ResidualReferenceAction, event_reward, proximity_cost,
+    FirstHandFailure as Failure, ResidualReferenceAction, event_reward, proximity_cost,
+    body_angular_velocity_cost, waist_velocity_cost,
 )
 from train_mimic.tasks.tracking.config.first_hand import make_first_hand_env_cfg
 
@@ -73,6 +74,9 @@ def gate_command(stage=Stage.TRANSFER):
     c.cfg = FirstHandCommandCfg(entity_name='robot', resampling_time_range=(1e9, 1e9))
     c._env = SimpleNamespace(num_envs=2, device='cpu', step_dt=.02)
     c.motion_stage = torch.full((2,), int(stage), dtype=torch.long)
+    c.max_motion_stage = c.motion_stage.clone()
+    c.failure_reason = torch.zeros(2, dtype=torch.long)
+    c.failure_stage = torch.full((2,), -1, dtype=torch.long)
     c._stage_at_start = c.motion_stage.clone()
     for name in ('motion_failed', 'finished', '_fresh_reset', '_release_active', 'grasp_pulse', 'success_pulse', 'just_advanced'):
         setattr(c, name, torch.zeros(2, dtype=torch.bool))
@@ -214,12 +218,17 @@ def test_partial_reset_does_not_change_another_environments_reference(monkeypatc
     c.reference_joint_vel = torch.ones(2, 4)
     c.reference_position = torch.ones(2, 6, 3)
     c.reference_quaternion = torch.ones(2, 6, 4)
+    c.failure_reason[:] = int(Failure.SUPPORT_LOST)
+    c.failure_stage[:] = int(Stage.TRANSFER)
     c._resample_command(torch.tensor([0]))
     assert c.reference_time.tolist() == [0., pytest.approx(3.9)]
     assert c.reference_joint_vel[0].eq(0).all()
     assert c.reference_joint_vel[1].eq(1).all()
     assert c.reference_position[1].eq(1).all()
     assert c.reference_joint_pos[1].eq(1).all()
+    assert c.failure_reason.tolist() == [int(Failure.NONE), int(Failure.SUPPORT_LOST)]
+    assert c.failure_stage.tolist() == [-1, int(Stage.TRANSFER)]
+    assert c.max_motion_stage.tolist() == [0, int(Stage.TRANSFER)]
 
 
 def updating_command(monkeypatch):
@@ -268,6 +277,138 @@ def test_stationary_hand_weld_loss_is_immediately_terminal(monkeypatch):
     c.attached[0, 1] = False
     c._update_command()
     assert c.motion_failed.tolist() == [True, False]
+    assert c.failure_reason.tolist() == [int(Failure.RIGHT_HAND_LOST), int(Failure.NONE)]
+    assert c.failure_stage.tolist() == [int(Stage.TRANSFER), -1]
+
+
+@pytest.mark.parametrize('stage', list(Stage)[:-1])
+def test_timeout_records_exact_stage_and_resets_independently(monkeypatch, stage):
+    c = updating_command(monkeypatch)
+    c.motion_stage[:] = int(stage)
+    c.attached[:] = True
+    c.stage_elapsed[0] = 100.
+    c._update_command()
+    assert c.failure_reason.tolist() == [int(Failure.STAGE_TIMEOUT), int(Failure.NONE)]
+    assert c.failure_stage.tolist() == [int(stage), -1]
+    # A later loss of the right weld must not overwrite the original timeout.
+    c.attached[0, 1] = False
+    c._update_command()
+    assert c.failure_reason[0] == int(Failure.STAGE_TIMEOUT)
+
+
+def test_failure_priority_and_release_stall_are_unambiguous(monkeypatch):
+    c = updating_command(monkeypatch)
+    c.motion_stage[:] = int(Stage.RELEASE)
+    c.attached[:] = True
+    c.attached[0, 1] = False
+    c.feet[0, 0] = False
+    c.support_loss_elapsed[0] = 1.
+    c.stage_elapsed[:] = 100.
+    c.pre_release_stalled[:] = True
+    c._update_command()
+    assert c.failure_reason.tolist() == [int(Failure.RIGHT_HAND_LOST), int(Failure.RELEASE_STALLED)]
+    assert c.failure_stage.tolist() == [int(Stage.RELEASE)]*2
+
+
+def test_support_reason_requires_continuous_loss(monkeypatch):
+    c = updating_command(monkeypatch)
+    c.feet[0, 0] = False
+    for _ in range(7): c._update_command()
+    c.feet[0, 0] = True
+    c._update_command()
+    assert c.support_loss_elapsed[0] == 0
+    c.feet[0, 0] = False
+    for _ in range(8): c._update_command()
+    assert c.failure_reason.tolist() == [int(Failure.SUPPORT_LOST), int(Failure.NONE)]
+
+
+def test_terminal_metrics_are_captured_after_transition_before_partial_reset(monkeypatch):
+    from train_mimic.tasks.tracking.mdp.ladder import LadderClimbCommand
+    monkeypatch.setattr(LadderClimbCommand, '_update_metrics', lambda self: None)
+    c = gate_command(Stage.HOLD)
+    names = ['motion_stage', 'reference_time', 'hand_tracking_error', 'hold_progress',
+             'motion_failed', 'first_hand_success', 'max_motion_stage']
+    names += [f'failure/{stage.name.lower()}/{reason.name.lower()}'
+              for stage in list(Stage)[:-1] for reason in list(Failure)[1:]]
+    c.metrics = {name: torch.zeros(2) for name in names}
+    c.reference_position = torch.zeros(2, 6, 3)
+    c.time_left = torch.ones(2)
+    c.command_counter = torch.zeros(2, dtype=torch.long)
+
+    def transition():
+        c._fail(torch.tensor([True, False]), Failure.STAGE_TIMEOUT)
+        c.finished[1] = True
+        c._set_stage(torch.tensor([1]), Stage.DONE)
+    c._update_command = transition
+    c.compute(.02)
+    assert c.metrics['motion_failed'].tolist() == [1., 0.]
+    assert c.metrics['first_hand_success'].tolist() == [0., 1.]
+    assert c.metrics['failure/hold/stage_timeout'].tolist() == [1., 0.]
+    assert c.metrics['max_motion_stage'].tolist() == [4., 5.]
+    torch.testing.assert_close(c.time_left, torch.full((2,), .98))
+
+    # Real CommandTerm.reset exports snapshots before resampling and only clears
+    # the selected environment. Physics is intentionally absent from this test.
+    c._resample_command = lambda ids: None
+    failure_log = c.reset(torch.tensor([0]))
+    assert failure_log['motion_failed'] == 1.
+    assert failure_log['failure/hold/stage_timeout'] == 1.
+    assert failure_log['first_hand_success'] == 0.
+    success_log = c.reset(torch.tensor([1]))
+    assert success_log['first_hand_success'] == 1.
+    assert success_log['motion_stage'] == 5.
+    assert all(value == 0. for name, value in success_log.items() if name.startswith('failure/'))
+
+
+def test_command_compute_preserves_due_resampling_before_update():
+    c = gate_command()
+    c.time_left = torch.tensor([.01, 2.])
+    calls = []
+    c._resample = lambda ids: calls.append(('resample', ids.tolist()))
+    c._update_command = lambda: calls.append(('update', c._compute_dt))
+    c._update_metrics = lambda: calls.append(('metrics', None))
+    c.compute(.02)
+    assert calls == [('resample', [0]), ('update', .02), ('metrics', None)]
+
+
+def test_body_and_waist_speed_penalties_match_gates_and_ignore_arm_speed():
+    c = SimpleNamespace(torso_ang_vel_w=torch.tensor([[0., 0., 0.], [.4, 0., 0.], [.8, 0., 0.]]),
+                        pelvis_ang_vel_w=torch.tensor([[0., 0., .4], [0., .8, 0.], [0., 0., 0.]]),
+                        _waist_joint_ids=torch.tensor([1, 2, 3]),
+                        robot=SimpleNamespace(data=SimpleNamespace(joint_vel=torch.tensor([
+                            [100., 0., 0., 0.], [0., -.6, .3, .1], [0., .2, 1.2, .4]]))))
+    env = SimpleNamespace(command_manager=SimpleNamespace(get_term=lambda name: c))
+    torch.testing.assert_close(body_angular_velocity_cost(env), torch.tensor([0., 1., 4.]))
+    torch.testing.assert_close(body_angular_velocity_cost(env, body='pelvis'), torch.tensor([1., 4., 0.]))
+    torch.testing.assert_close(waist_velocity_cost(env), torch.tensor([0., 1., 4.]))
+    with pytest.raises(ValueError): body_angular_velocity_cost(env, body='arm')
+    with pytest.raises(ValueError): waist_velocity_cost(env, std=0.)
+
+
+def test_first_hand_reduces_exploration_without_changing_legacy_ladder():
+    from train_mimic.tasks.tracking.config.first_hand import make_first_hand_runner_cfg
+    from train_mimic.tasks.tracking.config.rl import make_g1_ladder_ppo_runner_cfg
+    cfg = make_first_hand_runner_cfg()
+    assert cfg.actor.distribution_cfg['init_std'] == .1
+    assert cfg.actor.distribution_cfg['std_range'] == (.03, .2)
+    assert cfg.algorithm.entropy_coef == .0005
+    assert make_g1_ladder_ppo_runner_cfg().algorithm.entropy_coef == .005
+    env = make_first_hand_env_cfg()
+    assert env.rewards['torso_angular_velocity'].weight == -.5
+    assert env.rewards['pelvis_angular_velocity'].weight == -.5
+    assert env.rewards['waist_velocity'].weight == -.25
+    assert env.commands['ladder'].stabilization_dwell_steps == 50
+
+
+def test_resumed_large_std_is_projected_to_new_upper_bound():
+    from rsl_rl.modules.distribution import GaussianDistribution
+    from train_mimic.tasks.tracking.rl.runner import _project_distribution_std
+    old = GaussianDistribution(3, init_std=.6, std_range=(.05, .6), std_type='scalar')
+    new = GaussianDistribution(3, init_std=.1, std_range=(.03, .2), std_type='scalar')
+    new.load_state_dict(old.state_dict())
+    _, projected = _project_distribution_std(new)
+    assert projected
+    torch.testing.assert_close(new.std_param, torch.full_like(new.std_param, .2))
 
 
 def test_checkpoint_rejects_different_reference_before_loading_policy(monkeypatch):
@@ -279,3 +420,16 @@ def test_checkpoint_rejects_different_reference_before_loading_policy(monkeypatc
     monkeypatch.setattr(LadderOnPolicyRunner, 'load', lambda *args, **kwargs: pytest.fail('policy must not be loaded'))
     with pytest.raises(ValueError, match='different first-hand reference'):
         runner.load('old.pt')
+
+
+def test_playback_reference_override_warns_and_keeps_strict_weight_loading(monkeypatch):
+    from train_mimic.tasks.tracking.rl.first_hand_runner import FirstHandOnPolicyRunner
+    from train_mimic.tasks.tracking.rl.runner import LadderOnPolicyRunner
+    runner = object.__new__(FirstHandOnPolicyRunner)
+    runner._ladder_command = lambda: SimpleNamespace(reference_signature='current')
+    monkeypatch.setattr(torch, 'load', lambda *args, **kwargs: {'infos': {'first_hand_reference_signature': 'other'}})
+    called = []
+    monkeypatch.setattr(LadderOnPolicyRunner, 'load', lambda self, *args: called.append(args))
+    with pytest.warns(RuntimeWarning, match='CURRENT'):
+        runner.load('old.pt', map_location='cpu', allow_reference_mismatch=True)
+    assert called == [('old.pt', None, True, 'cpu')]

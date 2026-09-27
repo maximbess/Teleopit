@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Record one RL-only G1 ladder-policy rollout directly to MP4.
+"""Record one G1 ladder or first-hand motion policy rollout directly to MP4.
 
 Unlike ``benchmark_ladder.py``, this entry point does not aggregate rewards,
 classify terminations, calculate metrics, or write text/JSON reports.  It uses
@@ -34,6 +34,18 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         )
     )
     parser.add_argument("--checkpoint", type=str, required=True)
+    parser.add_argument(
+        "--task", choices=("auto", "G1-Ladder-Climb-RL", "G1-Ladder-FirstHand-Motion"),
+        default="auto", help="Policy task (default: detect from checkpoint metadata).",
+    )
+    parser.add_argument(
+        "--reference_file", default=None,
+        help="Authored JSON used to train the first-hand motion policy.",
+    )
+    parser.add_argument(
+        "--allow_reference_mismatch", action="store_true",
+        help="Explicitly record first-hand policy with the current reference even if its signature differs from training.",
+    )
     parser.add_argument(
         "--output",
         type=str,
@@ -185,6 +197,42 @@ def _render_frame(unwrapped: Any) -> Any:
     return frame
 
 
+def _resolve_recording_task(requested: str, checkpoint: dict) -> str:
+    """Choose matching observations, residual actions, model and checkpoint loader."""
+    infos = checkpoint.get("infos") or {}
+    detected = ("G1-Ladder-FirstHand-Motion" if "first_hand_reference_signature" in infos
+                else "G1-Ladder-Climb-RL")
+    if requested != "auto" and requested != detected:
+        raise ValueError(
+            f"Checkpoint belongs to {detected}, but --task {requested} was requested. "
+            "Use --task auto or select the matching task."
+        )
+    return detected
+
+
+def _configure_recording_task(env_cfg: Any, args: argparse.Namespace,
+                              task: str, robot_xml: Path) -> None:
+    if task == "G1-Ladder-FirstHand-Motion":
+        if args.ladder_phase is not None:
+            raise ValueError("--ladder_phase is not used by the first-hand motion task; it ends after stable hold")
+        command = env_cfg.commands["ladder"]
+        command.reference_robot_xml = str(robot_xml)
+        if args.reference_file is not None:
+            command.reference_file = str(Path(args.reference_file).expanduser().resolve())
+        print("[INFO] First-hand recording: reference motion through stable terminal hold.")
+        return
+    if args.reference_file is not None:
+        raise ValueError("--reference_file is only valid for G1-Ladder-FirstHand-Motion")
+    if args.allow_reference_mismatch:
+        raise ValueError("--allow_reference_mismatch is only valid for G1-Ladder-FirstHand-Motion")
+    selected_phase = configure_ladder_play_phase(
+        env_cfg, args.ladder_phase, freeze_at_boundary=args.ladder_phase is not None,
+    )
+    print(f"[INFO] Ladder recording prefix: stabilize through {selected_phase}.")
+    if args.ladder_phase is not None:
+        print("[INFO] Selected ladder phase will remain active after completion.")
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     _validate_args(args)
@@ -210,6 +258,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     # On Windows, load Torch DLLs before MuJoCo/GLFW enters the process.
     import torch
 
+    checkpoint = torch.load(str(checkpoint_path), map_location="cpu", weights_only=False)
+    try:
+        task = _resolve_recording_task(args.task, checkpoint)
+    except ValueError as exc:
+        print(f"Error: {exc}")
+        return 1
+    finally:
+        del checkpoint
+    args.checkpoint = str(checkpoint_path)
+    print(f"[INFO] Recording task: {task}")
+
     # Import the training stack only after selecting the platform GL backend.
     from train_mimic.app import (
         build_runner_cfg_dict,
@@ -217,7 +276,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         load_task_components,
         resolve_device,
     )
-    from train_mimic.tasks.tracking.config.constants import LADDER_RL_TASK
 
     (
         imported_torch,
@@ -238,7 +296,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     configure_torch_backends()
     _task_name, env_cfg, agent_cfg, runner_cls = load_task_components(
-        LADDER_RL_TASK,
+        task,
         play=True,
         load_env_cfg=load_env_cfg,
         load_rl_cfg=load_rl_cfg,
@@ -252,14 +310,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     env_cfg.seed = args.seed
     env_cfg.scene.num_envs = 1
-    selected_phase = configure_ladder_play_phase(
-        env_cfg,
-        args.ladder_phase,
-        freeze_at_boundary=args.ladder_phase is not None,
-    )
-    print(f"[INFO] Ladder recording prefix: stabilize through {selected_phase}.")
-    if args.ladder_phase is not None:
-        print("[INFO] Selected ladder phase will remain active after completion.")
+    try:
+        _configure_recording_task(env_cfg, args, task, robot_xml)
+    except ValueError as exc:
+        print(f"Error: {exc}")
+        return 1
     env_cfg.scene.entities["robot"] = make_g1_ladder_training_robot_cfg(robot_xml)
     env_cfg.robot_xml = str(robot_xml)
     env_cfg.viewer.width = args.width
@@ -294,7 +349,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             log_dir=str(Path(args.checkpoint).resolve().parent),
             device=device,
         )
-        runner.load(args.checkpoint, map_location=device)
+        if task == "G1-Ladder-FirstHand-Motion":
+            runner.load(args.checkpoint, map_location=device,
+                        allow_reference_mismatch=args.allow_reference_mismatch)
+        else:
+            runner.load(args.checkpoint, map_location=device)
         policy = runner.get_inference_policy(device=device)
 
         # ManagerBasedRlEnv construction leaves the raw XML qpos in place.
