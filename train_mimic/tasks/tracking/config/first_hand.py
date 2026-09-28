@@ -35,6 +35,8 @@ def make_first_hand_env_cfg(*, play=False):
         "reference_supports": RewardTermCfg(func=motion.position_tracking_cost, weight=-1., params={"track_ids": (1, 2, 3), "std": .03}),
         "reference_body": RewardTermCfg(func=motion.position_tracking_cost, weight=-1., params={"track_ids": (4, 5), "std": .05}),
         "reference_orientation": RewardTermCfg(func=motion.orientation_tracking_cost, weight=-.5),
+        "release_orientation": RewardTermCfg(func=motion.release_orientation_cost, weight=-2.,
+                                              params={"margin": .05, "std": .05}),
         "reference_joints": RewardTermCfg(func=motion.joint_tracking_cost, weight=-.25),
         "reference_joint_velocity": RewardTermCfg(func=motion.joint_velocity_tracking_cost, weight=-.05),
         "torso_angular_velocity": RewardTermCfg(func=motion.body_angular_velocity_cost, weight=-.5,
@@ -45,6 +47,7 @@ def make_first_hand_env_cfg(*, play=False):
         "required_supports": RewardTermCfg(func=motion.support_reward, weight=.25),
         "lost_supports": RewardTermCfg(func=motion.missing_support_cost, weight=-4.),
         "new_hand_progress": RewardTermCfg(func=motion.event_reward, weight=10., params={"event": "progress"}),
+        "successful_release": RewardTermCfg(func=motion.event_reward, weight=10., params={"event": "release"}),
         "new_grasp": RewardTermCfg(func=motion.event_reward, weight=10., params={"event": "grasp"}),
         "stable_success": RewardTermCfg(func=motion.event_reward, weight=100., params={"event": "success"}),
         "failure": RewardTermCfg(func=motion.failure_penalty, weight=-200.),
@@ -73,5 +76,5 @@ def make_first_hand_runner_cfg():
     }
     cfg.algorithm.entropy_coef = .0005
     cfg.max_iterations = 5000
-    cfg.save_interval = 100
+    cfg.save_interval = 1000
     return cfg

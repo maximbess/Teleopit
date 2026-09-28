@@ -79,6 +79,7 @@ class FirstHandCommand(LadderClimbCommand):
         self.failure_stage = torch.full_like(self.motion_stage, -1)
         self.max_motion_stage = torch.zeros_like(self.motion_stage)
         self.progress_pulse = torch.zeros_like(self.reference_time)
+        self.release_pulse = torch.zeros_like(self.motion_failed)
         self.grasp_pulse = torch.zeros_like(self.motion_failed)
         self.success_pulse = torch.zeros_like(self.motion_failed)
         self.best_reach = torch.zeros_like(self.reference_time)
@@ -116,7 +117,7 @@ class FirstHandCommand(LadderClimbCommand):
         self.failure_stage[env_ids] = -1
         for buffer in (self.reference_time, self.stage_elapsed, self.hold_elapsed,
                        self.support_loss_elapsed, self.motion_failed, self.progress_pulse,
-                       self.grasp_pulse, self.success_pulse, self.best_reach, self._hold_hand_offset,
+                       self.release_pulse, self.grasp_pulse, self.success_pulse, self.best_reach, self._hold_hand_offset,
                        self.failure_reason, self.max_motion_stage):
             buffer[env_ids] = 0
         self.reference_joint_pos[env_ids] = self._joint_reference[0]
@@ -144,6 +145,7 @@ class FirstHandCommand(LadderClimbCommand):
         self._dt = torch.where(self._fresh_reset, 0., self._compute_dt)
         self.stage_elapsed += self._dt * (~self.finished & ~self.motion_failed)
         self.progress_pulse.zero_()
+        self.release_pulse.zero_()
         self.grasp_pulse.zero_()
         self.success_pulse.zero_()
         previous_time = self.reference_time.clone()
@@ -162,6 +164,8 @@ class FirstHandCommand(LadderClimbCommand):
         ], device=self.device)
         self._fail(self.pre_release_stalled, FirstHandFailure.RELEASE_STALLED)
         self._fail(self.stage_elapsed > limits[self.motion_stage], FirstHandFailure.STAGE_TIMEOUT)
+        # A detach that loses the remaining supports is not a successful release.
+        self.release_pulse &= ~self.motion_failed & self.required_supports
         distance = torch.linalg.vector_norm(self.hand_pos_w[:, 0] - self._position_reference[-1, 0], dim=-1)
         initial_distance = torch.linalg.vector_norm(self._position_reference[-1, 0] - self._position_reference[0, 0])
         reach = (1 - distance/initial_distance.clamp_min(1e-6)).clamp(0, 1)
@@ -204,6 +208,7 @@ class FirstHandCommand(LadderClimbCommand):
         self._advance_release_ramp(release)
         ids = torch.where(release & ~self.attached[:, 0] & ~self._release_active)[0]
         self._set_stage(ids, FirstHandStage.TRANSFER)
+        self.release_pulse[ids] = True
 
         transfer = live & (self._stage_at_start == int(FirstHandStage.TRANSFER))
         move = transfer & (self.stage_elapsed >= .04)
@@ -374,6 +379,20 @@ def orientation_tracking_cost(env, command_name="ladder", track_ids=(0, 4, 5), s
     return (error/std).square().clamp(max=9).mean(dim=1)
 
 
+def release_orientation_cost(env, command_name="ladder", margin=.05, std=.05):
+    """Penalize torso error above a safe margin inside the actual release gate."""
+    c = command(env, command_name)
+    limit = c.cfg.max_release_torso_orientation_error
+    if not math.isfinite(margin) or not 0 <= margin < limit:
+        raise ValueError("margin must be finite and inside the release orientation limit")
+    if not math.isfinite(std) or std <= 0:
+        raise ValueError("std must be positive and finite")
+    active = ((c.motion_stage == int(FirstHandStage.PREPARE))
+              | (c.motion_stage == int(FirstHandStage.RELEASE)))
+    excess = (c.torso_orientation_error - (limit-margin)).clamp_min(0.)
+    return (excess/std).square() * active.float()
+
+
 def proximity_cost(joint_pos, limits, margin_fraction=.15):
     """Zero in the interior; quadratic within a margin of each *hard* limit.
 
@@ -406,7 +425,8 @@ def missing_support_cost(env, command_name="ladder"):
 
 def event_reward(env, command_name="ladder", event="progress"):
     c = command(env, command_name)
-    value = {"progress": c.progress_pulse, "grasp": c.grasp_pulse, "success": c.success_pulse}[event]
+    value = {"progress": c.progress_pulse, "release": c.release_pulse,
+             "grasp": c.grasp_pulse, "success": c.success_pulse}[event]
     return value.float()/env.step_dt
 
 

@@ -7,7 +7,7 @@ import torch
 from train_mimic.tasks.tracking.mdp.first_hand import (
     FirstHandCommand, FirstHandCommandCfg, FirstHandStage as Stage,
     FirstHandFailure as Failure, ResidualReferenceAction, event_reward, proximity_cost,
-    body_angular_velocity_cost, waist_velocity_cost,
+    body_angular_velocity_cost, waist_velocity_cost, release_orientation_cost,
 )
 from train_mimic.tasks.tracking.config.first_hand import make_first_hand_env_cfg
 
@@ -78,7 +78,7 @@ def gate_command(stage=Stage.TRANSFER):
     c.failure_reason = torch.zeros(2, dtype=torch.long)
     c.failure_stage = torch.full((2,), -1, dtype=torch.long)
     c._stage_at_start = c.motion_stage.clone()
-    for name in ('motion_failed', 'finished', '_fresh_reset', '_release_active', 'grasp_pulse', 'success_pulse', 'just_advanced'):
+    for name in ('motion_failed', 'finished', '_fresh_reset', '_release_active', 'release_pulse', 'grasp_pulse', 'success_pulse', 'just_advanced'):
         setattr(c, name, torch.zeros(2, dtype=torch.bool))
     c.reference_time = torch.full((2,), 3.9)
     c.stage_elapsed = torch.ones(2)
@@ -101,6 +101,7 @@ def gate_command(stage=Stage.TRANSFER):
 def tick(c):
     c._stage_at_start = c.motion_stage.clone()
     c.stage_elapsed += c._dt
+    c.release_pulse.zero_()
     c.grasp_pulse.zero_()
     c.success_pulse.zero_()
     c._advance_hand_phase(None)
@@ -170,6 +171,25 @@ def test_preparation_waits_for_safe_release_and_keeps_reference_at_boundary():
     assert c.motion_stage.tolist() == [int(Stage.PREPARE), int(Stage.RELEASE)]
     torch.testing.assert_close(c.reference_time, torch.full((2,), 1.7))
     assert c._release_active.tolist() == [False, True]
+    assert not c.release_pulse.any()
+
+
+@pytest.mark.parametrize('dt', [.01, .02, .04])
+def test_release_reward_requires_detach_and_fires_once_per_episode(dt):
+    c = gate_command(Stage.RELEASE)
+    c.reference_time[:] = 1.7
+    c.attached[:] = True
+    c._release_active[:] = True
+    env = SimpleNamespace(command_manager=SimpleNamespace(get_term=lambda name: c), step_dt=dt)
+    tick(c)
+    assert not event_reward(env, event='release').any()
+    c.attached[0, 0] = False
+    c._release_active[0] = False
+    tick(c)
+    assert c.motion_stage.tolist() == [int(Stage.TRANSFER), int(Stage.RELEASE)]
+    torch.testing.assert_close(event_reward(env, event='release')*dt, torch.tensor([1., 0.]))
+    tick(c)
+    assert not event_reward(env, event='release').any()
 
 
 def test_first_hand_task_is_fixed_and_has_terminal_success_and_soft_limit_cost():
@@ -220,6 +240,7 @@ def test_partial_reset_does_not_change_another_environments_reference(monkeypatc
     c.reference_quaternion = torch.ones(2, 6, 4)
     c.failure_reason[:] = int(Failure.SUPPORT_LOST)
     c.failure_stage[:] = int(Stage.TRANSFER)
+    c.release_pulse[:] = True
     c._resample_command(torch.tensor([0]))
     assert c.reference_time.tolist() == [0., pytest.approx(3.9)]
     assert c.reference_joint_vel[0].eq(0).all()
@@ -229,6 +250,7 @@ def test_partial_reset_does_not_change_another_environments_reference(monkeypatc
     assert c.failure_reason.tolist() == [int(Failure.NONE), int(Failure.SUPPORT_LOST)]
     assert c.failure_stage.tolist() == [-1, int(Stage.TRANSFER)]
     assert c.max_motion_stage.tolist() == [0, int(Stage.TRANSFER)]
+    assert c.release_pulse.tolist() == [False, True]
 
 
 def updating_command(monkeypatch):
@@ -258,6 +280,24 @@ def test_progress_rewards_only_new_reach_and_only_with_required_supports(monkeyp
     c.feet[1, 0] = False
     c._update_command()
     torch.testing.assert_close(c.progress_pulse, torch.tensor([.1, 0.]))
+
+
+@pytest.mark.parametrize('lost_support', ['foot', 'right_hand'])
+def test_release_event_suppressed_when_remaining_support_is_lost(monkeypatch, lost_support):
+    from train_mimic.tasks.tracking.mdp.ladder import LadderClimbCommand
+    c = updating_command(monkeypatch)
+    c.motion_stage[:] = int(Stage.RELEASE)
+    c.reference_time[:] = 1.7
+    if lost_support == 'foot':
+        c.feet[0, 0] = False
+    else:
+        c.attached[0, 1] = False
+    monkeypatch.setattr(LadderClimbCommand, '_update_command', lambda self: self._advance_hand_phase(None))
+    c._update_command()
+    assert c.motion_stage.tolist() == [int(Stage.TRANSFER)]*2
+    assert c.release_pulse.tolist() == [False, True]
+    c._update_command()
+    assert not c.release_pulse.any()
 
 
 def test_support_loss_grace_and_transfer_timeout_are_terminal(monkeypatch):
@@ -398,6 +438,37 @@ def test_first_hand_reduces_exploration_without_changing_legacy_ladder():
     assert env.rewards['pelvis_angular_velocity'].weight == -.5
     assert env.rewards['waist_velocity'].weight == -.25
     assert env.commands['ladder'].stabilization_dwell_steps == 50
+
+
+def test_release_orientation_cost_uses_gate_margin_and_only_preparation_stages():
+    errors = torch.tensor([.15, .20, .225, .25, .30, .30, .30, .30], requires_grad=True)
+    c = SimpleNamespace(
+        cfg=SimpleNamespace(max_release_torso_orientation_error=.25),
+        motion_stage=torch.tensor([int(s) for s in (
+            Stage.PREPARE, Stage.RELEASE, Stage.PREPARE, Stage.RELEASE,
+            Stage.STABILIZE, Stage.TRANSFER, Stage.HOLD, Stage.DONE)]),
+        torso_orientation_error=errors,
+    )
+    env = SimpleNamespace(command_manager=SimpleNamespace(get_term=lambda name: c))
+    cost = release_orientation_cost(env)
+    torch.testing.assert_close(cost, torch.tensor([0., 0., .25, 1., 0., 0., 0., 0.]))
+    cost.sum().backward()
+    assert errors.grad[2:4].gt(0).all()
+    assert errors.grad[4:].eq(0).all()
+    # The target follows the configured gate, rather than a second fixed angle.
+    c.cfg.max_release_torso_orientation_error = .35
+    assert release_orientation_cost(env).eq(0).all()
+    with pytest.raises(ValueError): release_orientation_cost(env, margin=.35)
+    with pytest.raises(ValueError): release_orientation_cost(env, std=0.)
+
+
+def test_first_hand_release_rewards_and_checkpoint_interval():
+    from train_mimic.tasks.tracking.config.first_hand import make_first_hand_runner_cfg
+    cfg = make_first_hand_env_cfg()
+    assert cfg.rewards['release_orientation'].weight == -2.
+    assert cfg.rewards['successful_release'].weight == 10.
+    assert cfg.rewards['successful_release'].params['event'] == 'release'
+    assert make_first_hand_runner_cfg().save_interval == 1000
 
 
 def test_resumed_large_std_is_projected_to_new_upper_bound():
