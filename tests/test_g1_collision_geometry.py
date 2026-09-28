@@ -108,17 +108,16 @@ def test_refined_initial_contacts_and_mesh_budget():
     assert all(any("_foot_omni_" in name for name in pair) for pair, _ in contacts), contacts
 
 
-def test_unwanted_contact_sensors_compile_with_both_faces():
+def test_unwanted_contact_sensor_compiles_with_front_face_only():
     cfg = config.make_g1_ladder_rl_env_cfg()
     robot = Entity(cfg.scene.entities["robot"])
     scene = mujoco.MjSpec()
     scene.attach(robot.spec, prefix="robot/", frame=scene.worldbody.add_frame())
     sensors = [s.build() for s in cfg.scene.sensors
                if s.name.startswith("ladder_unwanted_contact_")]
-    assert len(sensors) == 2
+    assert len(sensors) == 1
     for sensor in sensors:
         sensor.edit_spec(scene, {"robot": robot})
-    assert sensors[0].primary_names == sensors[1].primary_names
     assert "pelvis" in sensors[0].primary_names
     assert "torso_link" in sensors[0].primary_names
     assert "left_knee_link" in sensors[0].primary_names
@@ -127,8 +126,10 @@ def test_unwanted_contact_sensors_compile_with_both_faces():
     model = scene.compile()
     reference_ids = {int(model.sensor_refid[i]) for i in range(model.nsensor)
                      if model.sensor(i).name.startswith("ladder_unwanted_contact_")}
-    assert reference_ids == {model.body("robot/left_ladder_body").id,
-                             model.body("robot/right_ladder_body").id}
+    assert reference_ids == {model.body("robot/left_ladder_body").id}
+    assert mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "robot/right_ladder_body") == -1
+    assert not any("right_ladder_" in model.geom(i).name for i in range(model.ngeom))
+    assert cfg.rewards["ladder_unwanted_contact"].params["sensor_name"] == sensors[0].cfg.name
     self_sensor = next(s for s in cfg.scene.sensors if s.name == "self_collision").build()
     self_sensor.edit_spec(scene, {"robot": robot})
     assert "pelvis" in self_sensor.primary_names

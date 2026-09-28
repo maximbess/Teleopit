@@ -171,7 +171,7 @@ def make_g1_ladder_training_robot_cfg(robot_xml: str | Path | None = None):
     robot_cfg.collisions = (
         *robot_cfg.collisions,
         spec_cfg.CollisionCfg(
-            geom_names_expr=(r"^(left|right)_ladder_rail_[0-9]{2}$",),
+            geom_names_expr=(r"^left_ladder_rail_[0-9]{2}$",),
             priority=2,
             contype=1,
             conaffinity=1,
@@ -183,7 +183,7 @@ def make_g1_ladder_training_robot_cfg(robot_xml: str | Path | None = None):
             disable_other_geoms=False,
         ),
         spec_cfg.CollisionCfg(
-            geom_names_expr=(r"^(left|right)_ladder_rung_[0-9]{2}$",),
+            geom_names_expr=(r"^left_ladder_rung_[0-9]{2}$",),
             priority=2,
             contype=1,
             conaffinity=1,
@@ -701,7 +701,7 @@ def make_g1_ladder_rl_env_cfg(
         ),
         "ladder_unwanted_contact": RewardTermCfg(
             func=mdp.ladder_unwanted_contact_cost, weight=-2.0,
-            params={"sensor_name": ("ladder_unwanted_contact_left", "ladder_unwanted_contact_right"),
+            params={"sensor_name": "ladder_unwanted_contact_left",
                     "force_threshold": 1.0},
         ),
         "ladder_stabilization_violation": RewardTermCfg(
@@ -787,20 +787,20 @@ def make_g1_ladder_rl_env_cfg(
                     num_slots=1,
                     history_length=4,
                 ),
-                *(ContactSensorCfg(
-                    name=f"ladder_unwanted_contact_{side}",
+                ContactSensorCfg(
+                    name="ladder_unwanted_contact_left",
                     primary=ContactMatch(
                         mode="body", pattern=r"pelvis|.*_link", entity="robot",
                         exclude=("left_wrist_yaw_link", "right_wrist_yaw_link",
                                  "left_ankle_roll_link", "right_ankle_roll_link"),
                     ),
                     secondary=ContactMatch(
-                        mode="body", pattern=f"{side}_ladder_body",
+                        mode="body", pattern="left_ladder_body",
                         entity="robot",
                     ),
                     fields=("found", "force"), reduce="maxforce", num_slots=1,
                     history_length=0,
-                ) for side in ("left", "right")),
+                ),
             ),
             num_envs=1,
             env_spacing=0.0,

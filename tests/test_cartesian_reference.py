@@ -76,6 +76,8 @@ class CartesianReferenceTest(unittest.TestCase):
         if not (root / "assets/robots/unitree_g1/omniretarget_collision/manifest.json").exists():
             self.skipTest("Downloaded collision assets are unavailable")
         model, data = build_ladder_preview_model()
+        self.assertEqual(mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "right_ladder_body"), -1)
+        self.assertFalse(any(model.site(i).name.startswith("right_ladder_") for i in range(model.nsite)))
         np.testing.assert_allclose(data.qpos[:3], [-.913384, 0, 1.364509])
         np.testing.assert_allclose(data.site("left_grip_site").xpos,
                                    [-.5713792109299028, .1673431160355614, 1.4771781962009825])

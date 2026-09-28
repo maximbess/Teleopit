@@ -450,7 +450,6 @@ def test_ladder_task_is_rl_only() -> None:
     assert tuple(sensor.name for sensor in cfg.scene.sensors) == (
         "ladder_foot_contact",
         "ladder_unwanted_contact_left",
-        "ladder_unwanted_contact_right",
         "self_collision",
     )
     assert load_runner_cls(LADDER_RL_TASK) is LadderOnPolicyRunner

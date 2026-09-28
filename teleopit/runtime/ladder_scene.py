@@ -77,7 +77,7 @@ def _required_spec_body(spec: mujoco.MjSpec, name: str):
 
 
 def _add_ladder_to_g1_spec(spec: mujoco.MjSpec) -> None:
-    """Augment the canonical G1 model with an A-frame ladder and grip welds."""
+    """Add the climbing face of the fixed ladder and the hand grip welds."""
 
     existing_sites = {
         site.name for site in spec.worldbody.find_all(mujoco.mjtObj.mjOBJ_SITE)
@@ -109,7 +109,8 @@ def _add_ladder_to_g1_spec(spec: mujoco.MjSpec) -> None:
     )
 
     world = spec.worldbody
-    for side, base_x in (("left", -_LADDER_HALF_BASE), ("right", _LADDER_HALF_BASE)):
+    # Only the front face is used by the climbing tasks and reference motion.
+    for side, base_x in (("left", -_LADDER_HALF_BASE),):
         side_body = world.add_body(name=f"{side}_ladder_body")
         for rail_index, y in enumerate(
             (-_LADDER_HALF_WIDTH, _LADDER_HALF_WIDTH),
