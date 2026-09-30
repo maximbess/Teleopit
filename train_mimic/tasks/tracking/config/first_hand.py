@@ -13,7 +13,8 @@ def make_first_hand_env_cfg(*, play=False):
     settings = dict(vars(cfg.commands["ladder"]))
     settings.update(curriculum_enabled=False, boundary_state_reset_prob=0., boundary_state_bank_size=0,
                     fixed_max_unlocked_phase=int(mdp.LadderPhase.FIRST_HAND),
-                    freeze_at_max_unlocked_phase=False, stabilization_dwell_max_steps=50)
+                    freeze_at_max_unlocked_phase=False, stabilization_dwell_max_steps=50,
+                    disturbances_enabled=True, stable_hold_s=2., minimum_hold_s=3., hold_timeout_s=8.)
     cfg.commands["ladder"] = motion.FirstHandCommandCfg(**settings)
     cfg.actions["joint_pos"] = motion.ResidualReferenceActionCfg(
         entity_name="robot", actuator_names=(".*",), scale=.2,

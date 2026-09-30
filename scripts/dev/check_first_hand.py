@@ -39,6 +39,17 @@ def main():
             before_stage = command.motion_stage.detach().cpu().tolist()
             before_time = command.reference_time.detach().cpu().tolist()
             obs, reward, terminated, truncated, extras = env.step(actions)
+            disturbances = command.disturbances
+            if disturbances is not None:
+                torch.testing.assert_close(
+                    disturbances.gravity,
+                    disturbances.gravity_scale[:, None] * disturbances.nominal_gravity)
+                torch.testing.assert_close(
+                    env.sim.data.xfrc_applied[:, command._torso_body_id, :3], disturbances.force)
+                assert disturbances.force[:, 2].eq(0).all()
+                assert (disturbances.force.norm(dim=-1) <=
+                        disturbances.weight * command.cfg.push_weight_fraction[1] + 1e-5).all()
+                assert disturbances.force[disturbances.clean].eq(0).all()
             assert torch.isfinite(reward).all()
             for value in obs.values():
                 assert torch.isfinite(value).all()
@@ -51,6 +62,10 @@ def main():
                                                 for name, value in command._release_stability_conditions().items()}
                 sample["support_offset"] = command.torso_support_offset_error.detach().cpu().tolist()
                 sample["torso_orientation_error"] = command.torso_orientation_error.detach().cpu().tolist()
+                if disturbances is not None:
+                    sample["disturbances"] = {name: value.detach().cpu().tolist()
+                                              for name, value in disturbances.metrics().items()}
+                    sample["applied_force"] = disturbances.force.detach().cpu().tolist()
                 samples.append(sample)
                 if step % 50 == 0:
                     print(json.dumps(sample), flush=True)

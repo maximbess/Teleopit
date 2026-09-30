@@ -44,6 +44,13 @@ class FirstHandCommandCfg(LadderClimbCommandCfg):
     preparation_timeout_s: float = 3.0
     transfer_wait_timeout_s: float = 3.0
     hold_timeout_s: float = 3.0
+    disturbances_enabled: bool = False
+    gravity_scale_range: tuple[float, float] = (.97, 1.03)
+    clean_episode_probability: float = .2
+    push_weight_fraction: tuple[float, float] = (.02, .04)
+    push_duration_s: tuple[float, float] = (.1, .2)
+    push_interval_s: tuple[float, float] = (2., 4.)
+    hold_push_delay_s: float = .5
 
     def build(self, env):
         return FirstHandCommand(self, env)
@@ -61,6 +68,20 @@ class FirstHandCommand(LadderClimbCommand):
             if not math.isfinite(getattr(cfg, name)) or getattr(cfg, name) <= 0:
                 raise ValueError(f"{name} must be positive and finite")
         super().__init__(cfg, env)
+        self.disturbances = None
+        if cfg.disturbances_enabled:
+            for name in ('gravity_scale_range', 'push_weight_fraction', 'push_duration_s', 'push_interval_s'):
+                lo, hi = getattr(cfg, name)
+                if not (math.isfinite(lo) and math.isfinite(hi) and 0 < lo <= hi):
+                    raise ValueError(f'{name} must be positive finite ordered bounds')
+            if not 0 <= cfg.clean_episode_probability <= 1:
+                raise ValueError('clean_episode_probability must be between zero and one')
+            if not math.isfinite(cfg.hold_push_delay_s) or cfg.hold_push_delay_s < 0:
+                raise ValueError('hold_push_delay_s must be finite and nonnegative')
+            if cfg.hold_timeout_s <= max(cfg.minimum_hold_s, cfg.hold_push_delay_s + cfg.push_duration_s[1] + cfg.stable_hold_s):
+                raise ValueError('hold_timeout_s must allow the test pulse and recovery window')
+            from .first_hand_disturbances import FirstHandDisturbances
+            self.disturbances = FirstHandDisturbances(self)
         reference = load_first_hand_reference(cfg.reference_file, cfg.reference_robot_xml)
         self.reference_signature = reference["signature"]
         joint_order = [reference["joint_names"].index(n) for n in self.robot.joint_names]
@@ -92,6 +113,9 @@ class FirstHandCommand(LadderClimbCommand):
         for name in ("motion_stage", "reference_time", "hand_tracking_error", "hold_progress",
                      "motion_failed", "first_hand_success", "max_motion_stage"):
             self.metrics[name] = torch.zeros_like(self.reference_time)
+        if self.disturbances is not None:
+            for name in self.disturbances.metrics():
+                self.metrics[name] = torch.zeros_like(self.reference_time)
         for stage in FirstHandStage:
             if stage == FirstHandStage.DONE:
                 continue
@@ -124,6 +148,8 @@ class FirstHandCommand(LadderClimbCommand):
         self.reference_joint_vel[env_ids] = 0
         self.reference_position[env_ids] = self._position_reference[0]
         self.reference_quaternion[env_ids] = self._quaternion_reference[0]
+        if self.disturbances is not None:
+            self.disturbances.reset(env_ids)
 
     def _set_stage(self, env_ids, stage):
         self.motion_stage[env_ids] = int(stage)
@@ -176,6 +202,8 @@ class FirstHandCommand(LadderClimbCommand):
         rate = torch.where(self._dt > 0, (self.reference_time-previous_time)/self._dt.clamp_min(1e-6), 0.)
         # Phase-boundary jumps traverse only stationary portions of the reference.
         self._sample_reference(rate.clamp(0, 1/self.cfg.motion_time_scale))
+        if self.disturbances is not None:
+            self.disturbances.tick(self._dt)
 
     @property
     def required_supports(self):
@@ -233,6 +261,11 @@ class FirstHandCommand(LadderClimbCommand):
         stable = self.required_supports & self.phase_completion_stable
         stable &= self.torso_orientation_error <= self.cfg.max_phase_torso_orientation_error
         stable &= self.held_rung[:, 0] == self.cfg.start_rung + 1
+        if self.disturbances is not None:
+            stable &= self.disturbances.recovery_ready
+            stable &= torch.linalg.vector_norm(self.torso_ang_vel_w, dim=-1) <= self.cfg.max_stabilization_body_angular_speed
+            stable &= torch.linalg.vector_norm(self.pelvis_ang_vel_w, dim=-1) <= self.cfg.max_stabilization_body_angular_speed
+            stable &= self.robot.data.joint_vel[:, self._waist_joint_ids].abs().amax(dim=-1) <= self.cfg.max_stabilization_waist_joint_speed
         self.hold_elapsed[hold] = torch.where(stable[hold], self.hold_elapsed[hold]+self._dt[hold], 0.)
         ready = hold & (self.hold_elapsed >= self.cfg.stable_hold_s) & (self.stage_elapsed >= self.cfg.minimum_hold_s)
         ids = torch.where(ready)[0]
@@ -279,6 +312,9 @@ class FirstHandCommand(LadderClimbCommand):
         self.metrics["motion_failed"][:] = self.motion_failed
         self.metrics["first_hand_success"][:] = self.finished
         self.metrics["max_motion_stage"][:] = self.max_motion_stage
+        if self.disturbances is not None:
+            for name, value in self.disturbances.metrics().items():
+                self.metrics[name][:] = value
         for stage in FirstHandStage:
             if stage == FirstHandStage.DONE:
                 continue

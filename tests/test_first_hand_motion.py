@@ -72,6 +72,7 @@ class GateCommand(FirstHandCommand):
 def gate_command(stage=Stage.TRANSFER):
     c = object.__new__(GateCommand)
     c.cfg = FirstHandCommandCfg(entity_name='robot', resampling_time_range=(1e9, 1e9))
+    c.disturbances = None
     c._env = SimpleNamespace(num_envs=2, device='cpu', step_dt=.02)
     c.motion_stage = torch.full((2,), int(stage), dtype=torch.long)
     c.max_motion_stage = c.motion_stage.clone()
