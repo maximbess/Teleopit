@@ -12,6 +12,8 @@ from mjlab.rl import RslRlVecEnvWrapper
 from mjlab.rl.runner import MjlabOnPolicyRunner
 from rsl_rl.utils import check_nan
 
+from .nonfinite import NonfiniteDiagnostics
+
 
 def _one_based_iteration_range(start_iteration: int, total_iterations: int) -> range:
     """Return the inclusive 1-based iteration range up to the target total."""
@@ -237,16 +239,30 @@ class LadderOnPolicyRunner(MjlabOnPolicyRunner):
 
         start_it = self.current_learning_iteration
         total_it = _resolve_total_iterations(start_it, num_learning_iterations)
+        diagnostics = (NonfiniteDiagnostics(self.env, self.logger.log_dir, self.gpu_global_rank)
+                       if self.cfg.get("check_for_nan", True) else None)
+        if diagnostics is not None:
+            diagnostics.check({f"observations/{k}": v for k, v in obs.items()},
+                              iteration=start_it, rollout_step=-1, when="initial_observations",
+                              observations=obs)
         for it in _one_based_iteration_range(start_it, total_it):
             start = time.time()
             with torch.inference_mode():
-                for _ in range(self.cfg["num_steps_per_env"]):
+                for rollout_step in range(self.cfg["num_steps_per_env"]):
                     actions = self.alg.act(obs)
+                    before = None
+                    if diagnostics is not None:
+                        before = diagnostics.context()
+                        diagnostics.check({"actions": actions}, iteration=it, rollout_step=rollout_step,
+                                          when="before_env_step", observations=obs, actions=actions, before=before)
                     obs, rewards, dones, extras = self.env.step(
                         actions.to(self.env.device)
                     )
-                    if self.cfg.get("check_for_nan", True):
-                        check_nan(obs, rewards, dones)
+                    if diagnostics is not None:
+                        diagnostics.check({**{f"observations/{k}": v for k, v in obs.items()},
+                                           "rewards": rewards, "dones": dones},
+                                          iteration=it, rollout_step=rollout_step, when="after_env_step",
+                                          observations=obs, actions=actions, before=before)
                     obs, rewards, dones = (
                         obs.to(self.device),
                         rewards.to(self.device),
