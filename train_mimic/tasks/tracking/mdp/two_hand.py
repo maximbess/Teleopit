@@ -9,7 +9,7 @@ import torch
 from mjlab.utils.lab_api.math import quat_mul, quat_conjugate, quat_apply
 
 from teleopit.runtime.assets import PROJECT_ROOT
-from train_mimic.data.two_hand_bank import model_signature
+from train_mimic.data.two_hand_bank import validate_model
 from .first_hand import FirstHandCommand, FirstHandCommandCfg, FirstHandStage
 from .ladder import LadderPhase
 
@@ -35,8 +35,7 @@ class TwoHandCommand(FirstHandCommand):
             physics_names = [env.sim.mj_model.joint(j).name for j in range(env.sim.mj_model.njnt)]
             if physics_names != meta['physics_joint_names'] or meta['fps'] != self.ref_fps:
                 raise ValueError('Pose-bank model topology or sampling frequency mismatch')
-            if model_signature(env.sim.mj_model) != meta['model_signature']:
-                raise ValueError('Pose-bank robot or ladder geometry differs from the training scene; rebuild and validate the bank')
+            validate_model(env.sim.mj_model, f, meta)
             self.bank = {k:torch.tensor(f[k],device=self.device) for k in
                          ('qpos','qvel','position','quaternion','joint_pos','joint_vel')}
             self.bank['joint_pos'] = self.bank['joint_pos'][:,:,order]

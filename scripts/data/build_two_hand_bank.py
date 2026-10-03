@@ -7,7 +7,7 @@ import sys
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 import numpy as np
 import mujoco
-from train_mimic.data.two_hand_bank import model_signature
+from train_mimic.data.two_hand_bank import model_signature, model_snapshot
 
 
 def main():
@@ -37,12 +37,13 @@ def main():
             result['quaternion'].append(clip['target_quaternion_wxyz'])
             specs.append(spec)
     model = mujoco.MjModel.from_binary_path(str(a.bank/'scene.mjb'))
-    info = dict(version=1, model_signature=model_signature(model), pose_ids=meta['representatives'], joint_names=meta['joint_names'],
+    info = dict(version=2, model_signature=model_signature(model), pose_ids=meta['representatives'], joint_names=meta['joint_names'],
                 physics_joint_names=meta['physics_joint_names'], fps=specs[0]['fps'],
                 contact_schedule=specs[0]['contact_schedule'], provenance=[s['provenance'] for s in specs],
                 source_checkpoint_sha256=meta['checkpoint_sha256'])
     a.output.parent.mkdir(parents=True,exist_ok=True)
-    np.savez_compressed(a.output, **{k:np.asarray(v,dtype=np.float32) for k,v in result.items()}, metadata=json.dumps(info))
+    np.savez_compressed(a.output, **{k:np.asarray(v,dtype=np.float32) for k,v in result.items()},
+                        **model_snapshot(model), metadata=json.dumps(info))
     print(a.output, a.output.stat().st_size)
 
 
