@@ -62,6 +62,16 @@ class CartesianReferenceTest(unittest.TestCase):
         self.assertLessEqual(clip["qpos"][:, 0].max(), .5)
         self.assertGreater(clip["position_error_m"][-1, 0], 1)
 
+    def test_explicit_hold_does_not_drift_under_posture_regularization(self):
+        self.spec["duration_s"] = 2.
+        spec, tracks = self.load()
+        clip, report = solve_reference(self.model, self.data, spec, tracks,
+                                       posture_weight=.1, freeze_static_targets=True)
+        np.testing.assert_array_equal(clip["qpos"][10:], np.tile(clip["qpos"][10], (11,1)))
+        self.assertTrue(report["tracking_ok"])
+        with self.assertRaisesRegex(ValueError,"posture_weight"):
+            solve_reference(self.model,self.data,spec,tracks,posture_weight=float("nan"))
+
     def test_ambiguous_or_out_of_order_keys_are_rejected(self):
         self.spec["tracks"][0]["keyframes"][1]["time_s"] = 0
         with self.assertRaisesRegex(ValueError, "key times"):

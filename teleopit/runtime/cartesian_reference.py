@@ -124,8 +124,11 @@ def load_reference(path, model, data):
     return spec, tracks
 
 
-def solve_reference(model, data, spec, tracks, max_iterations=100):
+def solve_reference(model, data, spec, tracks, max_iterations=100, *, posture_weight=.003,
+                    freeze_static_targets=False):
     """Warm-started damped least-squares IK with joint limits and line search."""
+    if not np.isfinite(posture_weight) or posture_weight <= 0:
+        raise ValueError("posture_weight must be finite and positive")
     initial = data.qpos.copy()
     times = np.arange(round(spec["duration_s"]*spec["fps"])+1)/spec["fps"]
     shape = (len(times), len(tracks))
@@ -136,7 +139,7 @@ def solve_reference(model, data, spec, tracks, max_iterations=100):
     errors = np.zeros(shape)
     angle_errors = np.zeros(shape)
     # Small posture preference resolves redundant solutions without pinning motion.
-    regularization = .003
+    regularization = posture_weight
     jac_pos = np.zeros((3, model.nv))
     jac_rot = np.zeros_like(jac_pos)
     posture = np.zeros(model.nv)
@@ -159,10 +162,16 @@ def solve_reference(model, data, spec, tracks, max_iterations=100):
             rows.append(regularization*np.eye(model.nv))
         return np.concatenate(residuals), np.vstack(rows) if with_jacobian else None
 
+    previous_poses = None
     for frame, time_s in enumerate(times):
         posture_reference = initial if frame == 0 else qpos[frame-1]
         poses = [track.sample(time_s) for track in tracks]
-        for _ in range(max_iterations):
+        static = (freeze_static_targets and previous_poses is not None
+                  and all(np.allclose(p, old_p, rtol=0, atol=1e-12)
+                          and np.allclose(q, old_q, rtol=0, atol=1e-12)
+                          for (p, q), (old_p, old_q) in zip(poses, previous_poses)))
+        # A moving posture prior can otherwise drift in redundant joints at rest.
+        for _ in range(0 if static else max_iterations):
             mujoco.mj_kinematics(model, data)
             mujoco.mj_comPos(model, data)
             residual, jac = system(poses)
@@ -222,6 +231,7 @@ def solve_reference(model, data, spec, tracks, max_iterations=100):
                 pairs.append([a, b, float(contact.dist)])
         if pairs:
             collision_frames.append({"frame": frame, "time_s": float(time_s), "pairs": pairs})
+        previous_poses = poses
     data.qpos[:] = initial
     mujoco.mj_forward(model, data)
     active_position = np.array([t.position_weight > 0 for t in tracks])

@@ -90,6 +90,8 @@ def frame_text(spec, clip, tracks, frame, report, paused, speed):
         lines.append("WARNING: reference contains unresolved IK targets")
     if report["collision_frames"]:
         lines.append(f"WARNING: penetration in {len(report['collision_frames'])} frames; see report")
+    if report.get("kinematic_checks_ok") is False:
+        lines.append("WARNING: kinematic acceptance checks failed; see validation.json")
     return "\n".join(lines)
 
 

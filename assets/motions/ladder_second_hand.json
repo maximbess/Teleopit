@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "name": "Right hand joins left hand on the next rung",
+  "fps": 50,
+  "times_s": {
+    "settle": 0.5,
+    "prepare": 1.7,
+    "release": 2.3,
+    "withdraw": 3.3,
+    "lift": 5.9,
+    "approach": 7.7,
+    "hold": 8.7
+  },
+  "withdrawal_m": 0.09,
+  "lateral_clearance_m": 0.06,
+  "body_shift_m": [-0.02, 0.0, 0.0],
+  "torso_neutral_blend": 0.55,
+  "posture_weight": 0.05,
+  "quality_limits": {
+    "joint_margin_rad": 0.05,
+    "joint_speed_rad_s": 2.5,
+    "joint_acceleration_rad_s2": 20.0
+  },
+  "description": "Retarget from a measured first-hand terminal pose. Keep the left hand and both feet fixed; preserve the right grip offset relative to the rung. The contact schedule is intent only; this file does not execute grips or guarantee load transfer."
+}
