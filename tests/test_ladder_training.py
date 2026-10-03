@@ -1570,6 +1570,8 @@ def test_ladder_runner_rejects_checkpoint_without_curriculum_state(
         )
     )
     monkeypatch.setattr(MjlabOnPolicyRunner, "load", lambda *_args, **_kwargs: {})
+    # This fixture deliberately has no PPO model; test only curriculum metadata.
+    monkeypatch.setattr(runner, "_project_actor_std", lambda: None)
 
     with pytest.raises(RuntimeError, match="adaptive ladder curriculum state"):
         runner.load("fixed-schedule.pt")

@@ -180,7 +180,7 @@ class FirstHandCommand(LadderClimbCommand):
         live = self.initialized & ~self.finished & ~self._fresh_reset
         required = self.required_supports
         self.support_loss_elapsed[:] = torch.where(required, 0., self.support_loss_elapsed + self._dt)
-        self._fail(live & ~self.attached[:, 1], FirstHandFailure.RIGHT_HAND_LOST)
+        self._fail(live & ~self.attached[self._all_env_ids, 1-self.active_hand], FirstHandFailure.RIGHT_HAND_LOST)
         self._fail(live & (self.support_loss_elapsed >= self.cfg.support_loss_grace_s), FirstHandFailure.SUPPORT_LOST)
         limits = torch.tensor([
             self.cfg.stabilization_timeout_s, self.cfg.preparation_timeout_s*self.cfg.motion_time_scale,
@@ -189,11 +189,14 @@ class FirstHandCommand(LadderClimbCommand):
             self.cfg.hold_timeout_s, 1e9,
         ], device=self.device)
         self._fail(self.pre_release_stalled, FirstHandFailure.RELEASE_STALLED)
-        self._fail(self.stage_elapsed > limits[self.motion_stage], FirstHandFailure.STAGE_TIMEOUT)
+        stage_limit = torch.where(self.motion_stage == int(FirstHandStage.TRANSFER),
+                                  .04 + (self.reference_end_time-self.reference_transfer_start)*self.cfg.motion_time_scale + self.cfg.transfer_wait_timeout_s,
+                                  limits[self.motion_stage])
+        self._fail(self.stage_elapsed > stage_limit, FirstHandFailure.STAGE_TIMEOUT)
         # A detach that loses the remaining supports is not a successful release.
         self.release_pulse &= ~self.motion_failed & self.required_supports
-        distance = torch.linalg.vector_norm(self.hand_pos_w[:, 0] - self._position_reference[-1, 0], dim=-1)
-        initial_distance = torch.linalg.vector_norm(self._position_reference[-1, 0] - self._position_reference[0, 0])
+        distance = torch.linalg.vector_norm(self.active_hand_pos_w - self.endpoint_position, dim=-1)
+        initial_distance = torch.linalg.vector_norm(self.endpoint_position - self.initial_hand_position, dim=-1)
         reach = (1 - distance/initial_distance.clamp_min(1e-6)).clamp(0, 1)
         valid = (self.motion_stage >= int(FirstHandStage.TRANSFER)) & required & ~self.motion_failed
         record = torch.where(valid, torch.maximum(self.best_reach, reach), self.best_reach)
@@ -207,8 +210,8 @@ class FirstHandCommand(LadderClimbCommand):
 
     @property
     def required_supports(self):
-        require_left = (self.motion_stage <= int(FirstHandStage.RELEASE)) | (self.motion_stage >= int(FirstHandStage.HOLD))
-        return self.attached[:, 1] & self.foot_support.all(dim=1) & (~require_left | self.attached[:, 0])
+        require_moving_hand = (self.motion_stage <= int(FirstHandStage.RELEASE)) | (self.motion_stage >= int(FirstHandStage.HOLD))
+        return self.attached[self._all_env_ids, 1-self.active_hand] & self.foot_support.all(dim=1) & (~require_moving_hand | self.attached[self._all_env_ids, self.active_hand])
 
     def _advance_stabilization_phase(self, phase_at_start):
         del phase_at_start
@@ -226,33 +229,39 @@ class FirstHandCommand(LadderClimbCommand):
         live = ~self.motion_failed & ~self.finished & ~self._fresh_reset
         prepare = live & (self._stage_at_start == int(FirstHandStage.PREPARE))
         self.reference_time[prepare] = (self.reference_time[prepare]
-                                        + self._dt[prepare]/self.cfg.motion_time_scale).clamp(max=1.7)
-        ready = prepare & (self.reference_time >= 1.7-1e-6) & self._release_is_stable()
+                                        + self._dt[prepare]/self.cfg.motion_time_scale)
+        self.reference_time[prepare] = torch.minimum(self.reference_time[prepare], self.reference_prepare_end[prepare])
+        ready = prepare & (self.reference_time >= self.reference_prepare_end-1e-6) & self._release_is_stable()
         ids = torch.where(ready)[0]
         self._set_stage(ids, FirstHandStage.RELEASE)
-        self._begin_release(ids, 0)
+        for hand in (0, 1):
+            self._begin_release(ids[self.active_hand[ids] == hand], hand)
 
         release = live & (self._stage_at_start == int(FirstHandStage.RELEASE))
         self._advance_release_ramp(release)
-        ids = torch.where(release & ~self.attached[:, 0] & ~self._release_active)[0]
+        ids = torch.where(release & ~self.attached[self._all_env_ids, self.active_hand] & ~self._release_active)[0]
         self._set_stage(ids, FirstHandStage.TRANSFER)
         self.release_pulse[ids] = True
+        self.reference_time[ids] = self.reference_transfer_start[ids]
 
         transfer = live & (self._stage_at_start == int(FirstHandStage.TRANSFER))
         move = transfer & (self.stage_elapsed >= .04)
         self.reference_time[move] = (self.reference_time[move]
-                                     + self._dt[move]/self.cfg.motion_time_scale).clamp(max=3.9)
-        endpoint_error = torch.linalg.vector_norm(self.hand_pos_w[:, 0] - self._position_reference[-1, 0], dim=-1)
+                                     + self._dt[move]/self.cfg.motion_time_scale)
+        self.reference_time[move] = torch.minimum(self.reference_time[move], self.reference_end_time[move])
+        endpoint_error = torch.linalg.vector_norm(self.active_hand_pos_w - self.endpoint_position, dim=-1)
         rung_error = torch.linalg.vector_norm(self.active_hand_pos_w-self.target_pos_w, dim=-1)
         speed = torch.linalg.vector_norm(self.active_hand_vel_w, dim=-1)
-        reached = (self.reference_time >= 3.9-1e-6) & ~self.attached[:, 0] & self.required_supports
+        reached = (self.reference_time >= self.reference_end_time-1e-6) & ~self.attached[self._all_env_ids, self.active_hand] & self.required_supports
         reached &= (endpoint_error <= self.cfg.endpoint_tolerance) & (rung_error <= self.cfg.attach_distance)
         reached &= (speed <= self.cfg.max_attach_speed) & self.phase_completion_stable
         reached &= self.torso_orientation_error <= self.cfg.max_phase_torso_orientation_error
         self._update_phase_dwell(transfer, reached)
         ids = torch.where(transfer & (self._phase_dwell_count >= self.cfg.hand_target_dwell_steps))[0]
-        self._attach(ids, 0, self.target_rung[ids])
-        self._hold_hand_offset[ids] = self.hand_pos_w[ids, 0] - self._position_reference[-1, 0]
+        for hand in (0, 1):
+            selected = ids[self.active_hand[ids] == hand]
+            self._attach(selected, hand, self.target_rung[selected])
+        self._hold_hand_offset[ids] = self.active_hand_pos_w[ids] - self.endpoint_position[ids]
         self.grasp_pulse[ids] = True
         self.just_advanced[ids] = True
         self._set_stage(ids, FirstHandStage.HOLD)
@@ -260,7 +269,7 @@ class FirstHandCommand(LadderClimbCommand):
         hold = live & (self._stage_at_start == int(FirstHandStage.HOLD))
         stable = self.required_supports & self.phase_completion_stable
         stable &= self.torso_orientation_error <= self.cfg.max_phase_torso_orientation_error
-        stable &= self.held_rung[:, 0] == self.cfg.start_rung + 1
+        stable &= self.held_rung[self._all_env_ids, self.active_hand] == self.cfg.start_rung + 1
         if self.disturbances is not None:
             stable &= self.disturbances.recovery_ready
             stable &= torch.linalg.vector_norm(self.torso_ang_vel_w, dim=-1) <= self.cfg.max_stabilization_body_angular_speed
@@ -269,12 +278,15 @@ class FirstHandCommand(LadderClimbCommand):
         self.hold_elapsed[hold] = torch.where(stable[hold], self.hold_elapsed[hold]+self._dt[hold], 0.)
         ready = hold & (self.hold_elapsed >= self.cfg.stable_hold_s) & (self.stage_elapsed >= self.cfg.minimum_hold_s)
         ids = torch.where(ready)[0]
+        self._complete_motion(ids)
+
+    def _complete_motion(self, ids):
         self.finished[ids] = True
         self.success_pulse[ids] = True
         self._set_stage(ids, FirstHandStage.DONE)
 
     def _advance_foot_phase(self, phase_at_start):
-        del phase_at_start  # This task never transitions to the second hand or feet.
+        del phase_at_start  # Authored hand-motion tasks do not transfer the feet.
 
     def sample(self, table, times):
         index = (times*self.ref_fps).clamp(0, len(table)-1)
@@ -282,6 +294,29 @@ class FirstHandCommand(LadderClimbCommand):
         high = (low+1).clamp(max=len(table)-1)
         alpha = (index-low).reshape((-1,) + (1,)*(table.ndim-1))
         return torch.lerp(table[low], table[high], alpha)
+
+    @property
+    def reference_prepare_end(self):
+        return torch.full_like(self.reference_time, 1.7)
+
+    @property
+    def reference_transfer_start(self):
+        return torch.full_like(self.reference_time, 1.7)
+
+    @property
+    def reference_end_time(self):
+        return torch.full_like(self.reference_time, 3.9)
+
+    @property
+    def endpoint_position(self):
+        return self._position_reference[-1,0].expand(self.num_envs,-1)
+
+    @property
+    def initial_hand_position(self):
+        return self._position_reference[0,0].expand(self.num_envs,-1)
+
+    def future_joint_reference(self, times):
+        return self.sample(self._joint_reference, times)
 
     def _sample_reference(self, rate=None):
         self.reference_joint_pos[:] = self.sample(self._joint_reference, self.reference_time)
@@ -307,7 +342,7 @@ class FirstHandCommand(LadderClimbCommand):
         super()._update_metrics()
         self.metrics["motion_stage"][:] = self.motion_stage
         self.metrics["reference_time"][:] = self.reference_time
-        self.metrics["hand_tracking_error"][:] = torch.linalg.vector_norm(self.hand_pos_w[:, 0]-self.reference_position[:, 0], dim=-1)
+        self.metrics["hand_tracking_error"][:] = torch.linalg.vector_norm(self.active_hand_pos_w-self.reference_position[self._all_env_ids,self.active_hand], dim=-1)
         self.metrics["hold_progress"][:] = self.hold_elapsed/self.cfg.stable_hold_s
         self.metrics["motion_failed"][:] = self.motion_failed
         self.metrics["first_hand_success"][:] = self.finished
@@ -358,9 +393,9 @@ def reference_observation(env, command_name="ladder"):
     c = command(env, command_name)
     position_error = c._vectors_to_torso((c.reference_position-c.actual_position).reshape(env.num_envs, -1, 3))
     future_time = torch.minimum(c.reference_time + .2/c.cfg.motion_time_scale,
-                               torch.full_like(c.reference_time, 3.9))
-    future = c.sample(c._joint_reference, future_time)
-    return torch.cat(((c.reference_time/3.9)[:, None],
+                               c.reference_end_time)
+    future = c.future_joint_reference(future_time)
+    return torch.cat(((c.reference_time/c.reference_end_time)[:, None],
                       c.reference_joint_pos-c.robot.data.joint_pos,
                       c.reference_joint_vel,
                       future-c.robot.data.joint_pos,

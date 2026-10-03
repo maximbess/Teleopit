@@ -34,8 +34,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         )
     )
     parser.add_argument("--checkpoint", type=str, required=True)
+    parser.add_argument("--two_hand_bank", help="Override the portable reference bank for a two-hand checkpoint")
     parser.add_argument(
-        "--task", choices=("auto", "G1-Ladder-Climb-RL", "G1-Ladder-FirstHand-Motion"),
+        "--task", choices=("auto", "G1-Ladder-Climb-RL", "G1-Ladder-FirstHand-Motion", "G1-Ladder-TwoHand-Motion"),
         default="auto", help="Policy task (default: detect from checkpoint metadata).",
     )
     parser.add_argument(
@@ -200,7 +201,8 @@ def _render_frame(unwrapped: Any) -> Any:
 def _resolve_recording_task(requested: str, checkpoint: dict) -> str:
     """Choose matching observations, residual actions, model and checkpoint loader."""
     infos = checkpoint.get("infos") or {}
-    detected = ("G1-Ladder-FirstHand-Motion" if "first_hand_reference_signature" in infos
+    detected = ("G1-Ladder-TwoHand-Motion" if "two_hand_reference_signature" in infos else
+                "G1-Ladder-FirstHand-Motion" if "first_hand_reference_signature" in infos
                 else "G1-Ladder-Climb-RL")
     if requested != "auto" and requested != detected:
         raise ValueError(
@@ -212,14 +214,22 @@ def _resolve_recording_task(requested: str, checkpoint: dict) -> str:
 
 def _configure_recording_task(env_cfg: Any, args: argparse.Namespace,
                               task: str, robot_xml: Path) -> None:
-    if task == "G1-Ladder-FirstHand-Motion":
+    bank = getattr(args, 'two_hand_bank', None)
+    if bank and task != 'G1-Ladder-TwoHand-Motion':
+        raise ValueError('--two_hand_bank requires a two-hand checkpoint')
+    if task == 'G1-Ladder-TwoHand-Motion':
+        if args.allow_reference_mismatch:
+            raise ValueError('Two-hand playback requires the exact reference bank; mismatch override is not supported')
+        if bank:
+            env_cfg.commands['ladder'].bank_file = str(Path(bank).expanduser().resolve())
+    if task in ("G1-Ladder-FirstHand-Motion", "G1-Ladder-TwoHand-Motion"):
         if args.ladder_phase is not None:
             raise ValueError("--ladder_phase is not used by the first-hand motion task; it ends after stable hold")
         command = env_cfg.commands["ladder"]
         command.reference_robot_xml = str(robot_xml)
         if args.reference_file is not None:
             command.reference_file = str(Path(args.reference_file).expanduser().resolve())
-        print("[INFO] First-hand recording: reference motion through stable terminal hold.")
+        print(f"[INFO] {task}: reference motion through stable terminal hold.")
         return
     if args.reference_file is not None:
         raise ValueError("--reference_file is only valid for G1-Ladder-FirstHand-Motion")

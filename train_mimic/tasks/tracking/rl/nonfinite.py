@@ -76,7 +76,7 @@ class NonfiniteDiagnostics:
         capture("applied_actions", lambda: self.env.action_manager.action)
         command = self.env.command_manager.get_term("ladder")
         for name in ("phase", "motion_stage", "reference_time", "stage_elapsed", "hold_elapsed",
-                     "attached", "held_rung", "motion_failed", "finished", "reference_joint_pos"):
+                     "attached", "held_rung", "active_hand", "motion_failed", "finished", "reference_joint_pos"):
             capture(f"command/{name}", lambda name=name: getattr(command, name))
         disturbances = getattr(command, "disturbances", None)
         if disturbances is not None:

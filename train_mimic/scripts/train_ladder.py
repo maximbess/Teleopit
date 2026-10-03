@@ -23,7 +23,7 @@ from train_mimic.app import (
     validate_checkpoint_path,
 )
 from train_mimic.scripts import train as shared_train
-from train_mimic.tasks.tracking.config.constants import LADDER_RL_TASK, LADDER_TASKS, FIRST_HAND_MOTION_TASK
+from train_mimic.tasks.tracking.config.constants import LADDER_RL_TASK, LADDER_TASKS, FIRST_HAND_MOTION_TASK, TWO_HAND_MOTION_TASK
 from train_mimic.tasks.tracking.config.env import (
     make_g1_ladder_training_robot_cfg,
     resolve_g1_training_xml,
@@ -63,6 +63,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument("--resume", type=str, default=None)
+    parser.add_argument("--warmstart", help="First-hand weights only, for the two-hand task")
+    parser.add_argument("--allow_warmstart_reference_mismatch", action="store_true")
+    parser.add_argument("--two_hand_bank", help="Portable two-hand reference bank NPZ")
+    parser.add_argument("--second_hand_reset_probability", type=float)
     parser.add_argument("--device", type=str, default=None)
     parser.add_argument(
         "--gpu_ids",
@@ -119,12 +123,22 @@ def _run_worker(args: argparse.Namespace) -> None:
         raise FileNotFoundError(f"G1 training MuJoCo XML not found: {robot_xml}")
     env_cfg.scene.entities["robot"] = make_g1_ladder_training_robot_cfg(robot_xml)
     env_cfg.robot_xml = str(robot_xml)
-    if args.task == FIRST_HAND_MOTION_TASK:
+    if args.task in (FIRST_HAND_MOTION_TASK, TWO_HAND_MOTION_TASK):
         env_cfg.commands["ladder"].reference_robot_xml = str(robot_xml)
         if args.reference_file is not None:
             env_cfg.commands["ladder"].reference_file = os.path.abspath(args.reference_file)
     elif args.reference_file is not None:
         raise ValueError("--reference_file requires --task G1-Ladder-FirstHand-Motion")
+    if args.warmstart and (args.resume or args.task != TWO_HAND_MOTION_TASK):
+        raise ValueError('--warmstart is only for a new two-hand run; cannot combine with --resume')
+    if args.allow_warmstart_reference_mismatch and not args.warmstart:
+        raise ValueError('--allow_warmstart_reference_mismatch requires --warmstart')
+    if args.task != TWO_HAND_MOTION_TASK and (args.two_hand_bank or args.second_hand_reset_probability is not None):
+        raise ValueError('Two-hand options require --task G1-Ladder-TwoHand-Motion')
+    if args.two_hand_bank:
+        env_cfg.commands['ladder'].bank_file = os.path.abspath(args.two_hand_bank)
+    if args.second_hand_reset_probability is not None:
+        env_cfg.commands['ladder'].second_hand_reset_probability = args.second_hand_reset_probability
     if args.num_envs is not None:
         if args.num_envs <= 0:
             raise ValueError(f"--num_envs must be positive, got {args.num_envs}")
@@ -139,6 +153,8 @@ def _run_worker(args: argparse.Namespace) -> None:
         agent_cfg.experiment_name = args.experiment_name
     if args.resume is not None:
         validate_checkpoint_path(args.resume)
+    if args.warmstart is not None:
+        validate_checkpoint_path(args.warmstart)
 
     device = shared_train._resolve_device(args, torch)
     log_root = os.path.abspath(
@@ -218,6 +234,8 @@ def _run_worker(args: argparse.Namespace) -> None:
         if args.resume is not None:
             print(f"[INFO] Resuming ladder training from: {args.resume}")
             runner.load(args.resume)
+        if args.warmstart is not None:
+            runner.warmstart(args.warmstart, allow_reference_mismatch=args.allow_warmstart_reference_mismatch)
         print(f"[INFO] Running {agent_cfg.max_iterations} ladder RL iterations")
         runner.learn(
             num_learning_iterations=agent_cfg.max_iterations,

@@ -52,9 +52,9 @@ class GateCommand(FirstHandCommand):
     @property
     def foot_support(self): return self.feet
     @property
-    def active_hand_pos_w(self): return self.hand[:, 0]
+    def active_hand_pos_w(self): return self.hand[self._all_env_ids, self.active_hand]
     @property
-    def target_pos_w(self): return self._position_reference[-1, 0].expand(2, -1)
+    def target_pos_w(self): return self.endpoint_position
     @property
     def active_hand_vel_w(self): return self.velocity
     @property
@@ -74,6 +74,8 @@ def gate_command(stage=Stage.TRANSFER):
     c.cfg = FirstHandCommandCfg(entity_name='robot', resampling_time_range=(1e9, 1e9))
     c.disturbances = None
     c._env = SimpleNamespace(num_envs=2, device='cpu', step_dt=.02)
+    c._all_env_ids = torch.arange(2)
+    c.active_hand = torch.zeros(2, dtype=torch.long)
     c.motion_stage = torch.full((2,), int(stage), dtype=torch.long)
     c.max_motion_stage = c.motion_stage.clone()
     c.failure_reason = torch.zeros(2, dtype=torch.long)

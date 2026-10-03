@@ -7,6 +7,7 @@ from train_mimic.tasks.tracking.config.constants import (
     GENERAL_TRACKING_TASK,
     LADDER_RL_TASK,
     FIRST_HAND_MOTION_TASK,
+    TWO_HAND_MOTION_TASK,
 )
 from train_mimic.tasks.tracking.config.env import (
     make_g1_ladder_rl_env_cfg,
@@ -22,6 +23,8 @@ from train_mimic.tasks.tracking.rl import (
 )
 from .first_hand import make_first_hand_env_cfg, make_first_hand_runner_cfg
 from train_mimic.tasks.tracking.rl.first_hand_runner import FirstHandOnPolicyRunner
+from .two_hand import make_two_hand_env_cfg, make_two_hand_runner_cfg
+from train_mimic.tasks.tracking.rl.two_hand_runner import TwoHandOnPolicyRunner
 
 
 register_mjlab_task(
@@ -49,4 +52,12 @@ register_mjlab_task(
     play_env_cfg=make_first_hand_env_cfg(play=True),
     rl_cfg=make_first_hand_runner_cfg(),
     runner_cls=FirstHandOnPolicyRunner,
+)
+
+register_mjlab_task(
+    task_id=TWO_HAND_MOTION_TASK,
+    env_cfg=make_two_hand_env_cfg(),
+    play_env_cfg=make_two_hand_env_cfg(play=True),
+    rl_cfg=make_two_hand_runner_cfg(),
+    runner_cls=TwoHandOnPolicyRunner,
 )
