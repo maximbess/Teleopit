@@ -93,6 +93,9 @@ teleopit/retargeting/gmr/assets/
 
 # Canonical robot XML/meshes (downloaded from ModelScope)
 assets/robots/
+# Fixed collision hulls are reference assets, not compiler object files.
+!assets/collision/g1_ladder_v1/parts/
+!assets/collision/g1_ladder_v1/parts/*.obj
 
 # Legacy training-side robot assets are no longer tracked.
 train_mimic/assets/

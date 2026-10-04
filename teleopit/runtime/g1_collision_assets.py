@@ -5,6 +5,9 @@ REVISION = "bccd4d7451640a2800ddc77e469d911a84f91994"
 REPOSITORY = "amazon-far/holosoma"
 MODEL_PATH = "src/holosoma_retargeting/holosoma_retargeting/models/g1"
 ASSET_DIR = Path(__file__).resolve().parents[2] / "assets/robots/unitree_g1/omniretarget_collision"
+# Shared, prebuilt hulls used to collect the measured ladder pose bank.
+# Re-running CoACD on another OS may produce a different part count/order.
+PINNED_ASSET_DIR = Path(__file__).resolve().parents[2] / "assets/collision/g1_ladder_v1"
 SCHEMA_VERSION = 1
 # Canonical rev. 1.0 has a different waist assembly and torso surface from the
 # donor. Keep its torso mesh and account for the head's changed fixed offset.

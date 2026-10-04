@@ -1,0 +1,1135 @@
+{
+  "schema_version": 1,
+  "repository": "amazon-far/holosoma",
+  "revision": "bccd4d7451640a2800ddc77e469d911a84f91994",
+  "sources": {
+    "g1_29dof.urdf": "02f2df572e258121bc3cf7d97b645edaf4b1cf68",
+    "assets/head_link.obj": "1d2e89f61105149f990c1c06bc7a20fc27e12d0f",
+    "assets/left_ankle_pitch_link.obj": "0e57b46296a9dfff2d09a7e1608f49fd94a2e811",
+    "assets/left_ankle_roll_link.obj": "e5fe17d022034a80843fd8e7c2e5696588ab84a4",
+    "assets/left_elbow_link.obj": "416c6588ef3921b4a8cacb9fa94e05545ed7391a",
+    "assets/left_hip_pitch_link.obj": "fd860bbaf4fcb360205b9de60087a254f63c6b71",
+    "assets/left_hip_roll_link.obj": "007f945d553bcc234a675d6b3b55174ded220611",
+    "assets/left_hip_yaw_link.obj": "d66101fff0f9672f799219eb5201f0463f389858",
+    "assets/left_knee_link.obj": "395aa1ea7196eab8c2cae57c0d7601ff637ec6e9",
+    "assets/left_shoulder_yaw_link.obj": "7a4d97b873868f9a1a685272ab4cdd6a8f30e5b3",
+    "assets/left_wrist_pitch_link.obj": "ef931e48a45f1a4d68e9f62659c6163f9b7d27af",
+    "assets/left_wrist_roll_link.obj": "4c95f72e7ac738c4ab5de1306cef4ec480e3bf97",
+    "assets/left_wrist_yaw_link.obj": "e5796f4037f85098dc4ebe76cd8a26b6bdfdcdc5",
+    "assets/pelvis_contour_link.obj": "65986dd773d5316ccbd9cc30ab11c93152029cd3",
+    "assets/right_ankle_pitch_link.obj": "252c4c5f327d3efd0b87e90b7773a6e8218a7a56",
+    "assets/right_ankle_roll_link.obj": "30794583a0c655d72302c6e7b838b3c1c9a3cd7d",
+    "assets/right_elbow_link.obj": "5feb57234f38845fa5f64d286c0ad6bc69e22e52",
+    "assets/right_hip_pitch_link.obj": "f923f97149da016a44ab5c764819149672b4739a",
+    "assets/right_hip_roll_link.obj": "4e9f7226549b200b662d2c178f1179e09d3d3fe5",
+    "assets/right_hip_yaw_link.obj": "ea4094203666f8436a5b0419bbdf37dcb54a2999",
+    "assets/right_knee_link.obj": "c1900cce5fe389d14c5cac8c360da536c04d5c27",
+    "assets/right_shoulder_yaw_link.obj": "40262fdb3cb46eca2adbf48ef0c60adc148fba5f",
+    "assets/right_wrist_pitch_link.obj": "b8a548f94d5d5be369150a0c231426b0b5e678cf",
+    "assets/right_wrist_roll_link.obj": "2a036a5c17e84cb600880d7b3c8bbc709eacec98",
+    "assets/right_wrist_yaw_link.obj": "6fa2046715ec413f0c34f4b22df6f901feb2d3ec",
+    "assets/torso_link.obj": "8a3444ee6bc95304947479f0d6ced7ca0bb36263"
+  },
+  "canonical_sources": {
+    "torso_link": {
+      "file": "meshes/g1/torso_link_rev_1_0.STL",
+      "sha256": "11ddb46f2098efbbd8816b1d65893632d8e78be936376c7cdcd6771899ccc723"
+    }
+  },
+  "settings": {
+    "threshold": 0.035,
+    "max_convex_hull": 12,
+    "preprocess_mode": "auto",
+    "preprocess_resolution": 30,
+    "resolution": 500,
+    "mcts_nodes": 4,
+    "mcts_iterations": 5,
+    "mcts_max_depth": 2,
+    "merge": true,
+    "decimate": true,
+    "max_ch_vertex": 64,
+    "seed": 0
+  },
+  "parts": [
+    {
+      "body": "torso_link",
+      "source_body": "head_link",
+      "file": "parts/head_link_0_0.obj",
+      "sha256": "7c94f0fb10e0203aa225e2dffaa15ce2f94dca2c511e83939573db332cac121e"
+    },
+    {
+      "body": "torso_link",
+      "source_body": "head_link",
+      "file": "parts/head_link_0_1.obj",
+      "sha256": "be8ffc4a89789ebe04cf23563923931e0316a3bc1b0b0eeddbab98b3d41bee99"
+    },
+    {
+      "body": "torso_link",
+      "source_body": "head_link",
+      "file": "parts/head_link_0_2.obj",
+      "sha256": "fdc3a92a512076723ab7113d057e00261221e42e967e624f3278912b7ef05bdb"
+    },
+    {
+      "body": "torso_link",
+      "source_body": "head_link",
+      "file": "parts/head_link_0_3.obj",
+      "sha256": "c637729bc9967e96513086ad090ce19ecdcc8cb3bfb476b30ef6694fe55e6758"
+    },
+    {
+      "body": "torso_link",
+      "source_body": "head_link",
+      "file": "parts/head_link_0_4.obj",
+      "sha256": "809064e37ecfded3c64247f01b3a41bc3d4893b6aeb41fc837a8912b4237ce85"
+    },
+    {
+      "body": "torso_link",
+      "source_body": "head_link",
+      "file": "parts/head_link_0_5.obj",
+      "sha256": "85e26c1ac609edce78839beece60cea5d5f5ddd80d08900183af4838a9206339"
+    },
+    {
+      "body": "torso_link",
+      "source_body": "head_link",
+      "file": "parts/head_link_0_6.obj",
+      "sha256": "c157bd543a1b41aeb229dfe9d723310c49a9bee7fe6dfdcc39eb4cfa8d474b86"
+    },
+    {
+      "body": "torso_link",
+      "source_body": "head_link",
+      "file": "parts/head_link_0_7.obj",
+      "sha256": "4a31d6c23c44c37cddb3657e928442dd8a4ed35812ed2ec7062fb8622edc84c1"
+    },
+    {
+      "body": "torso_link",
+      "source_body": "head_link",
+      "file": "parts/head_link_0_8.obj",
+      "sha256": "3ae253221546f559ae67c72f6d0793c97e9a7c1ce2865dc636ff3d76ae2f8b46"
+    },
+    {
+      "body": "torso_link",
+      "source_body": "head_link",
+      "file": "parts/head_link_0_9.obj",
+      "sha256": "a8e9d618cb99694805ca936c877bfff7ab4d4d0f8f1a93a1232372fc28552757"
+    },
+    {
+      "body": "torso_link",
+      "source_body": "head_link",
+      "file": "parts/head_link_0_10.obj",
+      "sha256": "4c9b7cee3d7219b127bda09f34f563e9bb5965caafe3ab4b53f65202528dc5e7"
+    },
+    {
+      "body": "torso_link",
+      "source_body": "head_link",
+      "file": "parts/head_link_0_11.obj",
+      "sha256": "a26dafe0639488a3c79f91ba1a05e6a840d435496b50a91f0f0786b8e3a74b64"
+    },
+    {
+      "body": "left_ankle_pitch_link",
+      "source_body": "left_ankle_pitch_link",
+      "file": "parts/left_ankle_pitch_link_0_0.obj",
+      "sha256": "5f92d6b61b02b2f644441e43f7b24cec3ea319c203a3f5adfbde9af044a02567"
+    },
+    {
+      "body": "left_ankle_roll_link",
+      "source_body": "left_ankle_roll_link",
+      "file": "parts/left_ankle_roll_link_0_0.obj",
+      "sha256": "6c1a1a4d77aa71250f5d58a80e55bea4584ed9f5db7223512e412b05d8db50dd"
+    },
+    {
+      "body": "left_ankle_roll_link",
+      "source_body": "left_ankle_roll_link",
+      "file": "parts/left_ankle_roll_link_0_1.obj",
+      "sha256": "b73169f09c4bd38f37fbd2c6f2abf5586981332e3ff46381959265fdf6a8ff0a"
+    },
+    {
+      "body": "left_ankle_roll_link",
+      "source_body": "left_ankle_roll_link",
+      "file": "parts/left_ankle_roll_link_0_2.obj",
+      "sha256": "d6f33063ae4df4195ab4709b874b780d7416e59256b4f1f009014af0b2fe7667"
+    },
+    {
+      "body": "left_ankle_roll_link",
+      "source_body": "left_ankle_roll_link",
+      "file": "parts/left_ankle_roll_link_0_3.obj",
+      "sha256": "cb8b3ccd63eb48bd3e78844c42bed309ae559c9d6ace7b29a9be2ce31554b907"
+    },
+    {
+      "body": "left_ankle_roll_link",
+      "source_body": "left_ankle_roll_link",
+      "file": "parts/left_ankle_roll_link_0_4.obj",
+      "sha256": "898d4064213779b1b3144f6665d9c8d0bb46c008dcf3facaad9ad3d98b42f860"
+    },
+    {
+      "body": "left_ankle_roll_link",
+      "source_body": "left_ankle_roll_link",
+      "file": "parts/left_ankle_roll_link_0_5.obj",
+      "sha256": "04793c06aa83793de2683aaa01d0610e9caecb273c88162caa3a6e3286c9aaab"
+    },
+    {
+      "body": "left_ankle_roll_link",
+      "source_body": "left_ankle_roll_link",
+      "file": "parts/left_ankle_roll_link_0_6.obj",
+      "sha256": "f1aa38486e1975a00bdbabfeed99905d405e03e7bf74e0d7e44890bc7610d562"
+    },
+    {
+      "body": "left_ankle_roll_link",
+      "source_body": "left_ankle_roll_link",
+      "file": "parts/left_ankle_roll_link_0_7.obj",
+      "sha256": "ca1654a6830ce9860a876e842e45d0cc638e8b7b4ca088ef46c70a833b8776a6"
+    },
+    {
+      "body": "left_ankle_roll_link",
+      "source_body": "left_ankle_roll_link",
+      "file": "parts/left_ankle_roll_link_0_8.obj",
+      "sha256": "eeb5b5a08fa45856d90675df9e7d6c98a29325deaf5beee92845ef51d691a92a"
+    },
+    {
+      "body": "left_ankle_roll_link",
+      "source_body": "left_ankle_roll_link",
+      "file": "parts/left_ankle_roll_link_0_9.obj",
+      "sha256": "e8499d27c60655246647ed1d503d51647a39c82d2faab5d4a49bdc4667b329e1"
+    },
+    {
+      "body": "left_ankle_roll_link",
+      "source_body": "left_ankle_roll_link",
+      "file": "parts/left_ankle_roll_link_0_10.obj",
+      "sha256": "e5783c8163f3977d750ec1e957759aa4ff377a6757b49f91b9f4b224a740d506"
+    },
+    {
+      "body": "left_ankle_roll_link",
+      "source_body": "left_ankle_roll_link",
+      "file": "parts/left_ankle_roll_link_0_11.obj",
+      "sha256": "3070f38b4e659d0e654918394d3e672d683b2ff1a00fef0a9f1d876f4cfa44b6"
+    },
+    {
+      "body": "left_elbow_link",
+      "source_body": "left_elbow_link",
+      "file": "parts/left_elbow_link_0_0.obj",
+      "sha256": "f65a4e51b6e0f5cc028a04ed3b014fce5db79825f485bdea8b1343d40ac56c27"
+    },
+    {
+      "body": "left_elbow_link",
+      "source_body": "left_elbow_link",
+      "file": "parts/left_elbow_link_0_1.obj",
+      "sha256": "3b2169d70eb5dd934410d35588ca8ce815f8483277c170d0a8882951c7f46d63"
+    },
+    {
+      "body": "left_elbow_link",
+      "source_body": "left_elbow_link",
+      "file": "parts/left_elbow_link_0_2.obj",
+      "sha256": "f4320ad850a0dff8bc96ceb22ea8a22e3cd88a0e935e47dda25479d28da972be"
+    },
+    {
+      "body": "left_elbow_link",
+      "source_body": "left_elbow_link",
+      "file": "parts/left_elbow_link_0_3.obj",
+      "sha256": "346e3b863821c1ad8d0fecc0459693b28db5bb6240c469f4f35e4c7296e48df8"
+    },
+    {
+      "body": "left_elbow_link",
+      "source_body": "left_elbow_link",
+      "file": "parts/left_elbow_link_0_4.obj",
+      "sha256": "966c96c60045e3a26755f59d2dfdce1705516ab8b8ed63532e1361baa21a25f2"
+    },
+    {
+      "body": "left_elbow_link",
+      "source_body": "left_elbow_link",
+      "file": "parts/left_elbow_link_0_5.obj",
+      "sha256": "a22b972f6ff2f999564e2d29657f4848ab462324ee2ecb79cd6290bc3ea7aa5c"
+    },
+    {
+      "body": "left_elbow_link",
+      "source_body": "left_elbow_link",
+      "file": "parts/left_elbow_link_0_6.obj",
+      "sha256": "482ccef54311c447c2d7dbc8d9bc893acd5de5a1e165d8b6ca05263a68abc1be"
+    },
+    {
+      "body": "left_elbow_link",
+      "source_body": "left_elbow_link",
+      "file": "parts/left_elbow_link_0_7.obj",
+      "sha256": "313ff170e9426facae8af4b2b970fecd0183f28e9de4856d8671879423525b2f"
+    },
+    {
+      "body": "left_elbow_link",
+      "source_body": "left_elbow_link",
+      "file": "parts/left_elbow_link_0_8.obj",
+      "sha256": "5c3a36695eec64075e464538f8dc20e43554194060d253cfed0c31d38ae4d947"
+    },
+    {
+      "body": "left_elbow_link",
+      "source_body": "left_elbow_link",
+      "file": "parts/left_elbow_link_0_9.obj",
+      "sha256": "326a03f65d517ed830176c7df8bbcfe83d75928bf38fabd291d45bad358f8ab3"
+    },
+    {
+      "body": "left_hip_pitch_link",
+      "source_body": "left_hip_pitch_link",
+      "file": "parts/left_hip_pitch_link_0_0.obj",
+      "sha256": "e23c55b4663c62431f018d49c86df1ff5a89dafac595e2adc4c3b737c1bfc648"
+    },
+    {
+      "body": "left_hip_roll_link",
+      "source_body": "left_hip_roll_link",
+      "file": "parts/left_hip_roll_link_0_0.obj",
+      "sha256": "fa4cfcefdf2ddd95fd28f07a7881e319525d49bf3edca41cfc6d3c7b6ff22e41"
+    },
+    {
+      "body": "left_hip_roll_link",
+      "source_body": "left_hip_roll_link",
+      "file": "parts/left_hip_roll_link_0_1.obj",
+      "sha256": "84e92fb435cc07264bdacd7ac5b179a3091689d218638b90c22c86585abac2b7"
+    },
+    {
+      "body": "left_hip_roll_link",
+      "source_body": "left_hip_roll_link",
+      "file": "parts/left_hip_roll_link_0_2.obj",
+      "sha256": "06df0478f5c8a92a3c68788f85b22827439896bd61d991b173d41783ed2aa153"
+    },
+    {
+      "body": "left_hip_roll_link",
+      "source_body": "left_hip_roll_link",
+      "file": "parts/left_hip_roll_link_0_3.obj",
+      "sha256": "7c2c3d91d65c72c277c1baf60df9ebbff5d7b9e0b06c9ec83b77e5eeaa0227dc"
+    },
+    {
+      "body": "left_hip_roll_link",
+      "source_body": "left_hip_roll_link",
+      "file": "parts/left_hip_roll_link_0_4.obj",
+      "sha256": "f991df5dbb4ff581442294a085c5e337098c83d065fc6649a586f649acf0aa54"
+    },
+    {
+      "body": "left_hip_roll_link",
+      "source_body": "left_hip_roll_link",
+      "file": "parts/left_hip_roll_link_0_5.obj",
+      "sha256": "b570c65773ed12c475f7af4a96cecdb976af9083075f0182d5e179464a09c415"
+    },
+    {
+      "body": "left_hip_roll_link",
+      "source_body": "left_hip_roll_link",
+      "file": "parts/left_hip_roll_link_0_6.obj",
+      "sha256": "ec77b3599ac83b1d6b9b3dd4a99274df1b468fec1701b9e56c46879decb3c2aa"
+    },
+    {
+      "body": "left_hip_roll_link",
+      "source_body": "left_hip_roll_link",
+      "file": "parts/left_hip_roll_link_0_7.obj",
+      "sha256": "f41d9f75bc614958e8e569d9572f9348cb9c3c19c5d6b19ba9977c54ea70f86e"
+    },
+    {
+      "body": "left_hip_roll_link",
+      "source_body": "left_hip_roll_link",
+      "file": "parts/left_hip_roll_link_0_8.obj",
+      "sha256": "c3c9462e4ee0393e43021fe0ddf79c3e2789bdbfa6b9fcd5ff9bde717aa2ec9d"
+    },
+    {
+      "body": "left_hip_roll_link",
+      "source_body": "left_hip_roll_link",
+      "file": "parts/left_hip_roll_link_0_9.obj",
+      "sha256": "1679e484c62f8d338436869c1af1e5d943e3fd60c00fb5437bcf1ff6952e917e"
+    },
+    {
+      "body": "left_hip_roll_link",
+      "source_body": "left_hip_roll_link",
+      "file": "parts/left_hip_roll_link_0_10.obj",
+      "sha256": "99e77397e16a5e1176004a33d5e2d08e3db1555ad0f15cba09f47b8d8b279e56"
+    },
+    {
+      "body": "left_hip_roll_link",
+      "source_body": "left_hip_roll_link",
+      "file": "parts/left_hip_roll_link_0_11.obj",
+      "sha256": "4f4e7d3d395853126cf45e902b45e5223b9ac799bc4fd9755ca7f852dd71b220"
+    },
+    {
+      "body": "left_hip_yaw_link",
+      "source_body": "left_hip_yaw_link",
+      "file": "parts/left_hip_yaw_link_0_0.obj",
+      "sha256": "227c86cfa987e97577abeaad9acba6b31d11fa1a79b5373865d465bd3a0c655f"
+    },
+    {
+      "body": "left_hip_yaw_link",
+      "source_body": "left_hip_yaw_link",
+      "file": "parts/left_hip_yaw_link_0_1.obj",
+      "sha256": "3536dda7d2e11555e8da41b88d3706f933d6788043466d9f0df2ea5708e5216b"
+    },
+    {
+      "body": "left_hip_yaw_link",
+      "source_body": "left_hip_yaw_link",
+      "file": "parts/left_hip_yaw_link_0_2.obj",
+      "sha256": "4cb769d8914e3575bc26baef09745c6d961876e4759c8bbf09a947821da3ce22"
+    },
+    {
+      "body": "left_hip_yaw_link",
+      "source_body": "left_hip_yaw_link",
+      "file": "parts/left_hip_yaw_link_0_3.obj",
+      "sha256": "a5bd29b1b71a5db15e6ea372835da23584e2d02d5e5e61d5db6b43fa9d6bf7bc"
+    },
+    {
+      "body": "left_hip_yaw_link",
+      "source_body": "left_hip_yaw_link",
+      "file": "parts/left_hip_yaw_link_0_4.obj",
+      "sha256": "792dfa7c78d97f93addb83a2481eae82633512e762bf753db0681277ef77a420"
+    },
+    {
+      "body": "left_hip_yaw_link",
+      "source_body": "left_hip_yaw_link",
+      "file": "parts/left_hip_yaw_link_0_5.obj",
+      "sha256": "62381ad18182fddeb9f79e3fb815412cb8ee34426ad520fbe450713e78c1256d"
+    },
+    {
+      "body": "left_hip_yaw_link",
+      "source_body": "left_hip_yaw_link",
+      "file": "parts/left_hip_yaw_link_0_6.obj",
+      "sha256": "139667b392bfed76bd0675405902cd3c5cbb89d6ff62a8cf5db9a59863faa123"
+    },
+    {
+      "body": "left_hip_yaw_link",
+      "source_body": "left_hip_yaw_link",
+      "file": "parts/left_hip_yaw_link_0_7.obj",
+      "sha256": "c2b89627138cd3fbce8e280ca917bdf5aa5876b53bae4db559a927d32cc99c9b"
+    },
+    {
+      "body": "left_hip_yaw_link",
+      "source_body": "left_hip_yaw_link",
+      "file": "parts/left_hip_yaw_link_0_8.obj",
+      "sha256": "bb8864e875d4b5adca92433c1ddfd8a4207b5d9114064cdbb88f02ed5ffab73f"
+    },
+    {
+      "body": "left_hip_yaw_link",
+      "source_body": "left_hip_yaw_link",
+      "file": "parts/left_hip_yaw_link_0_9.obj",
+      "sha256": "11aa5d79006ea214725a974097e0e5e7d848ba5e175b57570908103af716a909"
+    },
+    {
+      "body": "left_hip_yaw_link",
+      "source_body": "left_hip_yaw_link",
+      "file": "parts/left_hip_yaw_link_0_10.obj",
+      "sha256": "238f62115e80a94938aed9f56a2b01620f595f9a1defa39d18ee89a6a0154bd3"
+    },
+    {
+      "body": "left_hip_yaw_link",
+      "source_body": "left_hip_yaw_link",
+      "file": "parts/left_hip_yaw_link_0_11.obj",
+      "sha256": "534c469576ad0b2ae67a36844ac5eaf7df9e7d60d68b2966782d6616d004b384"
+    },
+    {
+      "body": "left_knee_link",
+      "source_body": "left_knee_link",
+      "file": "parts/left_knee_link_0_0.obj",
+      "sha256": "e50660746526ff405a6bd4a7a05c9c4100b8e6d52aedd42085bdb8414718539d"
+    },
+    {
+      "body": "left_knee_link",
+      "source_body": "left_knee_link",
+      "file": "parts/left_knee_link_0_1.obj",
+      "sha256": "189958a8f7944cbb249099b3d54ca14118a3dfc2e78e3e463cd8eef93d652674"
+    },
+    {
+      "body": "left_knee_link",
+      "source_body": "left_knee_link",
+      "file": "parts/left_knee_link_0_2.obj",
+      "sha256": "40b579112c3b9bf509aca569c3dda34eed35c19ddd1b8e391cd24f94093c78a9"
+    },
+    {
+      "body": "left_knee_link",
+      "source_body": "left_knee_link",
+      "file": "parts/left_knee_link_0_3.obj",
+      "sha256": "a79e2b2bd22a5b085f5eccc9d8d6384b518272cf7159eebeb24f1321e3aad695"
+    },
+    {
+      "body": "left_knee_link",
+      "source_body": "left_knee_link",
+      "file": "parts/left_knee_link_0_4.obj",
+      "sha256": "02b095129627540c40d69b595c2c3223201ac811e20ab11bd8d88d736ce7e30c"
+    },
+    {
+      "body": "left_knee_link",
+      "source_body": "left_knee_link",
+      "file": "parts/left_knee_link_0_5.obj",
+      "sha256": "d0b55afac86ad0bad74cd6473d96abd84ed189abcc2ca518cd42ecc60481c0e9"
+    },
+    {
+      "body": "left_knee_link",
+      "source_body": "left_knee_link",
+      "file": "parts/left_knee_link_0_6.obj",
+      "sha256": "17a16e2bd5f01ae9f0e2c5b31fa8fd024c33d800f9df05636a0f885b9ab4ef11"
+    },
+    {
+      "body": "left_knee_link",
+      "source_body": "left_knee_link",
+      "file": "parts/left_knee_link_0_7.obj",
+      "sha256": "c3b5a0386ed33e8456521349832a74276b6e44e05f493d0d2703c9447ed00631"
+    },
+    {
+      "body": "left_knee_link",
+      "source_body": "left_knee_link",
+      "file": "parts/left_knee_link_0_8.obj",
+      "sha256": "651c44fa5df97daee5d2419584b73327f2fd16ece22470ce58fd6f3e10bb7642"
+    },
+    {
+      "body": "left_knee_link",
+      "source_body": "left_knee_link",
+      "file": "parts/left_knee_link_0_9.obj",
+      "sha256": "7575f5819cfebbbd4ab38b0a6f27c7973adab50048567a3a7c362d83edf378d6"
+    },
+    {
+      "body": "left_knee_link",
+      "source_body": "left_knee_link",
+      "file": "parts/left_knee_link_0_10.obj",
+      "sha256": "19be0138af0227af940ef50ff7507190b78e29526c5fcc3b2633c5b44c8ccfd4"
+    },
+    {
+      "body": "left_knee_link",
+      "source_body": "left_knee_link",
+      "file": "parts/left_knee_link_0_11.obj",
+      "sha256": "822088c950de1ae228e96568acc108a6be8b7536c9fc480fb4d0041dcf16eb3b"
+    },
+    {
+      "body": "left_shoulder_yaw_link",
+      "source_body": "left_shoulder_yaw_link",
+      "file": "parts/left_shoulder_yaw_link_0_0.obj",
+      "sha256": "935a30dd8bc37283c5d47560286a12ab32087c8cda58d7fa25dfcf2487b51183"
+    },
+    {
+      "body": "left_shoulder_yaw_link",
+      "source_body": "left_shoulder_yaw_link",
+      "file": "parts/left_shoulder_yaw_link_0_1.obj",
+      "sha256": "b10d3678b0a36df2a89238ba13bc7b8facd49e4133bbbe7c94a4c6d3c89749b2"
+    },
+    {
+      "body": "left_shoulder_yaw_link",
+      "source_body": "left_shoulder_yaw_link",
+      "file": "parts/left_shoulder_yaw_link_0_2.obj",
+      "sha256": "3688c6a4a8363acae676038b59f2bfae0ab8fb972d6bbe82b4f81bad8120d066"
+    },
+    {
+      "body": "left_shoulder_yaw_link",
+      "source_body": "left_shoulder_yaw_link",
+      "file": "parts/left_shoulder_yaw_link_0_3.obj",
+      "sha256": "79e26fb1f9b4e8dd1d1e9e6c3d1398008a7b8cb25e6b7be402fb024885088269"
+    },
+    {
+      "body": "left_shoulder_yaw_link",
+      "source_body": "left_shoulder_yaw_link",
+      "file": "parts/left_shoulder_yaw_link_0_4.obj",
+      "sha256": "88e80f87e252f593e81b5dc67bf9c97b325c333ff337f7eaf2e74e29b716de25"
+    },
+    {
+      "body": "left_shoulder_yaw_link",
+      "source_body": "left_shoulder_yaw_link",
+      "file": "parts/left_shoulder_yaw_link_0_5.obj",
+      "sha256": "bbb51009047a84d048f4a7b989646a84f996c8d7b7b9cbb99a2260513bcd4779"
+    },
+    {
+      "body": "left_shoulder_yaw_link",
+      "source_body": "left_shoulder_yaw_link",
+      "file": "parts/left_shoulder_yaw_link_0_6.obj",
+      "sha256": "41ef35d70b535de390b20ed13a61426c04bcd160a2e494406e9f69fdf671ae6f"
+    },
+    {
+      "body": "left_shoulder_yaw_link",
+      "source_body": "left_shoulder_yaw_link",
+      "file": "parts/left_shoulder_yaw_link_0_7.obj",
+      "sha256": "1e35b1f8444b9bfe535c70c95b20923fd5a68a845711551a41526d3e759b4de5"
+    },
+    {
+      "body": "left_shoulder_yaw_link",
+      "source_body": "left_shoulder_yaw_link",
+      "file": "parts/left_shoulder_yaw_link_0_8.obj",
+      "sha256": "4c21b9d99cdea5585b53a7eef7bd34d1aee976abd03915443ceb9f8f0f9f0db0"
+    },
+    {
+      "body": "left_shoulder_yaw_link",
+      "source_body": "left_shoulder_yaw_link",
+      "file": "parts/left_shoulder_yaw_link_0_9.obj",
+      "sha256": "db25e2f763dc1e6bc2bc76608803971c83603b60a36e0eb6422bc295fc877c39"
+    },
+    {
+      "body": "left_shoulder_yaw_link",
+      "source_body": "left_shoulder_yaw_link",
+      "file": "parts/left_shoulder_yaw_link_0_10.obj",
+      "sha256": "ecb0bc87882138782ea33046c104d7c732ca62b8374fbe84290aa32f6f4f2915"
+    },
+    {
+      "body": "left_shoulder_yaw_link",
+      "source_body": "left_shoulder_yaw_link",
+      "file": "parts/left_shoulder_yaw_link_0_11.obj",
+      "sha256": "49d55a6b1df5d426d8e03b73b12c81790fffd4585f6cd60496384594d8e82a27"
+    },
+    {
+      "body": "left_wrist_pitch_link",
+      "source_body": "left_wrist_pitch_link",
+      "file": "parts/left_wrist_pitch_link_0_0.obj",
+      "sha256": "7ae052b2daf546ca00d87602cee07017daeef8ce193ab760745daf29321e3184"
+    },
+    {
+      "body": "left_wrist_roll_link",
+      "source_body": "left_wrist_roll_link",
+      "file": "parts/left_wrist_roll_link_0_0.obj",
+      "sha256": "3ddd4e3bc1cec88a4ff50ec4d278a5bacfadc1eba6f69a19da5e09a6cc41ad4e"
+    },
+    {
+      "body": "left_wrist_yaw_link",
+      "source_body": "left_wrist_yaw_link",
+      "file": "parts/left_wrist_yaw_link_0_0.obj",
+      "sha256": "02e8f707420613db5c10ede7d43150962108c0118333a4c43e9e8429eebbbae4"
+    },
+    {
+      "body": "pelvis",
+      "source_body": "pelvis_contour_link",
+      "file": "parts/pelvis_contour_link_0_0.obj",
+      "sha256": "04f0559919152a2e15cc20947a4707808a63a359c52c46e9b2c269d1ff8a72d7"
+    },
+    {
+      "body": "pelvis",
+      "source_body": "pelvis_contour_link",
+      "file": "parts/pelvis_contour_link_0_1.obj",
+      "sha256": "6cb21acfbc6d3106e5c0c838eb7fedb4aa3d7ba04ed747b526a584b9dec87fee"
+    },
+    {
+      "body": "pelvis",
+      "source_body": "pelvis_contour_link",
+      "file": "parts/pelvis_contour_link_0_2.obj",
+      "sha256": "d931f9df1d0d7156152565fa4e52e0482ef65aa9e7f0367369dd5afd94cf50e3"
+    },
+    {
+      "body": "pelvis",
+      "source_body": "pelvis_contour_link",
+      "file": "parts/pelvis_contour_link_0_3.obj",
+      "sha256": "42b10143feb96ebd14d0a0ebd2d3f905904781e0b8e3e13682a321807cc334c3"
+    },
+    {
+      "body": "pelvis",
+      "source_body": "pelvis_contour_link",
+      "file": "parts/pelvis_contour_link_0_4.obj",
+      "sha256": "aaaff3f9b34e710ee6be3b6070b8fdb41466a55666d84f7921eebd0296dbf9f6"
+    },
+    {
+      "body": "pelvis",
+      "source_body": "pelvis_contour_link",
+      "file": "parts/pelvis_contour_link_0_5.obj",
+      "sha256": "524a2629c9b3fd9b7bfc80140c5d336b61e397500cd5e3ccebed0005cf8de3a2"
+    },
+    {
+      "body": "pelvis",
+      "source_body": "pelvis_contour_link",
+      "file": "parts/pelvis_contour_link_0_6.obj",
+      "sha256": "dcd6483c11e4541c32e4134c7ca34d3ef76142762032cae6f2dcd08633d5206c"
+    },
+    {
+      "body": "pelvis",
+      "source_body": "pelvis_contour_link",
+      "file": "parts/pelvis_contour_link_0_7.obj",
+      "sha256": "a440342d9656c26d2996cf284d1b050f3f37c75cf93fde882993dd8d4db6a480"
+    },
+    {
+      "body": "pelvis",
+      "source_body": "pelvis_contour_link",
+      "file": "parts/pelvis_contour_link_0_8.obj",
+      "sha256": "9a7698f376691c192a8b638ef2dc9ea3be0a0dd1ed120b2546d8658f0ce2c54f"
+    },
+    {
+      "body": "pelvis",
+      "source_body": "pelvis_contour_link",
+      "file": "parts/pelvis_contour_link_0_9.obj",
+      "sha256": "fb965f0d3fb33aea08d3588aba539f5b745fa44c317d958218d9f04ab88959b9"
+    },
+    {
+      "body": "pelvis",
+      "source_body": "pelvis_contour_link",
+      "file": "parts/pelvis_contour_link_0_10.obj",
+      "sha256": "68294f666bc6e61569c0208f0dc6ba77749b01531f295809c7b00317ffef6751"
+    },
+    {
+      "body": "pelvis",
+      "source_body": "pelvis_contour_link",
+      "file": "parts/pelvis_contour_link_0_11.obj",
+      "sha256": "912f07d40389846e9b24eb9ac82cd2050a6a26be6f7a472fe47fa0c2ef0caa48"
+    },
+    {
+      "body": "right_ankle_pitch_link",
+      "source_body": "right_ankle_pitch_link",
+      "file": "parts/right_ankle_pitch_link_0_0.obj",
+      "sha256": "2cbe275b2205df85088d3916c2660f9fdda0142d1c823d79f68bece4d51cc9dd"
+    },
+    {
+      "body": "right_ankle_roll_link",
+      "source_body": "right_ankle_roll_link",
+      "file": "parts/right_ankle_roll_link_0_0.obj",
+      "sha256": "a47fd7e8aef9b7945c2b85b9f824a03b53bf1a214415b74279b2e02776fa786d"
+    },
+    {
+      "body": "right_ankle_roll_link",
+      "source_body": "right_ankle_roll_link",
+      "file": "parts/right_ankle_roll_link_0_1.obj",
+      "sha256": "c6344f79b39046a755208644e9534ea6eff09c0632108be24f05efeb8b0a8a57"
+    },
+    {
+      "body": "right_ankle_roll_link",
+      "source_body": "right_ankle_roll_link",
+      "file": "parts/right_ankle_roll_link_0_2.obj",
+      "sha256": "0e5ad9d6c459997e0e4907b9a8f990dfbf6b2f592800752e6d8f83a4a9fb3efc"
+    },
+    {
+      "body": "right_ankle_roll_link",
+      "source_body": "right_ankle_roll_link",
+      "file": "parts/right_ankle_roll_link_0_3.obj",
+      "sha256": "faf96e5f0176a675f78d93a0ab47b220d8df9cb3fb19ef6799232b639e76c561"
+    },
+    {
+      "body": "right_ankle_roll_link",
+      "source_body": "right_ankle_roll_link",
+      "file": "parts/right_ankle_roll_link_0_4.obj",
+      "sha256": "04c437d3eb96f187e62fc959f3124246c0871e4ac5465df70d410bb42506799d"
+    },
+    {
+      "body": "right_ankle_roll_link",
+      "source_body": "right_ankle_roll_link",
+      "file": "parts/right_ankle_roll_link_0_5.obj",
+      "sha256": "cb1cab12fdd93190673f02e96b02670e61b8c95fe9bff1bf31e8808a7e31d677"
+    },
+    {
+      "body": "right_ankle_roll_link",
+      "source_body": "right_ankle_roll_link",
+      "file": "parts/right_ankle_roll_link_0_6.obj",
+      "sha256": "30c5e4b6391fcf8af751354ffed24e6a8abc13fca5f7be19276c00b1ee26a0eb"
+    },
+    {
+      "body": "right_ankle_roll_link",
+      "source_body": "right_ankle_roll_link",
+      "file": "parts/right_ankle_roll_link_0_7.obj",
+      "sha256": "db1aa9b471eeb6e4499abe92d54f1cfe0d9714af1354f032c19d362ab9733234"
+    },
+    {
+      "body": "right_ankle_roll_link",
+      "source_body": "right_ankle_roll_link",
+      "file": "parts/right_ankle_roll_link_0_8.obj",
+      "sha256": "d417bb10a16781f418abc9e67d6c6c9bbc467e7199cc7512c725b0f6d9fbb002"
+    },
+    {
+      "body": "right_ankle_roll_link",
+      "source_body": "right_ankle_roll_link",
+      "file": "parts/right_ankle_roll_link_0_9.obj",
+      "sha256": "cf2b332a2862b5d0284fdd711cb0cfefb77a04ab9df043ca1142ed92123810b4"
+    },
+    {
+      "body": "right_ankle_roll_link",
+      "source_body": "right_ankle_roll_link",
+      "file": "parts/right_ankle_roll_link_0_10.obj",
+      "sha256": "9d89d50bb728c434b80f70937da1b91069bc4146d677f1b76be7e58764114978"
+    },
+    {
+      "body": "right_ankle_roll_link",
+      "source_body": "right_ankle_roll_link",
+      "file": "parts/right_ankle_roll_link_0_11.obj",
+      "sha256": "bf289525b7a23c3292646400eaf344db7abacbe87afcb7829e617ee6e4529a77"
+    },
+    {
+      "body": "right_elbow_link",
+      "source_body": "right_elbow_link",
+      "file": "parts/right_elbow_link_0_0.obj",
+      "sha256": "4ea3ebbb3c03ea65b779ace1f685935c4b9b9bc26b05c1c18fb2fe1e2715ad1e"
+    },
+    {
+      "body": "right_elbow_link",
+      "source_body": "right_elbow_link",
+      "file": "parts/right_elbow_link_0_1.obj",
+      "sha256": "2ba4766aae97a740eb9919420b1bcbda3dbbc4c67874989fad15f393a0422b65"
+    },
+    {
+      "body": "right_elbow_link",
+      "source_body": "right_elbow_link",
+      "file": "parts/right_elbow_link_0_2.obj",
+      "sha256": "621d627055ac3d1f77deb4411aff10cdfc75543155250d61555eb1fd48490173"
+    },
+    {
+      "body": "right_elbow_link",
+      "source_body": "right_elbow_link",
+      "file": "parts/right_elbow_link_0_3.obj",
+      "sha256": "3620efd7be8a3347ed1b5f482f6b8af56e44b12ed07ae00035369fa3393124ac"
+    },
+    {
+      "body": "right_elbow_link",
+      "source_body": "right_elbow_link",
+      "file": "parts/right_elbow_link_0_4.obj",
+      "sha256": "8d9911df8ffc58838dfd576aefa9d29ea16206e03e95e8de07295234b9fb1749"
+    },
+    {
+      "body": "right_elbow_link",
+      "source_body": "right_elbow_link",
+      "file": "parts/right_elbow_link_0_5.obj",
+      "sha256": "fb5c837cd13c59712dceda39f83811e9184718b25b8779ff3782a343d60b5337"
+    },
+    {
+      "body": "right_elbow_link",
+      "source_body": "right_elbow_link",
+      "file": "parts/right_elbow_link_0_6.obj",
+      "sha256": "46a4abab38baf1c70b22badb556ffae8d8bba40cfe95814e30e2d93a9601e8ff"
+    },
+    {
+      "body": "right_elbow_link",
+      "source_body": "right_elbow_link",
+      "file": "parts/right_elbow_link_0_7.obj",
+      "sha256": "32b8b9c1c62abc53bd9c8838b4a77fffa6879d2888f01545e71965f6d5597d68"
+    },
+    {
+      "body": "right_elbow_link",
+      "source_body": "right_elbow_link",
+      "file": "parts/right_elbow_link_0_8.obj",
+      "sha256": "e485ec6036e54c1774e01fb3e7ec1b887bcc414e283f7359f17e237e54cb0eac"
+    },
+    {
+      "body": "right_elbow_link",
+      "source_body": "right_elbow_link",
+      "file": "parts/right_elbow_link_0_9.obj",
+      "sha256": "bae9195d157a0d81b2a4292abbfee51d530844adbd5862ce24cf1450eac90ddc"
+    },
+    {
+      "body": "right_elbow_link",
+      "source_body": "right_elbow_link",
+      "file": "parts/right_elbow_link_0_10.obj",
+      "sha256": "728a6e6417372783712d297b9689a68e01c643a46b9615ac1e0641e50cd1c880"
+    },
+    {
+      "body": "right_elbow_link",
+      "source_body": "right_elbow_link",
+      "file": "parts/right_elbow_link_0_11.obj",
+      "sha256": "27a6a9d98a71468b47915ba306250b79f3579dce3ba6e028086d0e9d05a0552e"
+    },
+    {
+      "body": "right_hip_pitch_link",
+      "source_body": "right_hip_pitch_link",
+      "file": "parts/right_hip_pitch_link_0_0.obj",
+      "sha256": "84d44455084d51b91d2c9b2c3cba470bcd3aa2265c1cce68f00f20e91d2ff121"
+    },
+    {
+      "body": "right_hip_roll_link",
+      "source_body": "right_hip_roll_link",
+      "file": "parts/right_hip_roll_link_0_0.obj",
+      "sha256": "87871fa36bd5a4128709466c43d473dcbf0a941e79c099c2f44df902247373f3"
+    },
+    {
+      "body": "right_hip_roll_link",
+      "source_body": "right_hip_roll_link",
+      "file": "parts/right_hip_roll_link_0_1.obj",
+      "sha256": "c7f782fb8286e903549a55d856b9cbdd0f50c5e20903a0d0f61f7778f5d36aa1"
+    },
+    {
+      "body": "right_hip_roll_link",
+      "source_body": "right_hip_roll_link",
+      "file": "parts/right_hip_roll_link_0_2.obj",
+      "sha256": "cbdd6c9617a785ac1aa5fbc65b32a1d00f741adc5ffdbfd11869981aff19211e"
+    },
+    {
+      "body": "right_hip_roll_link",
+      "source_body": "right_hip_roll_link",
+      "file": "parts/right_hip_roll_link_0_3.obj",
+      "sha256": "f4fdeacc38eb1d9e1e1f14dc153c8d14ae48cb5b22f267ea79de0158f613a450"
+    },
+    {
+      "body": "right_hip_roll_link",
+      "source_body": "right_hip_roll_link",
+      "file": "parts/right_hip_roll_link_0_4.obj",
+      "sha256": "ca503087239913a340c7c059ed2f96eb12361aab6f57dc2405a54164ed9069e0"
+    },
+    {
+      "body": "right_hip_roll_link",
+      "source_body": "right_hip_roll_link",
+      "file": "parts/right_hip_roll_link_0_5.obj",
+      "sha256": "bdfa4fc1a5342e65d9b5ab340b61789c95a57fde1331c144b165115aeb859327"
+    },
+    {
+      "body": "right_hip_roll_link",
+      "source_body": "right_hip_roll_link",
+      "file": "parts/right_hip_roll_link_0_6.obj",
+      "sha256": "738b47e812854d784782d8f0adb4bb3e35622067f93a6910abe1f13f3725e421"
+    },
+    {
+      "body": "right_hip_roll_link",
+      "source_body": "right_hip_roll_link",
+      "file": "parts/right_hip_roll_link_0_7.obj",
+      "sha256": "d70c8563cfc2c67ae6e69810171aa80682a41c36bf8aac2d3b3d5a36f0aa6143"
+    },
+    {
+      "body": "right_hip_roll_link",
+      "source_body": "right_hip_roll_link",
+      "file": "parts/right_hip_roll_link_0_8.obj",
+      "sha256": "752cbebecfc54accb9618dadef584629803d308246158745fa8e0841ed64d8fe"
+    },
+    {
+      "body": "right_hip_roll_link",
+      "source_body": "right_hip_roll_link",
+      "file": "parts/right_hip_roll_link_0_9.obj",
+      "sha256": "d021e9aedb29337a4f5e75faf33c15a38160125d39a8bc376cc882c998ae59d4"
+    },
+    {
+      "body": "right_hip_roll_link",
+      "source_body": "right_hip_roll_link",
+      "file": "parts/right_hip_roll_link_0_10.obj",
+      "sha256": "e0a512d752021b790b507f63c58c33f30e38076688a30d352c74477a301a2c40"
+    },
+    {
+      "body": "right_hip_roll_link",
+      "source_body": "right_hip_roll_link",
+      "file": "parts/right_hip_roll_link_0_11.obj",
+      "sha256": "1752524b5fc7395233fd44147d0047c1e1c89645a88a03861e7cde640bd7a440"
+    },
+    {
+      "body": "right_hip_yaw_link",
+      "source_body": "right_hip_yaw_link",
+      "file": "parts/right_hip_yaw_link_0_0.obj",
+      "sha256": "841fd17a9f6be59a0a24471ffc822729c500446bc789eb5225b898bba80c711d"
+    },
+    {
+      "body": "right_hip_yaw_link",
+      "source_body": "right_hip_yaw_link",
+      "file": "parts/right_hip_yaw_link_0_1.obj",
+      "sha256": "99a5494722aed4f8b2da182627999d2c335c25c2f1f1f9fba912398d2c0f7172"
+    },
+    {
+      "body": "right_hip_yaw_link",
+      "source_body": "right_hip_yaw_link",
+      "file": "parts/right_hip_yaw_link_0_2.obj",
+      "sha256": "5b9d351799f2cd863205c4c2db7b98f7c5a9f2c8f884677614e01ca4b3a9fff9"
+    },
+    {
+      "body": "right_hip_yaw_link",
+      "source_body": "right_hip_yaw_link",
+      "file": "parts/right_hip_yaw_link_0_3.obj",
+      "sha256": "9399fdada837667640c9ef23fe20d8db3acae3608a9786057a70c90e0b36150c"
+    },
+    {
+      "body": "right_hip_yaw_link",
+      "source_body": "right_hip_yaw_link",
+      "file": "parts/right_hip_yaw_link_0_4.obj",
+      "sha256": "108e218a677252d4a3763ca15dd2355bb050145f8afe7f7d77c9c65c490667e3"
+    },
+    {
+      "body": "right_hip_yaw_link",
+      "source_body": "right_hip_yaw_link",
+      "file": "parts/right_hip_yaw_link_0_5.obj",
+      "sha256": "fe64855b52f4b35133cca0567020ab124b5f6f6697f9ff8d22c41aa333b8db39"
+    },
+    {
+      "body": "right_hip_yaw_link",
+      "source_body": "right_hip_yaw_link",
+      "file": "parts/right_hip_yaw_link_0_6.obj",
+      "sha256": "fd4bcb01a6e11261f7c21c52f9488f480029f6e3aabf9ce1db43126851c77984"
+    },
+    {
+      "body": "right_hip_yaw_link",
+      "source_body": "right_hip_yaw_link",
+      "file": "parts/right_hip_yaw_link_0_7.obj",
+      "sha256": "661b786e6fcd38fd74215420805bcdaed35c9aca3b81d9b793bb906e1c8d5d03"
+    },
+    {
+      "body": "right_hip_yaw_link",
+      "source_body": "right_hip_yaw_link",
+      "file": "parts/right_hip_yaw_link_0_8.obj",
+      "sha256": "1a0387141eaa55c2d5a4c53a983f03fbb965f1fc0261e33f01d58fd9e781a6df"
+    },
+    {
+      "body": "right_hip_yaw_link",
+      "source_body": "right_hip_yaw_link",
+      "file": "parts/right_hip_yaw_link_0_9.obj",
+      "sha256": "2704a7f895acead12c390ebcf80689c9c45e8a700c9fc726ee12b064d7c66126"
+    },
+    {
+      "body": "right_hip_yaw_link",
+      "source_body": "right_hip_yaw_link",
+      "file": "parts/right_hip_yaw_link_0_10.obj",
+      "sha256": "d3cb91c073503201bd9b85ba7c672f3d5112f49ad59591816ed3db26e9a84d92"
+    },
+    {
+      "body": "right_hip_yaw_link",
+      "source_body": "right_hip_yaw_link",
+      "file": "parts/right_hip_yaw_link_0_11.obj",
+      "sha256": "f8efa7c16555409890cc09a2600a2e76ca120f28b967d82faa05487146d9914c"
+    },
+    {
+      "body": "right_knee_link",
+      "source_body": "right_knee_link",
+      "file": "parts/right_knee_link_0_0.obj",
+      "sha256": "b424ff107291511040d98a3a49e88633ff063c0607a063474448db2690bf2bc7"
+    },
+    {
+      "body": "right_knee_link",
+      "source_body": "right_knee_link",
+      "file": "parts/right_knee_link_0_1.obj",
+      "sha256": "83aa4540108a6b236984497822d83063de11f3bbd69fd6fd84e2d49bf4f27c89"
+    },
+    {
+      "body": "right_knee_link",
+      "source_body": "right_knee_link",
+      "file": "parts/right_knee_link_0_2.obj",
+      "sha256": "b702c90fe4bd0322f7ee77685d46ccac5fb1089459acd2568b698f2ccabef982"
+    },
+    {
+      "body": "right_knee_link",
+      "source_body": "right_knee_link",
+      "file": "parts/right_knee_link_0_3.obj",
+      "sha256": "9e37737d230a339698b6d3f4432d481ae1d3c9e2fb97e40e211d21ae859323ad"
+    },
+    {
+      "body": "right_knee_link",
+      "source_body": "right_knee_link",
+      "file": "parts/right_knee_link_0_4.obj",
+      "sha256": "33a5937da9f563ad8b0612144837efaf5f7e1d384b3c6996d7f09fafc560560a"
+    },
+    {
+      "body": "right_knee_link",
+      "source_body": "right_knee_link",
+      "file": "parts/right_knee_link_0_5.obj",
+      "sha256": "c0fdf81c98bef7bcfe77ac43182b0ecfe3ebe5ff97cdb9f3738235947a2e9ea0"
+    },
+    {
+      "body": "right_knee_link",
+      "source_body": "right_knee_link",
+      "file": "parts/right_knee_link_0_6.obj",
+      "sha256": "76182a7a1c80d7e47fef80f69e11141b24cc13b48b7f7c80ca91d7e7b34df5c0"
+    },
+    {
+      "body": "right_knee_link",
+      "source_body": "right_knee_link",
+      "file": "parts/right_knee_link_0_7.obj",
+      "sha256": "a526bf36510b4453b81fc08951e0ddb17201c3b2d79961c5d5429ce33682cfd7"
+    },
+    {
+      "body": "right_knee_link",
+      "source_body": "right_knee_link",
+      "file": "parts/right_knee_link_0_8.obj",
+      "sha256": "42cad80e6ea77ec01b643e8911753824f6e2d74d77af15f67285b41de43e3850"
+    },
+    {
+      "body": "right_knee_link",
+      "source_body": "right_knee_link",
+      "file": "parts/right_knee_link_0_9.obj",
+      "sha256": "19a542ecbfe66f8b77a9e40a23b370530044b0eced7463eda3cb0d6acccdf0c6"
+    },
+    {
+      "body": "right_knee_link",
+      "source_body": "right_knee_link",
+      "file": "parts/right_knee_link_0_10.obj",
+      "sha256": "6208fea66962d4bf231d8f16d31d8dad583b3b1f4ca269525c65b54d0135d37d"
+    },
+    {
+      "body": "right_knee_link",
+      "source_body": "right_knee_link",
+      "file": "parts/right_knee_link_0_11.obj",
+      "sha256": "9830aa563302bb90830b25ff21a76c2a617923809ef9158b2660cdb4950f9123"
+    },
+    {
+      "body": "right_shoulder_yaw_link",
+      "source_body": "right_shoulder_yaw_link",
+      "file": "parts/right_shoulder_yaw_link_0_0.obj",
+      "sha256": "8d5c66e3b2e23120c667446984025ee4437969e8cd2e7d05d95309bfd88817d1"
+    },
+    {
+      "body": "right_shoulder_yaw_link",
+      "source_body": "right_shoulder_yaw_link",
+      "file": "parts/right_shoulder_yaw_link_0_1.obj",
+      "sha256": "be2ddbbeeb3a7e12f0152a06e18a209ba4d0e1f19bdb1eeb328e5a381776b792"
+    },
+    {
+      "body": "right_shoulder_yaw_link",
+      "source_body": "right_shoulder_yaw_link",
+      "file": "parts/right_shoulder_yaw_link_0_2.obj",
+      "sha256": "8fe3021aac247e4dd93ca01c1f0e57083a6384ff743bacaf0488f951b4bb1c2e"
+    },
+    {
+      "body": "right_shoulder_yaw_link",
+      "source_body": "right_shoulder_yaw_link",
+      "file": "parts/right_shoulder_yaw_link_0_3.obj",
+      "sha256": "19ecd0034e253a9cdfd092e570af7f6240db1930d93c301daa577b997eefd8db"
+    },
+    {
+      "body": "right_shoulder_yaw_link",
+      "source_body": "right_shoulder_yaw_link",
+      "file": "parts/right_shoulder_yaw_link_0_4.obj",
+      "sha256": "53486516d18458f34222d8be2da4660a4ec5d5d30835a39740bf218efb1df9ef"
+    },
+    {
+      "body": "right_shoulder_yaw_link",
+      "source_body": "right_shoulder_yaw_link",
+      "file": "parts/right_shoulder_yaw_link_0_5.obj",
+      "sha256": "417396cbbeec1dc8a80048ad39bdbf12de1fef3f20846f5dd69b03d75d9b8f00"
+    },
+    {
+      "body": "right_shoulder_yaw_link",
+      "source_body": "right_shoulder_yaw_link",
+      "file": "parts/right_shoulder_yaw_link_0_6.obj",
+      "sha256": "7a9f67f3070aa34465962e2b0151501752432288d8b0dfa53751ee64953573b5"
+    },
+    {
+      "body": "right_shoulder_yaw_link",
+      "source_body": "right_shoulder_yaw_link",
+      "file": "parts/right_shoulder_yaw_link_0_7.obj",
+      "sha256": "cff883a1ba9de373e50c5606d2e31216cfe7a052525900f8b20983dad3759f65"
+    },
+    {
+      "body": "right_shoulder_yaw_link",
+      "source_body": "right_shoulder_yaw_link",
+      "file": "parts/right_shoulder_yaw_link_0_8.obj",
+      "sha256": "4c9c9bad29df7af2a34bb252151e52ec633b44ed96804bde1f5fda9919ca1893"
+    },
+    {
+      "body": "right_shoulder_yaw_link",
+      "source_body": "right_shoulder_yaw_link",
+      "file": "parts/right_shoulder_yaw_link_0_9.obj",
+      "sha256": "8e9c65a84c856b332eaa157d98a2770cf86deca5610edf2697c7f81c9901eb67"
+    },
+    {
+      "body": "right_shoulder_yaw_link",
+      "source_body": "right_shoulder_yaw_link",
+      "file": "parts/right_shoulder_yaw_link_0_10.obj",
+      "sha256": "fff3f91640001b19d3dffe6572a077c17291b31c86e30ff38f5c70de93754cc8"
+    },
+    {
+      "body": "right_shoulder_yaw_link",
+      "source_body": "right_shoulder_yaw_link",
+      "file": "parts/right_shoulder_yaw_link_0_11.obj",
+      "sha256": "6a2bdff65d12a1a285240d676352805e93dc0af6999ad829baf6f52e56c52033"
+    },
+    {
+      "body": "right_wrist_pitch_link",
+      "source_body": "right_wrist_pitch_link",
+      "file": "parts/right_wrist_pitch_link_0_0.obj",
+      "sha256": "ce1ad44a0c3b34d8d7a8004b434f2658511abadf0219173862256419e36460c7"
+    },
+    {
+      "body": "right_wrist_roll_link",
+      "source_body": "right_wrist_roll_link",
+      "file": "parts/right_wrist_roll_link_0_0.obj",
+      "sha256": "89bbab491d23141b3d20057209929497e57856b8fc4044eb925697dac6951529"
+    },
+    {
+      "body": "right_wrist_yaw_link",
+      "source_body": "right_wrist_yaw_link",
+      "file": "parts/right_wrist_yaw_link_0_0.obj",
+      "sha256": "e56789e8fb6bd53aefd1f1980ddb8abe6d7bcbfe80a9cbc273110a3abcb0e94b"
+    },
+    {
+      "body": "torso_link",
+      "source_body": "torso_link",
+      "file": "parts/torso_link_0_0.obj",
+      "sha256": "34b104bbd29f6ad331f7664527c2c295642d02b80d32cbdd804a55e4ff495478"
+    },
+    {
+      "body": "torso_link",
+      "source_body": "torso_link",
+      "file": "parts/torso_link_0_1.obj",
+      "sha256": "32cf0cd38b0f8e4d10611328ecd667ff6078a66d3a33b675eecd2862dbedfaf1"
+    },
+    {
+      "body": "torso_link",
+      "source_body": "torso_link",
+      "file": "parts/torso_link_0_2.obj",
+      "sha256": "e4ef621aac2230f24189701bc207e8057ad75cb3fae7b0933d872909d1bb133e"
+    },
+    {
+      "body": "torso_link",
+      "source_body": "torso_link",
+      "file": "parts/torso_link_0_3.obj",
+      "sha256": "3633c09accdba45cb1d6f166e02336b924385b0767d5cbe7781aa0ec302e5f7e"
+    }
+  ]
+}

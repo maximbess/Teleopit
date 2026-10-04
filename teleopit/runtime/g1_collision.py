@@ -12,14 +12,18 @@ from pathlib import Path
 import mujoco
 
 from teleopit.runtime.g1_collision_assets import (
-    ASSET_DIR, BODY_MAP, REPLACED_GEOMS, REVISION, SCHEMA_VERSION,
+    ASSET_DIR, PINNED_ASSET_DIR, BODY_MAP, REPLACED_GEOMS, REVISION, SCHEMA_VERSION,
     CANONICAL_MESH_OVERRIDES, DONOR_TO_CANONICAL_TRANSLATIONS,
 )
 
 
-def apply_g1_collision_overlay(spec: mujoco.MjSpec, asset_dir: Path = ASSET_DIR) -> None:
+def apply_g1_collision_overlay(spec: mujoco.MjSpec, asset_dir: Path | None = None) -> None:
+    asset_dir = PINNED_ASSET_DIR if asset_dir is None else Path(asset_dir)
     manifest_path = asset_dir / "manifest.json"
     if not manifest_path.is_file():
+        if asset_dir == PINNED_ASSET_DIR:
+            raise FileNotFoundError('Pinned G1 collision assets are missing; restore '
+                                    'assets/collision/g1_ladder_v1 from Git')
         raise FileNotFoundError(
             "OmniRetarget G1 collision assets are missing. Install the collision-build "
             "extra with pip install -e \".[collision-build]\", then run "

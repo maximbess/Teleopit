@@ -1,0 +1,2 @@
+# Preserve generated mesh bytes: manifest SHA256 must match on Windows/Linux.
+parts/*.obj -text
