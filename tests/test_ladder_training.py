@@ -32,17 +32,20 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     FLIGHT_GRACE_STEPS,
     FLIGHT_RATE,
     HOLD_REWARD,
+    SPEED_EXCESS_RATE,
     LadderClimbCommand,
     LadderGripActionCfg,
     ladder_climb,
     ladder_flight,
     ladder_hold,
     ladder_hold_completed,
+    ladder_speed,
     limb_axis_features,
 )
 from train_mimic.tasks.tracking.rl import LadderOnPolicyRunner
 from train_mimic.tasks.tracking.rl.runner import (
     _project_distribution_std,
+    _recover_nonfinite_ladder_steps,
     _set_distribution_std,
 )
 
@@ -98,6 +101,7 @@ def _quiet_ladder(*, dwell: int = 3, successes: int = 2) -> _QuietLadder:
         max_stabilization_body_angular_speed=0.40,
         max_stabilization_waist_joint_speed=0.60,
         max_stabilization_support_offset_error=0.18,
+        weld_release_speed_factor=4.0,
     )
     command.robot = SimpleNamespace(
         data=SimpleNamespace(joint_vel=torch.zeros(1, 2)),
@@ -140,11 +144,13 @@ def test_ladder_task_is_one_repeated_hold() -> None:
         "ladder_hold",
         "ladder_hold_completed",
         "ladder_flight",
+        "ladder_speed",
     }
     assert cfg.rewards["ladder_climb"].func is ladder_climb
     assert cfg.rewards["ladder_hold"].func is ladder_hold
     assert cfg.rewards["ladder_hold_completed"].func is ladder_hold_completed
     assert cfg.rewards["ladder_flight"].func is ladder_flight
+    assert cfg.rewards["ladder_speed"].func is ladder_speed
     assert cfg.rewards["ladder_hold_completed"].weight == 1.0
     assert cfg.terminations["time_out"].time_out is False
     assert "curriculum_stage_complete" not in cfg.terminations
@@ -153,6 +159,7 @@ def test_ladder_task_is_one_repeated_hold() -> None:
     ladder_cmd = cfg.commands["ladder"]
     assert ladder_cmd.successes_per_rollout == 4
     assert ladder_cmd.stabilization_dwell_steps == 50
+    assert ladder_cmd.weld_release_speed_factor == 4.0
     assert ladder_cmd.initialize_on_reset is True
     assert ladder_cmd.start_rung == 4
     assert ladder_cmd.initial_foot_rung == 1
@@ -171,6 +178,7 @@ def test_ladder_task_is_one_repeated_hold() -> None:
         "ladder_hold",
         "ladder_hold_completed",
         "ladder_flight",
+        "ladder_speed",
     }
 
 
@@ -355,6 +363,91 @@ def test_flight_penalty_waits_through_the_grace_and_ignores_a_two_hand_reach() -
     env.common_step_counter = FLIGHT_GRACE_STEPS + 3
     command.attached[:] = False
     assert ladder_flight(env, "ladder").item() == pytest.approx(-FLIGHT_RATE)
+
+
+def test_speed_penalty_is_zero_inside_the_limits_and_costs_the_excess() -> None:
+    command = _quiet_ladder()
+    _bind_reward_state(command)
+    command._limb_features = lambda: (torch.zeros(1, 4), torch.zeros(1, 4))  # type: ignore[method-assign]
+    env = _reward_env(command)
+
+    assert ladder_speed(env, "ladder").item() == 0.0
+
+    env.common_step_counter = 1
+    command.robot.data.joint_vel[:] = 5.0
+    command._torso_spin[:] = torch.tensor([0.40, 0.0, 0.0])
+    command._pelvis_spin[:] = torch.tensor([1.40, 0.0, 0.0])
+    # joint RMS 5 is 4 over the limit; pelvis spin 1.40 is 1 over 0.40.
+    assert ladder_speed(env, "ladder").item() == pytest.approx(-SPEED_EXCESS_RATE * 5.0)
+
+
+def test_over_speed_releases_both_welds_and_a_quiet_hold_keeps_them() -> None:
+    command = _quiet_ladder()
+    released: list[tuple[list[int], int]] = []
+
+    def _release(env_ids: torch.Tensor, hand_id: int) -> None:
+        released.append((env_ids.tolist(), hand_id))
+        command.attached[env_ids, hand_id] = False
+
+    command._release = _release  # type: ignore[method-assign]
+
+    command._release_over_speed_welds()
+    assert released == []
+    assert command.attached.all()
+
+    command.robot.data.joint_vel[:] = 5.0
+    command._release_over_speed_welds()
+    assert released == [([0], 0), ([0], 1)]
+    assert not command.attached.any()
+
+
+def test_nonfinite_step_resets_that_world_and_returns_a_finite_done() -> None:
+    reset_ids: list[torch.Tensor] = []
+    initialized = {"called": False}
+
+    class _Scene:
+        def write_data_to_sim(self) -> None:
+            return None
+
+    class _Sim:
+        def forward(self) -> None:
+            return None
+
+    class _Env:
+        unwrapped = None
+        scene = _Scene()
+        sim = _Sim()
+
+        def _reset_idx(self, env_ids: torch.Tensor) -> None:
+            reset_ids.append(env_ids.clone())
+
+    env = _Env()
+    env.unwrapped = env
+    env.command_manager = SimpleNamespace(
+        get_term=lambda _name: SimpleNamespace(
+            _initialize_from_start_pose=lambda: initialized.__setitem__("called", True)
+        )
+    )
+    obs = {
+        "actor": torch.tensor([[1.0, 2.0], [float("nan"), 0.0]]),
+        "actor_ladder": torch.ones(2, 3),
+    }
+    rewards = torch.tensor([0.2, float("inf")])
+    dones = torch.zeros(2, dtype=torch.long)
+    extras = {"log": {"Episode_Reward/ladder_climb": float("nan")}}
+
+    cleaned_obs, cleaned_rewards, cleaned_dones = _recover_nonfinite_ladder_steps(
+        env, obs, rewards, dones, extras
+    )
+
+    assert reset_ids[0].tolist() == [1]
+    assert initialized["called"]
+    assert torch.isfinite(cleaned_obs["actor"]).all()
+    assert cleaned_obs["actor"][1].tolist() == [0.0, 0.0]
+    assert cleaned_obs["actor"][0].tolist() == [1.0, 2.0]
+    torch.testing.assert_close(cleaned_rewards, torch.tensor([0.2, 0.0]))
+    assert cleaned_dones.tolist() == [0, 1]
+    assert extras["log"]["Episode_Reward/ladder_climb"] == 0.0
 
 
 def _zero_ladder_metrics(command: _QuietLadder) -> None:
@@ -612,8 +705,8 @@ def test_ladder_task_uses_temporal_geometry_ppo_config() -> None:
             "critic_privileged",
         ),
     }
-    assert rl_cfg.actor.distribution_cfg["init_std"] == 0.7
-    assert rl_cfg.actor.distribution_cfg["std_range"] == (0.25, 1.0)
+    assert rl_cfg.actor.distribution_cfg["init_std"] == 0.25
+    assert rl_cfg.actor.distribution_cfg["std_range"] == (0.2, 0.5)
     assert rl_cfg.algorithm.entropy_coef == 0.005
     assert rl_cfg.algorithm.learning_rate == 5.0e-4
     assert rl_cfg.save_interval == 1_000

@@ -137,6 +137,8 @@ class LadderClimbCommand(CommandTerm):
             raise ValueError("max_stabilization_waist_joint_speed must be >= 0")
         if cfg.max_stabilization_support_offset_error <= 0.0:
             raise ValueError("max_stabilization_support_offset_error must be > 0")
+        if cfg.weld_release_speed_factor <= 0.0:
+            raise ValueError("weld_release_speed_factor must be > 0")
         if cfg.grip_half_span is not None and cfg.grip_half_span <= 0.0:
             raise ValueError("grip_half_span must be > 0 or None")
 
@@ -708,6 +710,7 @@ class LadderClimbCommand(CommandTerm):
         self._initialize_from_start_pose()
         self._detect_foot_rungs()
         self._advance_hold()
+        self._release_over_speed_welds()
 
     def _refresh_velocities(self, reset_ids: torch.Tensor) -> None:
         hand_pos = self.hand_pos_w
@@ -794,6 +797,29 @@ class LadderClimbCommand(CommandTerm):
         self.successes[complete] += 1
         self.finished[complete] = self.successes[complete] >= self.cfg.successes_per_rollout
 
+    def _release_over_speed_welds(self) -> None:
+        """Open both grips when the body is spinning hard enough to blow the weld.
+
+        The check runs after the physics step, so the next step is unwelded.
+        The factor sits above the stabilize limits: a quiet hold keeps its grips,
+        and a fall releases them while the state is still finite.
+        """
+
+        factor = float(self.cfg.weld_release_speed_factor)
+        conditions = self._stabilization_conditions()
+        over_speed = (
+            conditions["joint_speed_rms"]
+            > factor * float(self.cfg.max_stabilization_joint_speed)
+        ) | (
+            conditions["pelvis_angular_speed"]
+            > factor * float(self.cfg.max_stabilization_body_angular_speed)
+        )
+        env_ids = torch.where(over_speed & self.attached.any(dim=1))[0]
+        if env_ids.numel() == 0:
+            return
+        for hand_id in (0, 1):
+            self._release(env_ids, hand_id)
+
     def _limb_features(self) -> tuple[torch.Tensor, torch.Tensor]:
         """Return ``(d, ell)`` for both hands and both feet, shape ``(E, 4)``."""
 
@@ -812,9 +838,9 @@ class LadderClimbCommand(CommandTerm):
         )
 
     def reward_terms(self) -> dict[str, torch.Tensor]:
-        """Agent-visible ``r_climb``, ``r_hold``, and the flight rate for this step.
+        """Agent-visible climb, hold, flight, and excess-speed terms for this step.
 
-        Cached on ``common_step_counter`` so the four reward terms share one sample.
+        Cached on ``common_step_counter`` so the reward terms share one sample.
         """
 
         step_id = int(getattr(self._env, "common_step_counter", -1))
@@ -855,7 +881,20 @@ class LadderClimbCommand(CommandTerm):
             torch.full_like(climb, -FLIGHT_RATE),
             torch.zeros_like(climb),
         )
-        self._reward_cache = {"climb": climb, "hold": hold, "flight": flight_rate}
+        conditions = self._stabilization_conditions()
+        joint_excess = (
+            conditions["joint_speed_rms"] - float(self.cfg.max_stabilization_joint_speed)
+        ).clamp_min(0.0)
+        angular_limit = float(self.cfg.max_stabilization_body_angular_speed)
+        torso_excess = (conditions["torso_angular_speed"] - angular_limit).clamp_min(0.0)
+        pelvis_excess = (conditions["pelvis_angular_speed"] - angular_limit).clamp_min(0.0)
+        speed_rate = -SPEED_EXCESS_RATE * (joint_excess + torso_excess + pelvis_excess)
+        self._reward_cache = {
+            "climb": climb,
+            "hold": hold,
+            "flight": flight_rate,
+            "speed": speed_rate,
+        }
         self._reward_cache_step = step_id
         return self._reward_cache
 
@@ -981,6 +1020,7 @@ class LadderClimbCommandCfg(CommandTermCfg):
     max_stabilization_body_angular_speed: float = 0.40
     max_stabilization_waist_joint_speed: float = 0.60
     max_stabilization_support_offset_error: float = 0.18
+    weld_release_speed_factor: float = 4.0
     attach_distance: float = 0.06
     max_attach_speed: float = 0.30
     foot_support_distance: float = 0.08
@@ -1044,6 +1084,8 @@ RUNG_HEIGHT_BAND_M = 0.08
 HOLD_REWARD = 0.5
 FLIGHT_RATE = 2.0
 FLIGHT_GRACE_STEPS = 4
+# Per rad/s above the stabilize limits. The manager multiplies by dt.
+SPEED_EXCESS_RATE = 0.5
 
 
 def _gather_rung_centers(centers: torch.Tensor, indices: torch.Tensor) -> torch.Tensor:
@@ -1120,6 +1162,18 @@ def ladder_hold(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
 
     command = _ladder_command(env, command_name)
     return command.reward_terms()["hold"] / env.step_dt
+
+
+def ladder_speed(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Excess joint and angular speed from the first step of the episode.
+
+    The cost is zero at or below the stabilize limits. Above them it is
+    ``SPEED_EXCESS_RATE`` per rad/s, summed across joint-speed RMS, torso
+    angular speed, and pelvis angular speed. The manager multiplies by ``dt``.
+    """
+
+    command = _ladder_command(env, command_name)
+    return command.reward_terms()["speed"]
 
 
 def ladder_flight(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:

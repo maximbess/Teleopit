@@ -84,8 +84,8 @@ def make_g1_ladder_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
             cnn_cfg=_CNN_CFG,
             distribution_cfg={
                 "class_name": "GaussianDistribution",
-                "init_std": 0.7,
-                "std_range": (0.25, 1.0),
+                "init_std": 0.25,
+                "std_range": (0.2, 0.5),
                 "std_type": "scalar",
             },
         ),

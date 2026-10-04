@@ -704,6 +704,7 @@ def make_g1_ladder_rl_env_cfg(
             max_stabilization_body_angular_speed=0.40,
             max_stabilization_waist_joint_speed=0.60,
             max_stabilization_support_offset_error=0.18,
+            weld_release_speed_factor=4.0,
             attach_distance=0.10,
             max_attach_speed=0.35,
             grip_half_span=0.18,
@@ -779,6 +780,11 @@ def make_g1_ladder_rl_env_cfg(
         ),
         "ladder_flight": RewardTermCfg(
             func=mdp.ladder_flight,
+            weight=1.0,
+            params={"command_name": "ladder"},
+        ),
+        "ladder_speed": RewardTermCfg(
+            func=mdp.ladder_speed,
             weight=1.0,
             params={"command_name": "ladder"},
         ),

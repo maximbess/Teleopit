@@ -2,7 +2,8 @@ import os
 import pathlib
 import statistics
 import time
-from math import exp, log
+from collections.abc import Mapping
+from math import exp, isfinite, log
 
 import torch
 from rsl_rl.env.vec_env import VecEnv
@@ -75,6 +76,90 @@ def _termination_counts_to_rates(extras: dict, dones: torch.Tensor) -> None:
             log[key] = value.detach().float() / reset_count
         else:
             log[key] = float(value) / reset_count
+
+
+def _row_not_finite(value: torch.Tensor) -> torch.Tensor:
+    """Return a per-environment mask of non-finite values."""
+
+    finite = torch.isfinite(value)
+    if finite.ndim <= 1:
+        return ~finite
+    return ~finite.flatten(start_dim=1).all(dim=1)
+
+
+def _nonfinite_env_mask(obs: object, rewards: torch.Tensor) -> torch.Tensor:
+    """Environments whose observation or reward is NaN or Inf."""
+
+    mask = _row_not_finite(rewards)
+    pending: list[object] = [obs]
+    while pending:
+        item = pending.pop()
+        if isinstance(item, torch.Tensor):
+            mask = mask | _row_not_finite(item)
+        elif isinstance(item, Mapping):
+            pending.extend(item.values())
+    return mask
+
+
+def _zero_nonfinite_rows(value: torch.Tensor, bad: torch.Tensor) -> torch.Tensor:
+    cleaned = value.clone()
+    cleaned[bad] = 0
+    return cleaned
+
+
+def _zero_nonfinite_observation(obs: object, bad: torch.Tensor) -> object:
+    if isinstance(obs, torch.Tensor):
+        return _zero_nonfinite_rows(obs, bad)
+    cleaned = obs.clone() if hasattr(obs, "clone") else dict(obs)
+    for key, value in list(cleaned.items()):
+        cleaned[key] = _zero_nonfinite_observation(value, bad)
+    return cleaned
+
+
+def _sanitize_logged_extras(extras: dict) -> None:
+    log = extras.get("log") if isinstance(extras, dict) else None
+    if not isinstance(log, dict):
+        return
+    for key, value in list(log.items()):
+        if isinstance(value, torch.Tensor):
+            log[key] = torch.nan_to_num(value, nan=0.0, posinf=0.0, neginf=0.0)
+        elif isinstance(value, float) and not isfinite(value):
+            log[key] = 0.0
+
+
+def _recover_nonfinite_ladder_steps(
+    env: VecEnv,
+    obs: object,
+    rewards: torch.Tensor,
+    dones: torch.Tensor,
+    extras: dict,
+) -> tuple[object, torch.Tensor, torch.Tensor]:
+    """Reset worlds whose step went non-finite and keep the transition finite.
+
+    The returned observation for those worlds is zero and the episode ends.
+    The simulator state is the reset pose, with the hands welded again, so the
+    next step does not integrate a NaN.
+    """
+
+    bad = _nonfinite_env_mask(obs, rewards)
+    if not torch.any(bad):
+        return obs, rewards, dones
+
+    env_ids = torch.where(bad)[0]
+    unwrapped = env.unwrapped
+    unwrapped._reset_idx(env_ids)
+    unwrapped.scene.write_data_to_sim()
+    unwrapped.sim.forward()
+    command = unwrapped.command_manager.get_term("ladder")
+    command._initialize_from_start_pose()
+    _sanitize_logged_extras(extras)
+
+    print(f"[ladder] reset {int(env_ids.numel())} non-finite environments")
+    rewards = rewards.clone()
+    rewards[bad] = 0
+    dones = dones.clone()
+    dones[bad] = 1
+    return _zero_nonfinite_observation(obs, bad), rewards, dones
 
 
 def _ordered_episode_extra_keys(ep_extras: list[dict]) -> tuple[str, ...]:
@@ -201,6 +286,9 @@ class LadderOnPolicyRunner(MjlabOnPolicyRunner):
                     actions = self.alg.act(obs)
                     obs, rewards, dones, extras = self.env.step(
                         actions.to(self.env.device)
+                    )
+                    obs, rewards, dones = _recover_nonfinite_ladder_steps(
+                        self.env, obs, rewards, dones, extras
                     )
                     if self.cfg.get("check_for_nan", True):
                         check_nan(obs, rewards, dones)
