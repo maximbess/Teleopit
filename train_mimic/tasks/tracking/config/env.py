@@ -31,7 +31,11 @@ from train_mimic.tasks.tracking.mdp import MotionCommandCfg
 from train_mimic.tasks.tracking.tracking_env_cfg import make_tracking_env_cfg
 from teleopit.runtime.assets import UNITREE_G1_XML, missing_gmr_assets_message
 from .g1_collision import ROBOT_CONAFFINITY, ROBOT_CONTYPE, apply_g1_collision_overlay
-from .ladder_init import LADDER_INITIAL_JOINT_POS, LADDER_INITIAL_ROOT_POS
+from .ladder_init import (
+    LADDER_INITIAL_JOINT_POS,
+    LADDER_INITIAL_ROOT_POS,
+    LADDER_INITIAL_ROOT_ROT,
+)
 
 _TRACKING_BODY_NAMES = (
     "pelvis",
@@ -58,7 +62,7 @@ _TRAIN_ONLY_EVENTS = (
     "randomize_rigid_body_mass",
 )
 
-_LADDER_NUM_RUNGS = 9
+_LADDER_NUM_RUNGS = 14
 _LADDER_HALF_BASE = 1.05
 _LADDER_HEIGHT = 2.80
 _LADDER_HALF_WIDTH = 0.35
@@ -66,8 +70,8 @@ _LADDER_RAIL_RADIUS = 0.050
 _LADDER_RUNG_HALF_DEPTH = 0.055
 _LADDER_RUNG_HALF_HEIGHT = 0.035
 _LADDER_GRIP_RADIUS = 0.075
-_LADDER_START_RUNG = 4
-_LADDER_INITIAL_FOOT_RUNG = 1
+_LADDER_START_RUNG = 7
+_LADDER_INITIAL_FOOT_RUNG = 3
 _LADDER_FOOT_CONTACT_SENSOR = "ladder_foot_contact"
 _LADDER_ARM_EFFORT_SCALE = 0.70
 _LADDER_SUCCESSES_PER_ROLLOUT = 4
@@ -318,6 +322,7 @@ def make_g1_ladder_training_robot_cfg(robot_xml: str | Path | None = None):
         )
     robot_cfg.init_state = deepcopy(robot_cfg.init_state)
     robot_cfg.init_state.pos = LADDER_INITIAL_ROOT_POS
+    robot_cfg.init_state.rot = LADDER_INITIAL_ROOT_ROT
     robot_cfg.init_state.joint_pos = dict(LADDER_INITIAL_JOINT_POS)
     robot_cfg.init_state.joint_vel = {".*": 0.0}
     # The stock editor enables every ``.*_collision`` geom, including
@@ -763,8 +768,15 @@ def make_g1_ladder_rl_env_cfg(
     }
 
     rewards = {
+        # 0.5 on a 0.20 m rung is 0.10 per limb. Two hands are 0.20, against
+        # +1 for one rung of supported torso travel.
         "ladder_climb": RewardTermCfg(
             func=mdp.ladder_climb,
+            weight=0.5,
+            params={"command_name": "ladder"},
+        ),
+        "ladder_ascent": RewardTermCfg(
+            func=mdp.ladder_ascent,
             weight=1.0,
             params={"command_name": "ladder"},
         ),
@@ -783,20 +795,11 @@ def make_g1_ladder_rl_env_cfg(
             weight=1.0,
             params={"command_name": "ladder"},
         ),
-        "ladder_speed": RewardTermCfg(
-            func=mdp.ladder_speed,
-            weight=1.0,
-            params={"command_name": "ladder"},
-        ),
-        "ladder_plant": RewardTermCfg(
-            func=mdp.ladder_plant,
-            weight=1.0,
-            params={"command_name": "ladder"},
-        ),
-        "ladder_offset": RewardTermCfg(
-            func=mdp.ladder_offset,
-            weight=1.0,
-            params={"command_name": "ladder"},
+        # dt scales this, so -0.01 charges about 0.2 over 20 s when the
+        # squared action change stays near 1.
+        "action_rate_l2": RewardTermCfg(
+            func=mdp.action_rate_l2,
+            weight=-0.01,
         ),
     }
 

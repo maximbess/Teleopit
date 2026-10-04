@@ -7,6 +7,7 @@ import re
 from types import SimpleNamespace
 
 import mujoco
+import numpy as np
 import pytest
 import torch
 from mjlab.entity import Entity
@@ -28,22 +29,20 @@ from train_mimic.tasks.tracking.config.env import (
     make_g1_ladder_rl_env_cfg,
     make_g1_ladder_training_robot_cfg,
 )
+from train_mimic.tasks.tracking.mdp import action_rate_l2
 from train_mimic.tasks.tracking.mdp.ladder import (
     FLIGHT_GRACE_STEPS,
     FLIGHT_RATE,
+    FOOT_HAND_RUNG_GAP,
     HOLD_REWARD,
-    OFFSET_EXCESS_RATE,
-    PLANT_REWARD,
-    SPEED_EXCESS_RATE,
+    RUNG_WINDOW_COUNT,
     LadderClimbCommand,
     LadderGripActionCfg,
+    ladder_ascent,
     ladder_climb,
     ladder_flight,
     ladder_hold,
     ladder_hold_completed,
-    ladder_offset,
-    ladder_plant,
-    ladder_speed,
     limb_axis_features,
 )
 from train_mimic.tasks.tracking.rl import LadderOnPolicyRunner
@@ -145,20 +144,21 @@ def test_ladder_task_is_one_repeated_hold() -> None:
     assert isinstance(cfg.actions["grip"], LadderGripActionCfg)
     assert set(cfg.rewards) == {
         "ladder_climb",
+        "ladder_ascent",
         "ladder_hold",
         "ladder_hold_completed",
         "ladder_flight",
-        "ladder_speed",
-        "ladder_plant",
-        "ladder_offset",
+        "action_rate_l2",
     }
     assert cfg.rewards["ladder_climb"].func is ladder_climb
+    assert cfg.rewards["ladder_climb"].weight == 0.5
+    assert cfg.rewards["ladder_ascent"].func is ladder_ascent
+    assert cfg.rewards["ladder_ascent"].weight == 1.0
     assert cfg.rewards["ladder_hold"].func is ladder_hold
     assert cfg.rewards["ladder_hold_completed"].func is ladder_hold_completed
     assert cfg.rewards["ladder_flight"].func is ladder_flight
-    assert cfg.rewards["ladder_speed"].func is ladder_speed
-    assert cfg.rewards["ladder_plant"].func is ladder_plant
-    assert cfg.rewards["ladder_offset"].func is ladder_offset
+    assert cfg.rewards["action_rate_l2"].func is action_rate_l2
+    assert cfg.rewards["action_rate_l2"].weight == -0.01
     assert cfg.rewards["ladder_hold_completed"].weight == 1.0
     assert cfg.terminations["time_out"].time_out is False
     assert "curriculum_stage_complete" not in cfg.terminations
@@ -169,8 +169,9 @@ def test_ladder_task_is_one_repeated_hold() -> None:
     assert ladder_cmd.stabilization_dwell_steps == 50
     assert ladder_cmd.weld_release_speed_factor == 4.0
     assert ladder_cmd.initialize_on_reset is True
-    assert ladder_cmd.start_rung == 4
-    assert ladder_cmd.initial_foot_rung == 1
+    assert ladder_cmd.start_rung == 7
+    assert ladder_cmd.initial_foot_rung == 3
+    assert ladder_cmd.start_rung == ladder_cmd.initial_foot_rung + FOOT_HAND_RUNG_GAP
     assert not hasattr(ladder_cmd, "curriculum_enabled")
     assert not hasattr(ladder_cmd, "fixed_max_unlocked_phase")
     assert "prepare_ladder_weld_model" not in cfg.events
@@ -183,12 +184,11 @@ def test_ladder_task_is_one_repeated_hold() -> None:
     assert play_cfg.commands["ladder"].successes_per_rollout == 4
     assert set(play_cfg.rewards) == {
         "ladder_climb",
+        "ladder_ascent",
         "ladder_hold",
         "ladder_hold_completed",
         "ladder_flight",
-        "ladder_speed",
-        "ladder_plant",
-        "ladder_offset",
+        "action_rate_l2",
     }
 
 
@@ -271,7 +271,7 @@ def test_limb_axis_distance_caps_at_the_contact_bubble() -> None:
     assert planted.item() == 0.0
 
     hovering, _ = limb_axis_features(nxt, base, nxt, on_rung)
-    assert hovering.item() == pytest.approx(0.10)
+    assert hovering.item() == pytest.approx(0.06)
 
     beside = nxt.clone()
     beside[:, 1] = 0.10
@@ -284,8 +284,10 @@ def _bind_reward_state(command: _QuietLadder) -> None:
     command._climb_lateral = torch.zeros(1, 4)
     command._climb_valid = torch.zeros(1, dtype=torch.bool)
     command._hold_count_prev = torch.zeros(1, dtype=torch.long)
-    command._planted_prev = torch.zeros(1)
-    command._planted_valid = torch.zeros(1, dtype=torch.bool)
+    command._ascent_prev = torch.zeros(1)
+    command._ascent_valid = torch.zeros(1, dtype=torch.bool)
+    command._torso_rungs = torch.zeros(1)
+    command._torso_rungs_along_rail = lambda: command._torso_rungs  # type: ignore[method-assign]
     command._feet_off_steps = torch.zeros(1, dtype=torch.long)
     command._reward_cache_step = -1
     command._reward_cache = None
@@ -377,64 +379,38 @@ def test_flight_penalty_waits_through_the_grace_and_ignores_a_two_hand_reach() -
     assert ladder_flight(env, "ladder").item() == pytest.approx(-FLIGHT_RATE)
 
 
-def test_speed_penalty_is_zero_inside_the_limits_and_costs_the_excess() -> None:
+def test_supported_torso_progress_banks_only_while_a_foot_is_down() -> None:
     command = _quiet_ladder()
     _bind_reward_state(command)
     command._limb_features = lambda: (torch.zeros(1, 4), torch.zeros(1, 4))  # type: ignore[method-assign]
     env = _reward_env(command)
 
-    assert ladder_speed(env, "ladder").item() == 0.0
+    command._torso_rungs[:] = 1.0
+    assert ladder_ascent(env, "ladder").item() == 0.0
 
     env.common_step_counter = 1
-    command.robot.data.joint_vel[:] = 5.0
-    command._torso_spin[:] = torch.tensor([0.40, 0.0, 0.0])
-    command._pelvis_spin[:] = torch.tensor([1.40, 0.0, 0.0])
-    # joint RMS 5 is 4 over the limit; pelvis spin 1.40 is 1 over 0.40.
-    assert ladder_speed(env, "ladder").item() == pytest.approx(-SPEED_EXCESS_RATE * 5.0)
-
-
-def test_plant_pays_one_limb_and_pays_it_back() -> None:
-    command = _quiet_ladder()
-    _bind_reward_state(command)
-    command._limb_features = lambda: (torch.zeros(1, 4), torch.zeros(1, 4))  # type: ignore[method-assign]
-    env = _reward_env(command)
-
-    assert ladder_plant(env, "ladder").item() == 0.0
-
-    env.common_step_counter = 1
-    command.held_rung[:, 0] = command.baseline_hand_rung[0, 0] + 1
-    assert ladder_plant(env, "ladder").item() == pytest.approx(PLANT_REWARD / 0.02)
+    command._torso_rungs[:] = 2.0
+    assert ladder_ascent(env, "ladder").item() == pytest.approx(1.0 / 0.02)
 
     env.common_step_counter = 2
-    command.held_rung[:, 0] = command.baseline_hand_rung[0, 0]
-    assert ladder_plant(env, "ladder").item() == pytest.approx(-PLANT_REWARD / 0.02)
+    command._contact[:] = False
+    command._torso_rungs[:] = 3.0
+    assert ladder_ascent(env, "ladder").item() == 0.0
 
     env.common_step_counter = 3
+    command._contact[:] = True
+    command._torso_rungs[:] = 3.5
+    assert ladder_ascent(env, "ladder").item() == pytest.approx(1.5 / 0.02)
+
+    env.common_step_counter = 4
     command.just_completed[:] = True
-    command.held_rung[:, 0] = command.baseline_hand_rung[0, 0] + 1
-    assert ladder_plant(env, "ladder").item() == 0.0
+    command._torso_rungs[:] = 4.5
+    assert ladder_ascent(env, "ladder").item() == 0.0
 
-
-def test_offset_penalty_starts_above_the_support_gate() -> None:
-    command = _quiet_ladder()
-    _bind_reward_state(command)
-    command._limb_features = lambda: (torch.zeros(1, 4), torch.zeros(1, 4))  # type: ignore[method-assign]
-    env = _reward_env(command)
-    command.attached[:] = False
-    command._contact[:] = False
-
-    assert ladder_offset(env, "ladder").item() == 0.0
-
-    env.common_step_counter = 1
-    command._torso.zero_()
-    command._torso[0, 0] = command.cfg.max_stabilization_support_offset_error
-    assert ladder_offset(env, "ladder").item() == 0.0
-
-    env.common_step_counter = 2
-    command._torso[0, 0] = 0.37
-    assert ladder_offset(env, "ladder").item() == pytest.approx(
-        -OFFSET_EXCESS_RATE * (0.37 - 0.18)
-    )
+    env.common_step_counter = 5
+    command.just_completed[:] = False
+    command._torso_rungs[:] = 4.0
+    assert ladder_ascent(env, "ladder").item() == pytest.approx(-0.5 / 0.02)
 
 
 def test_over_speed_releases_both_welds_and_a_quiet_hold_keeps_them() -> None:
@@ -699,17 +675,19 @@ def test_overshoot_is_not_exactly_one_rung() -> None:
     assert command.supports_one_rung_higher.item()
 
 
-def test_ladder_geometry_observation_is_the_fixed_six_rung_window() -> None:
+def test_ladder_geometry_observation_spans_one_below_the_feet_to_one_above_the_hands() -> None:
     command = object.__new__(LadderClimbCommand)
-    num_rungs = 9
+    num_rungs = 14
+    foot = 1
+    hand = foot + FOOT_HAND_RUNG_GAP
     command._rung_site_ids = torch.arange(num_rungs)
     command._rung_half_lengths = torch.zeros(num_rungs)
     command._torso_body_id = 0
-    command.baseline_hand_rung = torch.tensor([[4, 4]])
-    command.baseline_foot_rung = torch.tensor([[1, 1]])
-    command.held_rung = torch.tensor([[4, 4]])
+    command.baseline_hand_rung = torch.tensor([[hand, hand]])
+    command.baseline_foot_rung = torch.tensor([[foot, foot]])
+    command.held_rung = torch.tensor([[hand, hand]])
     command.grip_strength = torch.tensor([[1.0, 1.0]])
-    command.foot_rung = torch.tensor([[1, 1]])
+    command.foot_rung = torch.tensor([[foot, foot]])
     identity = torch.eye(3).reshape(9)
     centers = torch.zeros(1, num_rungs, 3)
     centers[0, :, 2] = torch.arange(num_rungs, dtype=torch.float)
@@ -722,26 +700,37 @@ def test_ladder_geometry_observation_is_the_fixed_six_rung_window() -> None:
     command._env = SimpleNamespace(device="cpu", sim=SimpleNamespace(data=data))
 
     observation = command.rung_tokens_torso
+    window = list(range(foot - 1, foot - 1 + RUNG_WINDOW_COUNT))
 
-    assert command.window_rung_indices().tolist() == [[0, 1, 2, 3, 4, 5]]
-    assert observation.shape == (1, 6, 15)
-    assert observation[0, :, 2].tolist() == pytest.approx([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
-    assert observation[0, 5, 7:9].tolist() == pytest.approx([1.0, 1.0])
-    assert observation[0, 2, 9:11].tolist() == pytest.approx([1.0, 1.0])
-    assert observation[0, 4, 11:13].tolist() == pytest.approx([1.0, 1.0])
-    assert observation[0, 1, 13:].tolist() == pytest.approx([1.0, 1.0])
+    assert RUNG_WINDOW_COUNT == FOOT_HAND_RUNG_GAP + 3
+    assert command.window_rung_indices().tolist() == [window]
+    assert observation.shape == (1, RUNG_WINDOW_COUNT, 15)
+    assert observation[0, :, 2].tolist() == pytest.approx([float(index) for index in window])
+    next_hand_row = window.index(hand + 1)
+    next_foot_row = window.index(foot + 1)
+    hand_row = window.index(hand)
+    foot_row = window.index(foot)
+    assert observation[0, next_hand_row, 7:9].tolist() == pytest.approx([1.0, 1.0])
+    assert observation[0, next_foot_row, 9:11].tolist() == pytest.approx([1.0, 1.0])
+    assert observation[0, hand_row, 11:13].tolist() == pytest.approx([1.0, 1.0])
+    assert observation[0, foot_row, 13:].tolist() == pytest.approx([1.0, 1.0])
 
-    command.foot_rung[:] = 2
-    command.held_rung[:] = 5
+    command.foot_rung[:] = foot + 1
+    command.held_rung[:] = hand + 1
     stayed = command.rung_tokens_torso
-    assert command.window_rung_indices().tolist() == [[0, 1, 2, 3, 4, 5]]
-    assert stayed[0, :, 2].tolist() == pytest.approx([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
+    assert command.window_rung_indices().tolist() == [window]
+    assert stayed[0, :, 2].tolist() == pytest.approx([float(index) for index in window])
 
-    command.baseline_foot_rung[:] = 2
-    command.baseline_hand_rung[:] = 5
+    shifted_foot = 2
+    shifted_hand = shifted_foot + FOOT_HAND_RUNG_GAP
+    command.baseline_foot_rung[:] = shifted_foot
+    command.baseline_hand_rung[:] = shifted_hand
     shifted = command.rung_tokens_torso
-    assert command.window_rung_indices().tolist() == [[1, 2, 3, 4, 5, 6]]
-    assert shifted[0, :, 2].tolist() == pytest.approx([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
+    shifted_window = list(range(shifted_foot - 1, shifted_foot - 1 + RUNG_WINDOW_COUNT))
+    assert command.window_rung_indices().tolist() == [shifted_window]
+    assert shifted[0, :, 2].tolist() == pytest.approx(
+        [float(index) for index in shifted_window]
+    )
 
 
 def test_ladder_task_uses_temporal_geometry_ppo_config() -> None:
@@ -830,7 +819,8 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
     spec = robot_cfg.spec_fn()
     model = Entity(robot_cfg).spec.compile()
 
-    assert robot_cfg.init_state.pos == (-0.913384, 0.0, 1.364509)
+    assert robot_cfg.init_state.pos == (-1.079482, 0.0, 1.385411)
+    assert tuple(robot_cfg.init_state.rot) == (0.983835, 0.0, 0.179079, 0.0)
     arm_actuator_effort_limits = {
         actuator_cfg.effort_limit
         for actuator_cfg in robot_cfg.articulation.actuators
@@ -879,9 +869,8 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
         >= 0
     )
 
-    # Apply the configured climbing keyframe and verify that both feet contact
-    # physical rung 2 while both hand sites are within start-rung attachment
-    # range of rung 5.
+    # Reload the climbing keyframe. Feet are on rung 4 and hands on rung 8
+    # (1-based names), with a bent knee and the next rung still in reach.
     data = mujoco.MjData(model)
     data.qpos[:] = model.qpos0
     data.qpos[:3] = robot_cfg.init_state.pos
@@ -902,62 +891,62 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
     foot_rung_site = mujoco.mj_name2id(
         model,
         mujoco.mjtObj.mjOBJ_SITE,
-        "left_ladder_rung_02_grip",
+        "left_ladder_rung_04_grip",
     )
     hand_rung_site = mujoco.mj_name2id(
         model,
         mujoco.mjtObj.mjOBJ_SITE,
+        "left_ladder_rung_08_grip",
+    )
+    next_rung_site = mujoco.mj_name2id(
+        model,
+        mujoco.mjtObj.mjOBJ_SITE,
         "left_ladder_rung_05_grip",
     )
-    for foot_name in ("left_foot", "right_foot"):
-        foot_site = mujoco.mj_name2id(
-            model,
-            mujoco.mjtObj.mjOBJ_SITE,
-            foot_name,
-        )
+    rail_a = data.site_xpos[
+        mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, "left_ladder_rung_01_grip")
+    ]
+    rail_b = data.site_xpos[
+        mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, "left_ladder_rung_02_grip")
+    ]
+    rail = rail_b - rail_a
+    rail = rail / np.linalg.norm(rail)
+    for foot_name, hip_name in (
+        ("left_foot", "left_hip_pitch_link"),
+        ("right_foot", "right_hip_pitch_link"),
+    ):
+        foot_site = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, foot_name)
+        hip = data.xpos[mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, hip_name)]
         target = data.site_xpos[foot_rung_site].copy()
         target[1] = data.site_xpos[foot_site, 1]
-        assert (
-            torch.linalg.vector_norm(
-                torch.from_numpy(data.site_xpos[foot_site] - target)
-            ).item()
-            < 0.10
-        )
+        foot_distance = np.linalg.norm(data.site_xpos[foot_site] - target)
+        assert foot_distance < 0.055
+        assert foot_distance < 0.11
+        hip_to_foot = np.linalg.norm(data.site_xpos[foot_site] - hip)
+        assert 0.50 <= hip_to_foot <= 0.62
+        next_point = data.site_xpos[next_rung_site].copy()
+        next_point[1] = hip[1]
+        assert np.linalg.norm(hip - next_point) <= 0.69
     for hand_name in ("left_grip_site", "right_grip_site"):
-        hand_site = mujoco.mj_name2id(
-            model,
-            mujoco.mjtObj.mjOBJ_SITE,
-            hand_name,
-        )
+        hand_site = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, hand_name)
         target = data.site_xpos[hand_rung_site].copy()
         target[1] = data.site_xpos[hand_site, 1]
-        assert (
-            torch.linalg.vector_norm(
-                torch.from_numpy(data.site_xpos[hand_site] - target)
-            ).item()
-            < 0.10
-        )
-
-    foot_rung_geom = mujoco.mj_name2id(
-        model,
-        mujoco.mjtObj.mjOBJ_GEOM,
-        "left_ladder_rung_02",
-    )
-    contacting_geom_names = set()
+        assert np.linalg.norm(data.site_xpos[hand_site] - target) < 0.10
+    torso = data.xmat[
+        mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "torso_link")
+    ].reshape(3, 3)
+    assert float(torso[:, 2] @ rail) > 0.95
     for contact in data.contact:
-        geom_pair = (int(contact.geom[0]), int(contact.geom[1]))
-        if foot_rung_geom not in geom_pair:
-            continue
-        other_geom = geom_pair[1] if geom_pair[0] == foot_rung_geom else geom_pair[0]
-        contacting_geom_names.add(
-            mujoco.mj_id2name(
-                model,
-                mujoco.mjtObj.mjOBJ_GEOM,
-                other_geom,
-            )
+        assert contact.dist >= -0.005
+    lowest_z = min(
+        float(data.geom_xpos[geom_id, 2])
+        for geom_id in range(model.ngeom)
+        if model.geom_contype[geom_id] != 0
+        and "ladder" not in (
+            mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, geom_id) or ""
         )
-    assert any(name.startswith("left_foot") for name in contacting_geom_names)
-    assert any(name.startswith("right_foot") for name in contacting_geom_names)
+    )
+    assert lowest_z > 0.2
 
     backstop_id = mujoco.mj_name2id(
         model,
@@ -1019,7 +1008,7 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
     assert left_ladder_geoms == {
         "left_ladder_rail_01",
         "left_ladder_rail_02",
-        *(f"left_ladder_rung_{index:02d}" for index in range(1, 10)),
+        *(f"left_ladder_rung_{index:02d}" for index in range(1, 15)),
     }
     rung_02_id = mujoco.mj_name2id(
         model,
@@ -1032,7 +1021,7 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
         - model.geom_size[rung_02_id, 2]
         - model.geom_size[rung_id, 2]
     )
-    assert clear_vertical_gap > 0.20
+    assert clear_vertical_gap == pytest.approx(2.80 / 15 - 0.07, abs=1e-4)
     left_ladder_body_id = mujoco.mj_name2id(
         model,
         mujoco.mjtObj.mjOBJ_BODY,

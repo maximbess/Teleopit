@@ -55,7 +55,7 @@ def _matrix_to_quaternion(matrix: torch.Tensor) -> torch.Tensor:
 
 # Rung indices are 0-based: index 0 is the lowest rung. The hands stay
 # this many rungs above the feet, matching the climbing keyframe.
-FOOT_HAND_RUNG_GAP = 3
+FOOT_HAND_RUNG_GAP = 4
 # One rung below the feet through one rung above the hands.
 RUNG_WINDOW_COUNT = FOOT_HAND_RUNG_GAP + 3
 
@@ -64,10 +64,10 @@ class LadderClimbCommand(CommandTerm):
     """Repeat one skill: move all four supports up exactly one rung and hold.
 
     The first attempt in a rollout starts on the climbing keyframe. Each
-    attempt records the 0-based rung under the feet and the rung three above
-    it under the hands. It completes only after every support is on the next
-    rung and the stabilize gates stay true for a fixed number of frames. A
-    broken gate clears that counter. The completed pose is kept, those rungs
+    attempt records the 0-based rung under the feet and the hand rung
+    ``FOOT_HAND_RUNG_GAP`` above it. It completes only after every support
+    is on the next rung and the stabilize gates stay true for a fixed number
+    of frames. A broken gate clears that counter. The completed pose is kept, those rungs
     become the next baseline, and the same policy is asked for another rung.
     After ``successes_per_rollout`` holds the episode ends. The command never
     chooses a limb or a phase.
@@ -306,10 +306,10 @@ class LadderClimbCommand(CommandTerm):
         self._hold_count_prev = torch.zeros(
             self.num_envs, dtype=torch.long, device=self.device
         )
-        self._planted_prev = torch.zeros(
+        self._ascent_prev = torch.zeros(
             self.num_envs, dtype=torch.float32, device=self.device
         )
-        self._planted_valid = torch.zeros(
+        self._ascent_valid = torch.zeros(
             self.num_envs, dtype=torch.bool, device=self.device
         )
         self._feet_off_steps = torch.zeros(
@@ -585,11 +585,11 @@ class LadderClimbCommand(CommandTerm):
 
     @property
     def rung_tokens_torso(self) -> torch.Tensor:
-        """Return the six 15D torso-frame tokens around the current stance.
+        """Return the 15D torso-frame tokens around the current stance.
 
-        Rung indices are 0-based. The rows are one below the feet, the foot
-        rung, the next foot rung, the rung between, the hand rung, and one
-        above the hands. That set is fixed for the attempt.
+        Rung indices are 0-based. The rows run from one rung below the feet
+        through one rung above the hands, ``RUNG_WINDOW_COUNT`` of them. That
+        set is fixed for the attempt.
 
         Each token contains two endpoints (6), a validity bit (1), left/right
         hand next-rung bits (2), left/right foot next-rung bits (2), left/right
@@ -687,8 +687,8 @@ class LadderClimbCommand(CommandTerm):
         self.successes[env_ids] = 0
         self._climb_valid[env_ids] = False
         self._hold_count_prev[env_ids] = 0
-        self._planted_prev[env_ids] = 0.0
-        self._planted_valid[env_ids] = False
+        self._ascent_prev[env_ids] = 0.0
+        self._ascent_valid[env_ids] = False
         self._feet_off_steps[env_ids] = 0
         self._reward_cache_step = -1
         self.baseline_hand_rung[env_ids] = self.cfg.start_rung
@@ -850,8 +850,18 @@ class LadderClimbCommand(CommandTerm):
             on_target,
         )
 
+    def _torso_rungs_along_rail(self) -> torch.Tensor:
+        """Torso COM position along the rail, measured in rung pitches."""
+
+        centers = self._env.sim.data.site_xpos[:, self._rung_site_ids]
+        axis = centers[:, 1] - centers[:, 0]
+        pitch = torch.linalg.vector_norm(axis, dim=-1).clamp_min(1.0e-8)
+        direction = axis / pitch.unsqueeze(-1)
+        along = (self.torso_com_pos_w * direction).sum(dim=-1)
+        return along / pitch
+
     def reward_terms(self) -> dict[str, torch.Tensor]:
-        """Agent-visible climb, plant, hold, flight, speed, and offset terms.
+        """Agent-visible climb, ascent, hold, and flight terms.
 
         Cached on ``common_step_counter`` so the reward terms share one sample.
         """
@@ -894,32 +904,19 @@ class LadderClimbCommand(CommandTerm):
             torch.full_like(climb, -FLIGHT_RATE),
             torch.zeros_like(climb),
         )
-        conditions = self._stabilization_conditions()
-        joint_excess = (
-            conditions["joint_speed_rms"] - float(self.cfg.max_stabilization_joint_speed)
-        ).clamp_min(0.0)
-        angular_limit = float(self.cfg.max_stabilization_body_angular_speed)
-        torso_excess = (conditions["torso_angular_speed"] - angular_limit).clamp_min(0.0)
-        pelvis_excess = (conditions["pelvis_angular_speed"] - angular_limit).clamp_min(0.0)
-        speed_rate = -SPEED_EXCESS_RATE * (joint_excess + torso_excess + pelvis_excess)
-        planted = self._limbs_on_next_rung().sum(dim=-1).float()
-        plant = PLANT_REWARD * (planted - self._planted_prev)
-        plant_refresh = ~self._planted_valid | self.just_completed
-        plant = torch.where(plant_refresh, torch.zeros_like(plant), plant)
-        self._planted_prev.copy_(planted)
-        self._planted_valid[:] = True
-        offset_excess = (
-            self.torso_support_offset_error
-            - float(self.cfg.max_stabilization_support_offset_error)
-        ).clamp_min(0.0)
-        offset_rate = -OFFSET_EXCESS_RATE * offset_excess
+        height = self._torso_rungs_along_rail()
+        supported = self.foot_support.any(dim=-1)
+        delta = height - self._ascent_prev
+        pay = supported & self._ascent_valid & ~self.just_completed
+        ascent = torch.where(pay, delta, torch.zeros_like(delta))
+        update = supported | ~self._ascent_valid | self.just_completed
+        self._ascent_prev.copy_(torch.where(update, height, self._ascent_prev))
+        self._ascent_valid[:] = True
         self._reward_cache = {
             "climb": climb,
+            "ascent": ascent,
             "hold": hold,
             "flight": flight_rate,
-            "speed": speed_rate,
-            "plant": plant,
-            "offset": offset_rate,
         }
         self._reward_cache_step = step_id
         return self._reward_cache
@@ -1102,25 +1099,14 @@ def _ladder_command(env: ManagerBasedRlEnv, command_name: str) -> LadderClimbCom
     return cast(LadderClimbCommand, env.command_manager.get_term(command_name))
 
 
-# One rung step on this ladder is 0.299 m. Four limbs are 1.196 m.
 # PPO sees these values after the reward manager multiplies by the 0.02 s step.
-CLIMB_CONTACT_BUBBLE_M = 0.10
+# The along-rail pitch is about 0.20 m. The bubble is about a third of that.
+CLIMB_CONTACT_BUBBLE_M = 0.06
 LATERAL_COEFF = 0.5
 RUNG_HEIGHT_BAND_M = 0.08
 HOLD_REWARD = 0.5
 FLIGHT_RATE = 2.0
 FLIGHT_GRACE_STEPS = 4
-# Per rad/s above the stabilize limits. The manager multiplies by dt.
-# 0.1 makes the logged 0.12 rad/s hang cost about 0.25 over 20 s, under the
-# climb return, and a 0.5 s reach at 2 rad/s excess cost 0.10, under one
-# limb's 0.30 m rung step. A 21 rad/s fall over 0.4 s still costs about 0.85.
-SPEED_EXCESS_RATE = 0.1
-# One limb arriving on its next rung. Leaving pays this back. The manager
-# multiplies by dt, so the potential is returned divided by dt.
-PLANT_REWARD = 0.25
-# Per meter of support-offset error above the stabilize gate. The logged hang
-# at 0.37 m, against a 0.18 m gate, costs about 0.38 over 20 s.
-OFFSET_EXCESS_RATE = 0.1
 
 
 def _gather_rung_centers(centers: torch.Tensor, indices: torch.Tensor) -> torch.Tensor:
@@ -1139,7 +1125,7 @@ def limb_axis_features(
     ``s`` is the remaining distance along the baseline-rung to next-rung axis.
     A limb on exactly that next rung has ``d = 0``. Otherwise
 
-        d = max(s, 0.10)
+        d = max(s, 0.06)
 
     ``ell = 0.5 * lateral`` when the limb is within 0.08 m of the next rung
     height, and 0 when it is above that band.
@@ -1174,7 +1160,7 @@ def ladder_climb(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
         r_climb = Σ_i (d_i⁻ − d_i) + Σ_i (ell_i⁻ − ell_i)
 
     ``d_i = 0`` when that limb is on exactly baseline + 1, and
-    ``d_i = max(s_i, 0.10)`` otherwise. ``s_i`` is the remaining distance
+    ``d_i = max(s_i, 0.06)`` otherwise. ``s_i`` is the remaining distance
     along the rung-to-rung axis. The first sample after a reset, and the step
     that records a completed hold, store the new distances and contribute 0.
     The reward manager multiplies by ``dt``, so this returns ``r_climb / dt``.
@@ -1182,6 +1168,21 @@ def ladder_climb(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
 
     command = _ladder_command(env, command_name)
     return command.reward_terms()["climb"] / env.step_dt
+
+
+def ladder_ascent(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Supported torso progress along the rail, in rung pitches.
+
+    One rung of torso travel is +1. The rise is banked only while at least
+    one foot is in support, so a step with both feet off pays 0 and a later
+    landing collects the change, including a drop. The first sample after a
+    reset, and the step that records a completed hold, store the new height
+    and contribute 0. The manager multiplies by ``dt``, so this returns the
+    rung change divided by ``dt``.
+    """
+
+    command = _ladder_command(env, command_name)
+    return command.reward_terms()["ascent"] / env.step_dt
 
 
 def ladder_hold(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
@@ -1197,42 +1198,6 @@ def ladder_hold(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
 
     command = _ladder_command(env, command_name)
     return command.reward_terms()["hold"] / env.step_dt
-
-
-def ladder_plant(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
-    """Potential on how many limbs are on their own next rung.
-
-    Each arrival pays ``PLANT_REWARD`` and each departure pays it back. The
-    first sample after a reset, and the step that advances the baseline, pay 0.
-    The manager multiplies by ``dt``, so this returns the impulse divided by ``dt``.
-    """
-
-    command = _ladder_command(env, command_name)
-    return command.reward_terms()["plant"] / env.step_dt
-
-
-def ladder_offset(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
-    """Support-offset error above the stabilize gate.
-
-    The cost is zero at or below ``max_stabilization_support_offset_error``.
-    Above it the rate is ``OFFSET_EXCESS_RATE`` per meter. The manager
-    multiplies by ``dt``.
-    """
-
-    command = _ladder_command(env, command_name)
-    return command.reward_terms()["offset"]
-
-
-def ladder_speed(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
-    """Excess joint and angular speed from the first step of the episode.
-
-    The cost is zero at or below the stabilize limits. Above them it is
-    ``SPEED_EXCESS_RATE`` per rad/s, summed across joint-speed RMS, torso
-    angular speed, and pelvis angular speed. The manager multiplies by ``dt``.
-    """
-
-    command = _ladder_command(env, command_name)
-    return command.reward_terms()["speed"]
 
 
 def ladder_flight(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:

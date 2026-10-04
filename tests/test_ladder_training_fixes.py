@@ -38,12 +38,11 @@ def test_deadline_is_terminal_and_has_no_failure_reward() -> None:
     assert cfg.terminations["time_out"].time_out is False
     assert set(cfg.rewards) == {
         "ladder_climb",
+        "ladder_ascent",
         "ladder_hold",
         "ladder_hold_completed",
         "ladder_flight",
-        "ladder_speed",
-        "ladder_plant",
-        "ladder_offset",
+        "action_rate_l2",
     }
     assert "remaining_time" not in cfg.observations["actor"].terms
     assert "remaining_time" not in cfg.observations["critic_history"].terms
