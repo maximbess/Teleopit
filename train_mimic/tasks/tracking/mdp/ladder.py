@@ -306,6 +306,12 @@ class LadderClimbCommand(CommandTerm):
         self._hold_count_prev = torch.zeros(
             self.num_envs, dtype=torch.long, device=self.device
         )
+        self._planted_prev = torch.zeros(
+            self.num_envs, dtype=torch.float32, device=self.device
+        )
+        self._planted_valid = torch.zeros(
+            self.num_envs, dtype=torch.bool, device=self.device
+        )
         self._feet_off_steps = torch.zeros(
             self.num_envs, dtype=torch.long, device=self.device
         )
@@ -681,6 +687,8 @@ class LadderClimbCommand(CommandTerm):
         self.successes[env_ids] = 0
         self._climb_valid[env_ids] = False
         self._hold_count_prev[env_ids] = 0
+        self._planted_prev[env_ids] = 0.0
+        self._planted_valid[env_ids] = False
         self._feet_off_steps[env_ids] = 0
         self._reward_cache_step = -1
         self.baseline_hand_rung[env_ids] = self.cfg.start_rung
@@ -820,6 +828,13 @@ class LadderClimbCommand(CommandTerm):
         for hand_id in (0, 1):
             self._release(env_ids, hand_id)
 
+    def _limbs_on_next_rung(self) -> torch.Tensor:
+        """Whether each limb is attached or supported on exactly baseline + 1."""
+
+        on_hand = self.attached & (self.held_rung == self.baseline_hand_rung + 1)
+        on_foot = self.foot_support & (self.foot_rung == self.baseline_foot_rung + 1)
+        return torch.cat((on_hand, on_foot), dim=1)
+
     def _limb_features(self) -> tuple[torch.Tensor, torch.Tensor]:
         """Return ``(d, ell)`` for both hands and both feet, shape ``(E, 4)``."""
 
@@ -827,9 +842,7 @@ class LadderClimbCommand(CommandTerm):
         limbs = torch.cat((self.hand_pos_w, self.foot_pos_w), dim=1)
         baseline = torch.cat((self.baseline_hand_rung, self.baseline_foot_rung), dim=1)
         nxt = torch.clamp(baseline + 1, min=0, max=self.num_rungs - 1)
-        on_hand = self.attached & (self.held_rung == self.baseline_hand_rung + 1)
-        on_foot = self.foot_support & (self.foot_rung == self.baseline_foot_rung + 1)
-        on_target = torch.cat((on_hand, on_foot), dim=1)
+        on_target = self._limbs_on_next_rung()
         return limb_axis_features(
             limbs,
             _gather_rung_centers(centers, baseline),
@@ -838,7 +851,7 @@ class LadderClimbCommand(CommandTerm):
         )
 
     def reward_terms(self) -> dict[str, torch.Tensor]:
-        """Agent-visible climb, hold, flight, speed, and rung-gap terms for this step.
+        """Agent-visible climb, plant, hold, flight, speed, and offset terms.
 
         Cached on ``common_step_counter`` so the reward terms share one sample.
         """
@@ -889,13 +902,24 @@ class LadderClimbCommand(CommandTerm):
         torso_excess = (conditions["torso_angular_speed"] - angular_limit).clamp_min(0.0)
         pelvis_excess = (conditions["pelvis_angular_speed"] - angular_limit).clamp_min(0.0)
         speed_rate = -SPEED_EXCESS_RATE * (joint_excess + torso_excess + pelvis_excess)
-        gap_rate = -LIMB_GAP_RATE * self._limb_target_gap()
+        planted = self._limbs_on_next_rung().sum(dim=-1).float()
+        plant = PLANT_REWARD * (planted - self._planted_prev)
+        plant_refresh = ~self._planted_valid | self.just_completed
+        plant = torch.where(plant_refresh, torch.zeros_like(plant), plant)
+        self._planted_prev.copy_(planted)
+        self._planted_valid[:] = True
+        offset_excess = (
+            self.torso_support_offset_error
+            - float(self.cfg.max_stabilization_support_offset_error)
+        ).clamp_min(0.0)
+        offset_rate = -OFFSET_EXCESS_RATE * offset_excess
         self._reward_cache = {
             "climb": climb,
             "hold": hold,
             "flight": flight_rate,
             "speed": speed_rate,
-            "gap": gap_rate,
+            "plant": plant,
+            "offset": offset_rate,
         }
         self._reward_cache_step = step_id
         return self._reward_cache
@@ -953,35 +977,6 @@ class LadderClimbCommand(CommandTerm):
 
     def _next_rung(self, baseline: torch.Tensor) -> torch.Tensor:
         return torch.clamp(baseline + 1, min=0, max=self.num_rungs - 1)
-
-    def _limb_target_gap(self) -> torch.Tensor:
-        """Sum of distances from each limb to the segment of its next rung.
-
-        Climb pays only along the rung-to-rung axis, and only outside a 0.10 m
-        bubble, so a hand welded on the current rung has no slope. This gap is
-        the full 3D distance and is zero once that limb is on the next rung.
-        """
-
-        data = self._env.sim.data
-        centers = data.site_xpos[:, self._rung_site_ids]
-        matrices = _as_rotation_matrix(data.site_xmat[:, self._rung_site_ids])
-        axes = matrices[..., :, 2]
-        limbs = torch.cat((self.hand_pos_w, self.foot_pos_w), dim=1)
-        baseline = torch.cat((self.baseline_hand_rung, self.baseline_foot_rung), dim=1)
-        target = torch.clamp(baseline + 1, min=0, max=self.num_rungs - 1)
-        index = target.unsqueeze(-1).expand(-1, -1, 3)
-        chosen_centers = torch.gather(centers, 1, index)
-        chosen_axes = torch.gather(axes, 1, index)
-        half_spans = self._rung_half_lengths[target]
-        offset = ((limbs - chosen_centers) * chosen_axes).sum(dim=-1)
-        offset = torch.maximum(torch.minimum(offset, half_spans), -half_spans)
-        closest = chosen_centers + offset.unsqueeze(-1) * chosen_axes
-        distance = torch.linalg.vector_norm(limbs - closest, dim=-1)
-        on_hand = self.attached & (self.held_rung == self.baseline_hand_rung + 1)
-        on_foot = self.foot_support & (self.foot_rung == self.baseline_foot_rung + 1)
-        on_target = torch.cat((on_hand, on_foot), dim=1)
-        distance = torch.where(on_target, torch.zeros_like(distance), distance)
-        return distance.sum(dim=-1)
 
     def _nearest_rung(
         self,
@@ -1120,10 +1115,12 @@ FLIGHT_GRACE_STEPS = 4
 # climb return, and a 0.5 s reach at 2 rad/s excess cost 0.10, under one
 # limb's 0.30 m rung step. A 21 rad/s fall over 0.4 s still costs about 0.85.
 SPEED_EXCESS_RATE = 0.1
-# Per meter of 3D gap between a limb and its next rung, before dt scaling.
-# One limb a rung (0.30 m) away costs 0.60 over 20 s, twice that limb's climb
-# step, so staying welded on the current rung is worse than moving up.
-LIMB_GAP_RATE = 0.1
+# One limb arriving on its next rung. Leaving pays this back. The manager
+# multiplies by dt, so the potential is returned divided by dt.
+PLANT_REWARD = 0.25
+# Per meter of support-offset error above the stabilize gate. The logged hang
+# at 0.37 m, against a 0.18 m gate, costs about 0.38 over 20 s.
+OFFSET_EXCESS_RATE = 0.1
 
 
 def _gather_rung_centers(centers: torch.Tensor, indices: torch.Tensor) -> torch.Tensor:
@@ -1202,14 +1199,28 @@ def ladder_hold(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     return command.reward_terms()["hold"] / env.step_dt
 
 
-def ladder_gap(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
-    """3D distance from each limb to its next rung.
+def ladder_plant(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Potential on how many limbs are on their own next rung.
 
-    The manager multiplies by ``dt``. A limb already on that rung contributes 0.
+    Each arrival pays ``PLANT_REWARD`` and each departure pays it back. The
+    first sample after a reset, and the step that advances the baseline, pay 0.
+    The manager multiplies by ``dt``, so this returns the impulse divided by ``dt``.
     """
 
     command = _ladder_command(env, command_name)
-    return command.reward_terms()["gap"]
+    return command.reward_terms()["plant"] / env.step_dt
+
+
+def ladder_offset(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Support-offset error above the stabilize gate.
+
+    The cost is zero at or below ``max_stabilization_support_offset_error``.
+    Above it the rate is ``OFFSET_EXCESS_RATE`` per meter. The manager
+    multiplies by ``dt``.
+    """
+
+    command = _ladder_command(env, command_name)
+    return command.reward_terms()["offset"]
 
 
 def ladder_speed(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
