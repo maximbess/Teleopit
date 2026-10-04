@@ -1,24 +1,27 @@
 #!/usr/bin/env bash
-# Pull logs/rsl_rl from the training machine into this repo.
+# Pull one logs/rsl_rl run from the training machine into this repo.
 # The remote is read-only: scp only writes to the local destination.
 # Usage:
 #   scripts/sync_logs.sh user@host:/path/to/Teleopit --port 12345
-#   scripts/sync_logs.sh user@host:/path/to/Teleopit --port 12345 --watch 30
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
-  echo "usage: $0 user@host:/path/to/Teleopit --port PORT [--watch SECONDS]" >&2
+  echo "usage: $0 user@host:/path/to/Teleopit --port PORT" >&2
   exit 2
 fi
 
 REMOTE="${1%/}"
 shift
+if [[ "$REMOTE" != *:* ]]; then
+  echo "remote must be user@host:/path/to/Teleopit" >&2
+  exit 2
+fi
+REMOTE_HOST="${REMOTE%%:*}"
+REMOTE_ROOT="${REMOTE#*:}"
 PORT=""
-WATCH=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --port) PORT="${2:-}"; shift 2 ;;
-    --watch) WATCH="${2:-30}"; shift 2 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -34,21 +37,49 @@ mkdir -p "${ROOT}/logs/rsl_rl"
 # Connection multiplexing asks for the password on the first sync and reuses
 # that authenticated connection. scp is used because the server has no rsync.
 CONTROL_PATH="/tmp/teleopit-sync-${UID}-%C"
+SSH_OPTIONS=(
+  -p "${PORT}"
+  -o ControlMaster=auto
+  -o ControlPersist=600
+  -o "ControlPath=${CONTROL_PATH}"
+)
 
-sync_once() {
-  scp -r -p -P "${PORT}" \
-    -o ControlMaster=auto \
-    -o ControlPersist=600 \
-    -o "ControlPath=${CONTROL_PATH}" \
-    "${REMOTE}/logs/rsl_rl/." \
-    "${ROOT}/logs/rsl_rl/"
-}
+RUN_OUTPUT="$(
+  ssh "${SSH_OPTIONS[@]}" "${REMOTE_HOST}" \
+    "find '${REMOTE_ROOT}/logs/rsl_rl' -mindepth 2 -maxdepth 2 -type d -print | sort"
+)"
 
-if [[ "$WATCH" == 0 ]]; then
-  sync_once
-else
-  while true; do
-    sync_once || true
-    sleep "$WATCH"
-  done
+RUNS=()
+while IFS= read -r remote_run; do
+  [[ -n "$remote_run" ]] || continue
+  RUNS[${#RUNS[@]}]="${remote_run#"${REMOTE_ROOT}/logs/rsl_rl/"}"
+done <<< "$RUN_OUTPUT"
+
+if [[ ${#RUNS[@]} -eq 0 ]]; then
+  echo "no runs found under ${REMOTE_ROOT}/logs/rsl_rl" >&2
+  exit 1
 fi
+
+echo "Available remote runs:"
+for ((i = 0; i < ${#RUNS[@]}; i++)); do
+  printf "  %2d) %s\n" "$((i + 1))" "${RUNS[$i]}"
+done
+
+read -r -p "Choose a run [1-${#RUNS[@]}]: " CHOICE
+if [[ ! "$CHOICE" =~ ^[0-9]+$ ]] \
+  || ((CHOICE < 1 || CHOICE > ${#RUNS[@]})); then
+  echo "invalid selection: ${CHOICE}" >&2
+  exit 2
+fi
+
+RUN_REL="${RUNS[$((CHOICE - 1))]}"
+REMOTE_RUN="${REMOTE_ROOT}/logs/rsl_rl/${RUN_REL}"
+LOCAL_PARENT="${ROOT}/logs/rsl_rl/$(dirname "${RUN_REL}")"
+mkdir -p "${LOCAL_PARENT}"
+echo "Downloading logs/rsl_rl/${RUN_REL}"
+scp -r -p -P "${PORT}" \
+  -o ControlMaster=auto \
+  -o ControlPersist=600 \
+  -o "ControlPath=${CONTROL_PATH}" \
+  "${REMOTE_HOST}:${REMOTE_RUN}" \
+  "${LOCAL_PARENT}/"

@@ -30,6 +30,10 @@ from train_mimic.app import (
 )
 from train_mimic.scripts import train as shared_train
 from train_mimic.tasks.tracking.config.constants import LADDER_RL_TASK
+from train_mimic.tasks.tracking.config.ladder_version import (
+    LADDER_CODE_VERSION,
+    record_ladder_code_version,
+)
 from train_mimic.tasks.tracking.config.env import (
     make_g1_ladder_training_robot_cfg,
     resolve_g1_training_xml,
@@ -145,6 +149,9 @@ def _run_worker(args: argparse.Namespace) -> None:
     os.makedirs(log_root, exist_ok=True)
     log_dir = os.path.join(log_root, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
     os.makedirs(log_dir, exist_ok=True)
+    record_ladder_code_version(log_dir)
+    if shared_train._is_main_process():
+        print(f"[INFO] Ladder code version: {LADDER_CODE_VERSION}")
 
     ladder_cmd = env_cfg.commands["ladder"]
     swanlab_active = shared_train._configure_experiment_logger(
@@ -154,6 +161,7 @@ def _run_worker(args: argparse.Namespace) -> None:
         log_dir=log_dir,
         run_config={
             "task": LADDER_RL_TASK,
+            "code_version": LADDER_CODE_VERSION,
             "experiment_name": agent_cfg.experiment_name,
             "robot_xml": str(robot_xml),
             "num_envs": env_cfg.scene.num_envs,

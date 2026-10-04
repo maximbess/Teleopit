@@ -285,6 +285,7 @@ def _bind_reward_state(command: _QuietLadder) -> None:
     command._climb_valid = torch.zeros(1, dtype=torch.bool)
     command._hold_count_prev = torch.zeros(1, dtype=torch.long)
     command._ascent_prev = torch.zeros(1)
+    command._ascent_lead = torch.zeros(1)
     command._ascent_valid = torch.zeros(1, dtype=torch.bool)
     command._torso_rungs = torch.zeros(1)
     command._torso_rungs_along_rail = lambda: command._torso_rungs  # type: ignore[method-assign]
@@ -384,32 +385,47 @@ def test_supported_torso_progress_banks_only_while_a_foot_is_down() -> None:
     _bind_reward_state(command)
     command._limb_features = lambda: (torch.zeros(1, 4), torch.zeros(1, 4))  # type: ignore[method-assign]
     env = _reward_env(command)
-
-    command._torso_rungs[:] = 1.0
+    # Initial foot rung is 1. The first torso sample at 4 fixes lead0 at 3,
+    # so the cap is 4 while both feet stay on rung 1.
+    command.foot_rung[:] = 1
+    command._torso_rungs[:] = 4.0
     assert ladder_ascent(env, "ladder").item() == 0.0
+    assert command._ascent_lead.item() == pytest.approx(3.0)
 
     env.common_step_counter = 1
-    command._torso_rungs[:] = 2.0
-    assert ladder_ascent(env, "ladder").item() == pytest.approx(1.0 / 0.02)
+    command._torso_rungs[:] = 6.0
+    assert ladder_ascent(env, "ladder").item() == 0.0
 
     env.common_step_counter = 2
-    command._contact[:] = False
-    command._torso_rungs[:] = 3.0
+    command.foot_rung[:] = 2
+    command._torso_rungs[:] = 4.0
     assert ladder_ascent(env, "ladder").item() == 0.0
 
     env.common_step_counter = 3
-    command._contact[:] = True
-    command._torso_rungs[:] = 3.5
-    assert ladder_ascent(env, "ladder").item() == pytest.approx(1.5 / 0.02)
-
-    env.common_step_counter = 4
-    command.just_completed[:] = True
-    command._torso_rungs[:] = 4.5
+    command._contact[:] = False
+    command._torso_rungs[:] = 8.0
     assert ladder_ascent(env, "ladder").item() == 0.0
 
+    env.common_step_counter = 4
+    command._contact[:] = True
+    command.foot_rung[:] = 2
+    command._torso_rungs[:] = 8.0
+    assert ladder_ascent(env, "ladder").item() == pytest.approx(1.0 / 0.02)
+
     env.common_step_counter = 5
+    command.foot_rung[:] = 1
+    command._torso_rungs[:] = 8.0
+    assert ladder_ascent(env, "ladder").item() == pytest.approx(-1.0 / 0.02)
+
+    env.common_step_counter = 6
+    command.foot_rung[:] = 2
+    command._torso_rungs[:] = 6.0
+    command.just_completed[:] = True
+    assert ladder_ascent(env, "ladder").item() == 0.0
+
+    env.common_step_counter = 7
     command.just_completed[:] = False
-    command._torso_rungs[:] = 4.0
+    command._torso_rungs[:] = 4.5
     assert ladder_ascent(env, "ladder").item() == pytest.approx(-0.5 / 0.02)
 
 
@@ -993,7 +1009,7 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
     refined = [i for i, name in enumerate(names) if "_omni_" in name]
     assert refined
     assert all(model.geom_type[i] == mujoco.mjtGeom.mjGEOM_MESH for i in refined)
-    assert all(model.geom_contype[i] == 2 and model.geom_conaffinity[i] == 1 for i in refined)
+    assert all(model.geom_contype[i] == 2 and model.geom_conaffinity[i] == 3 for i in refined)
     assert any(name.startswith("pelvis_contour_omni_") for name in names)
     assert model.geom_priority[rung_id] == 2
     assert model.geom_priority[rail_id] == 2
@@ -1064,6 +1080,19 @@ def test_ladder_distribution_projection_keeps_raw_std_trainable() -> None:
     parameter = _set_distribution_std(distribution, 0.7)
     assert parameter is distribution.std_param
     torch.testing.assert_close(parameter, torch.full((3,), 0.7))
+
+def test_ladder_run_log_records_the_code_version(tmp_path) -> None:
+    from train_mimic.tasks.tracking.config.ladder_version import (
+        LADDER_CODE_VERSION,
+        record_ladder_code_version,
+    )
+
+    path = record_ladder_code_version(str(tmp_path))
+    text = (tmp_path / "code_version.txt").read_text()
+    assert path.endswith("code_version.txt")
+    assert text.startswith(f"{LADDER_CODE_VERSION}\n")
+    assert "lead0" in text
+
 
 def test_train_ladder_cli_has_no_motion_arguments() -> None:
     args = train_ladder.parse_args([])

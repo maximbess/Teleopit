@@ -16,10 +16,11 @@ from teleopit.runtime.g1_collision_assets import (
     CANONICAL_MESH_OVERRIDES, DONOR_TO_CANONICAL_TRANSLATIONS,
 )
 
-# Bit 0 is the climb face and the ground. Robot geoms use bit 1 and listen
-# for bit 0, so they hit the ladder and the floor without hitting each other.
+# Bit 0 is the climb face and the ground. Robot geoms advertise bit 1 and
+# listen for bits 0 and 1, so they hit the ladder, the floor, and each other.
+# Parent-child bodies stay filtered by MuJoCo. The far ladder face stays at 0.
 ROBOT_CONTYPE = 2
-ROBOT_CONAFFINITY = 1
+ROBOT_CONAFFINITY = 3
 
 
 def apply_g1_collision_overlay(spec: mujoco.MjSpec, asset_dir: Path = ASSET_DIR) -> None:

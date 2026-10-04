@@ -325,12 +325,12 @@ def make_g1_ladder_training_robot_cfg(robot_xml: str | Path | None = None):
     robot_cfg.init_state.rot = LADDER_INITIAL_ROOT_ROT
     robot_cfg.init_state.joint_pos = dict(LADDER_INITIAL_JOINT_POS)
     robot_cfg.init_state.joint_vel = {".*": 0.0}
-    # The stock editor enables every ``.*_collision`` geom, including
-    # self-collision, and disables the rest. Replace it so robot surfaces
-    # keep their contact parameters but only collide with the climb face and
-    # the ground. The far A-frame face stays in the model for rendering and
-    # is not re-enabled. MuJoCo Warp rejects nonzero margins on box/mesh
-    # pairs with MULTICCD. Box rungs stay at zero. Capsule rails keep 2 mm.
+    # The stock editor enables every ``.*_collision`` geom and disables the
+    # rest. Robot surfaces keep those parameters and collide with the climb
+    # face, the ground, and each other. The far A-frame face stays in the
+    # model for rendering and is not re-enabled. MuJoCo Warp rejects nonzero
+    # margins on box/mesh pairs with MULTICCD. Box rungs stay at zero.
+    # Capsule rails keep 2 mm.
     robot_cfg.collisions = (
         spec_cfg.CollisionCfg(
             geom_names_expr=(".*_collision",),
@@ -769,7 +769,8 @@ def make_g1_ladder_rl_env_cfg(
 
     rewards = {
         # 0.5 on a 0.20 m rung is 0.10 per limb. Two hands are 0.20, against
-        # +1 for one rung of supported torso travel.
+        # +1 when the torso follows the higher foot up one rung. Standing
+        # past the reset lead over that foot pays nothing.
         "ladder_climb": RewardTermCfg(
             func=mdp.ladder_climb,
             weight=0.5,

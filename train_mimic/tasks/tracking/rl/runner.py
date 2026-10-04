@@ -12,6 +12,8 @@ from mjlab.rl import RslRlVecEnvWrapper
 from mjlab.rl.runner import MjlabOnPolicyRunner
 from rsl_rl.utils import check_nan
 
+from train_mimic.tasks.tracking.config.ladder_version import LADDER_CODE_VERSION
+
 
 def _one_based_iteration_range(start_iteration: int, total_iterations: int) -> range:
     """Return the inclusive 1-based iteration range up to the target total."""
@@ -275,7 +277,12 @@ class LadderOnPolicyRunner(MjlabOnPolicyRunner):
         if self.is_distributed:
             print(f"Synchronizing parameters for rank {self.gpu_global_rank}...")
             self.alg.broadcast_parameters()
+        self.cfg["code_version"] = LADDER_CODE_VERSION
+        self.logger.cfg["code_version"] = LADDER_CODE_VERSION
         self.logger.init_logging_writer()
+        writer = self.logger.writer
+        if writer is not None and hasattr(writer, "add_text"):
+            writer.add_text("Code/version", LADDER_CODE_VERSION, 0)
 
         start_it = self.current_learning_iteration
         total_it = _resolve_total_iterations(start_it, num_learning_iterations)
@@ -561,6 +568,13 @@ class MotionTrackingOnPolicyRunner(MjlabOnPolicyRunner):
             f"""{"Run name:":>{pad}} {run_name}
 """
             if run_name
+            else ""
+        )
+        code_version = logger.cfg.get("code_version")
+        log_string += (
+            f"""{"Code version:":>{pad}} {code_version}
+"""
+            if code_version
             else ""
         )
         log_string += (

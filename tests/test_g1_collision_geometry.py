@@ -90,23 +90,35 @@ def test_refined_initial_contacts_and_mesh_budget():
     assert len(refined_ids) <= len(BODY_MAP) * 12
     for i in refined_ids:
         assert model.geom_contype[i] == 2
-        assert model.geom_conaffinity[i] == 1
+        assert model.geom_conaffinity[i] == 3
         assert model.mesh_vertnum[model.geom_dataid[i]] <= 64
     contacts = []
-    foot_sides = set()
     for c in data.contact:
         pair = [names[int(i)] for i in c.geom]
-        contacts.append((pair, float(c.dist)))
-        if "left_ladder_rung_02" in pair:
-            for side in ("left", "right"):
-                if any(name.startswith(side + "_foot_omni_") for name in pair):
-                    foot_sides.add(side)
-                    assert c.dim == 4
-                    assert c.friction[0] == pytest.approx(1.8)
+        contacts.append((pair, float(c.dist), int(c.dim), float(c.friction[0])))
+        if any("left_ladder_rung_" in name for name in pair):
+            assert c.dim == 4
+            assert c.friction[0] == pytest.approx(1.8)
     print("Initial contacts:", contacts)
-    assert foot_sides == {"left", "right"}
-    assert all(distance >= -0.003 for _, distance in contacts), contacts
-    assert all(any("_foot_omni_" in name for name in pair) for pair, _ in contacts), contacts
+    assert all(distance >= -0.003 for _, distance, _, _ in contacts), contacts
+    # Self-collision is on. Parent-child pairs and the knee/foot-shell
+    # excludes are already filtered, so a robot-robot contact here is a
+    # real interpenetration. The feet rest a few millimetres above rung 04.
+    robot_robot = [
+        (pair, distance)
+        for pair, distance, _, _ in contacts
+        if not any("ladder" in name or name in {"floor", "terrain"} for name in pair)
+    ]
+    assert robot_robot == [], robot_robot
+    assert all(any("_foot_omni_" in name for name in pair) for pair, _, _, _ in contacts), contacts
+    fromto = np.zeros(6)
+    rung = next(i for i, name in enumerate(names) if name == "left_ladder_rung_04")
+    for side in ("left", "right"):
+        feet = [i for i, name in enumerate(names) if name.startswith(side + "_foot_omni_")]
+        gap = min(
+            mujoco.mj_geomDistance(model, data, foot, rung, 0.05, fromto) for foot in feet
+        )
+        assert -0.003 <= gap <= 0.008, (side, gap)
 
 
 def _geoms_collide(model, first: int, second: int) -> bool:
@@ -116,7 +128,7 @@ def _geoms_collide(model, first: int, second: int) -> bool:
     )
 
 
-def test_far_face_is_visual_and_robot_geoms_do_not_self_collide():
+def test_far_face_is_visual_and_robot_geoms_collide_with_each_other():
     cfg = config.make_g1_ladder_rl_env_cfg()
     assert tuple(sensor.name for sensor in cfg.scene.sensors) == ("ladder_foot_contact",)
     assert not any(s.name == "self_collision" for s in cfg.scene.sensors)
@@ -132,10 +144,10 @@ def test_far_face_is_visual_and_robot_geoms_do_not_self_collide():
     assert model.geom_contype[right_rung] == model.geom_conaffinity[right_rung] == 0
     assert model.geom_contype[right_rail] == model.geom_conaffinity[right_rail] == 0
     assert model.geom_contype[left_rung] == 1 and model.geom_conaffinity[left_rung] == 0
-    assert model.geom_contype[foot] == 2 and model.geom_conaffinity[foot] == 1
+    assert model.geom_contype[foot] == 2 and model.geom_conaffinity[foot] == 3
     assert _geoms_collide(model, foot, left_rung)
     assert not _geoms_collide(model, foot, right_rung)
-    assert not _geoms_collide(model, foot, torso)
+    assert _geoms_collide(model, foot, torso)
     # The scene ground keeps MuJoCo's default contype=1, conaffinity=1.
     assert (1 & int(model.geom_conaffinity[foot])) or (int(model.geom_contype[foot]) & 1)
 

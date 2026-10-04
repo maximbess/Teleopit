@@ -309,6 +309,9 @@ class LadderClimbCommand(CommandTerm):
         self._ascent_prev = torch.zeros(
             self.num_envs, dtype=torch.float32, device=self.device
         )
+        self._ascent_lead = torch.zeros(
+            self.num_envs, dtype=torch.float32, device=self.device
+        )
         self._ascent_valid = torch.zeros(
             self.num_envs, dtype=torch.bool, device=self.device
         )
@@ -688,6 +691,7 @@ class LadderClimbCommand(CommandTerm):
         self._climb_valid[env_ids] = False
         self._hold_count_prev[env_ids] = 0
         self._ascent_prev[env_ids] = 0.0
+        self._ascent_lead[env_ids] = 0.0
         self._ascent_valid[env_ids] = False
         self._feet_off_steps[env_ids] = 0
         self._reward_cache_step = -1
@@ -906,11 +910,27 @@ class LadderClimbCommand(CommandTerm):
         )
         height = self._torso_rungs_along_rail()
         supported = self.foot_support.any(dim=-1)
-        delta = height - self._ascent_prev
+        # lead0 is the crouched gap at reset: torso rungs minus the initial
+        # foot rung. Standing in place keeps that gap and pays nothing.
+        # Moving the higher supported foot up by one rung raises the cap by
+        # one, and the torso collects that rung only by following.
+        fresh = ~self._ascent_valid
+        lead = height - float(self.cfg.initial_foot_rung)
+        self._ascent_lead.copy_(torch.where(fresh, lead, self._ascent_lead))
+        supported_rungs = torch.where(
+            self.foot_support,
+            self.foot_rung,
+            torch.full_like(self.foot_rung, torch.iinfo(self.foot_rung.dtype).min),
+        )
+        support_rung = supported_rungs.amax(dim=-1).to(dtype=height.dtype)
+        payable = torch.minimum(height, support_rung + self._ascent_lead)
+        delta = payable - self._ascent_prev
         pay = supported & self._ascent_valid & ~self.just_completed
         ascent = torch.where(pay, delta, torch.zeros_like(delta))
-        update = supported | ~self._ascent_valid | self.just_completed
-        self._ascent_prev.copy_(torch.where(update, height, self._ascent_prev))
+        stored = torch.where(supported, payable, self._ascent_prev)
+        stored = torch.where(fresh, height, stored)
+        update = fresh | supported | self.just_completed
+        self._ascent_prev.copy_(torch.where(update, stored, self._ascent_prev))
         self._ascent_valid[:] = True
         self._reward_cache = {
             "climb": climb,
@@ -1171,14 +1191,17 @@ def ladder_climb(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
 
 
 def ladder_ascent(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
-    """Supported torso progress along the rail, in rung pitches.
+    """Supported torso progress along the rail, capped at the reset lead.
 
-    One rung of torso travel is +1. The rise is banked only while at least
-    one foot is in support, so a step with both feet off pays 0 and a later
-    landing collects the change, including a drop. The first sample after a
-    reset, and the step that records a completed hold, store the new height
-    and contribute 0. The manager multiplies by ``dt``, so this returns the
-    rung change divided by ``dt``.
+    ``lead0`` is the torso rung coordinate on the first sample after a reset
+    minus the initial foot rung. While a foot is in support the payable
+    height is ``min(torso, highest supported foot rung + lead0)``. One rung
+    of that payable height is +1. A rise with the foot staying put pays 0.
+    A step with both feet off pays 0 and a later landing collects the change,
+    including a drop of the support foot. The first sample after a reset, and
+    the step that records a completed hold, store the new payable height and
+    contribute 0. The manager multiplies by ``dt``, so this returns the rung
+    change divided by ``dt``.
     """
 
     command = _ladder_command(env, command_name)
