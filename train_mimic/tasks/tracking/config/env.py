@@ -788,6 +788,11 @@ def make_g1_ladder_rl_env_cfg(
             weight=1.0,
             params={"command_name": "ladder"},
         ),
+        "ladder_gap": RewardTermCfg(
+            func=mdp.ladder_gap,
+            weight=1.0,
+            params={"command_name": "ladder"},
+        ),
     }
 
     terminations = {

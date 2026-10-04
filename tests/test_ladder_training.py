@@ -32,11 +32,13 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     FLIGHT_GRACE_STEPS,
     FLIGHT_RATE,
     HOLD_REWARD,
+    LIMB_GAP_RATE,
     SPEED_EXCESS_RATE,
     LadderClimbCommand,
     LadderGripActionCfg,
     ladder_climb,
     ladder_flight,
+    ladder_gap,
     ladder_hold,
     ladder_hold_completed,
     ladder_speed,
@@ -87,6 +89,9 @@ class _QuietLadder(LadderClimbCommand):
         self.attached[env_ids, hand_id] = True
         self.grip_strength[env_ids, hand_id] = 1.0
         self.held_rung[env_ids, hand_id] = rung_indices
+
+    def _limb_target_gap(self) -> torch.Tensor:
+        return torch.zeros(self.attached.shape[0])
 
 
 def _quiet_ladder(*, dwell: int = 3, successes: int = 2) -> _QuietLadder:
@@ -145,12 +150,14 @@ def test_ladder_task_is_one_repeated_hold() -> None:
         "ladder_hold_completed",
         "ladder_flight",
         "ladder_speed",
+        "ladder_gap",
     }
     assert cfg.rewards["ladder_climb"].func is ladder_climb
     assert cfg.rewards["ladder_hold"].func is ladder_hold
     assert cfg.rewards["ladder_hold_completed"].func is ladder_hold_completed
     assert cfg.rewards["ladder_flight"].func is ladder_flight
     assert cfg.rewards["ladder_speed"].func is ladder_speed
+    assert cfg.rewards["ladder_gap"].func is ladder_gap
     assert cfg.rewards["ladder_hold_completed"].weight == 1.0
     assert cfg.terminations["time_out"].time_out is False
     assert "curriculum_stage_complete" not in cfg.terminations
@@ -179,6 +186,7 @@ def test_ladder_task_is_one_repeated_hold() -> None:
         "ladder_hold_completed",
         "ladder_flight",
         "ladder_speed",
+        "ladder_gap",
     }
 
 
@@ -379,6 +387,51 @@ def test_speed_penalty_is_zero_inside_the_limits_and_costs_the_excess() -> None:
     command._pelvis_spin[:] = torch.tensor([1.40, 0.0, 0.0])
     # joint RMS 5 is 4 over the limit; pelvis spin 1.40 is 1 over 0.40.
     assert ladder_speed(env, "ladder").item() == pytest.approx(-SPEED_EXCESS_RATE * 5.0)
+
+
+def test_gap_penalty_charges_the_distance_to_the_next_rung() -> None:
+    command = _quiet_ladder()
+    _bind_reward_state(command)
+    command._limb_features = lambda: (torch.zeros(1, 4), torch.zeros(1, 4))  # type: ignore[method-assign]
+    command._limb_target_gap = lambda: torch.tensor([1.2])  # type: ignore[method-assign]
+    env = _reward_env(command)
+
+    assert ladder_gap(env, "ladder").item() == pytest.approx(-LIMB_GAP_RATE * 1.2)
+
+
+def test_limb_target_gap_measures_the_next_rung_and_zeroes_a_planted_limb() -> None:
+    command = _quiet_ladder()
+    command.baseline_hand_rung = torch.tensor([[0, 0]])
+    command.baseline_foot_rung = torch.tensor([[0, 0]])
+    command.held_rung = torch.tensor([[0, 0]])
+    command.foot_rung = torch.tensor([[-1, -1]])
+    command.attached = torch.zeros(1, 2, dtype=torch.bool)
+    command._contact = torch.zeros(1, 2, dtype=torch.bool)
+    command._hands = torch.zeros(1, 2, 3)
+    command._feet = torch.zeros(1, 2, 3)
+    command._rung_site_ids = torch.tensor([0, 1])
+    command._rung_half_lengths = torch.tensor([0.2, 0.2])
+    centers = torch.zeros(1, 2, 3)
+    centers[0, 1, 2] = 0.30
+    # Site z axis along y, so the rung segment is horizontal.
+    rung_xmat = torch.tensor([1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0])
+    command._env = SimpleNamespace(
+        sim=SimpleNamespace(
+            data=SimpleNamespace(
+                site_xpos=centers,
+                site_xmat=rung_xmat.view(1, 1, 9).expand(1, 2, 9).contiguous(),
+            )
+        )
+    )
+
+    gap = LadderClimbCommand._limb_target_gap(command)
+
+    assert gap.item() == pytest.approx(1.2)
+
+    command.attached[:, 0] = True
+    command.held_rung[:, 0] = 1
+    planted = LadderClimbCommand._limb_target_gap(command)
+    assert planted.item() == pytest.approx(0.9)
 
 
 def test_over_speed_releases_both_welds_and_a_quiet_hold_keeps_them() -> None:
