@@ -1085,7 +1085,10 @@ HOLD_REWARD = 0.5
 FLIGHT_RATE = 2.0
 FLIGHT_GRACE_STEPS = 4
 # Per rad/s above the stabilize limits. The manager multiplies by dt.
-SPEED_EXCESS_RATE = 0.5
+# 0.1 makes the logged 0.12 rad/s hang cost about 0.25 over 20 s, under the
+# climb return, and a 0.5 s reach at 2 rad/s excess cost 0.10, under one
+# limb's 0.30 m rung step. A 21 rad/s fall over 0.4 s still costs about 0.85.
+SPEED_EXCESS_RATE = 0.1
 
 
 def _gather_rung_centers(centers: torch.Tensor, indices: torch.Tensor) -> torch.Tensor:
