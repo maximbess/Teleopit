@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import pytest
 
+import torch
+
 from train_mimic.tasks.tracking.rl.runner import (
     _format_duration,
     _mean_episode_length_s,
     _one_based_iteration_range,
     _ordered_episode_extra_keys,
     _resolve_total_iterations,
+    _termination_counts_to_rates,
 )
 
 
@@ -69,3 +72,27 @@ def test_episode_extra_keys_include_resets_later_in_rollout() -> None:
         "Episode_Reward/height",
         "Episode_Termination/time_out",
     )
+
+
+def test_termination_counts_become_the_fraction_of_resets() -> None:
+    extras = {
+        "log": {
+            "Episode_Termination/fell_over": 2.0,
+            "Episode_Termination/success": torch.tensor(1.0),
+            "Episode_Reward/ladder_climb": -0.01,
+        }
+    }
+
+    _termination_counts_to_rates(extras, torch.tensor([1, 0, 1, 1]))
+
+    assert extras["log"]["Episode_Termination/fell_over"] == pytest.approx(2.0 / 3.0)
+    assert extras["log"]["Episode_Termination/success"].item() == pytest.approx(1.0 / 3.0)
+    assert extras["log"]["Episode_Reward/ladder_climb"] == -0.01
+
+
+def test_termination_counts_stay_put_when_nothing_reset() -> None:
+    extras = {"log": {"Episode_Termination/fell_over": 4.0}}
+
+    _termination_counts_to_rates(extras, torch.zeros(4))
+
+    assert extras["log"]["Episode_Termination/fell_over"] == 4.0

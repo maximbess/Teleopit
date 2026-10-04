@@ -50,6 +50,33 @@ def _format_duration(seconds: float) -> str:
     return f"{hours:02d}:{minutes:02d}:{secs:02d}"
 
 
+_TERMINATION_LOG_PREFIX = "Episode_Termination/"
+
+
+def _termination_counts_to_rates(extras: dict, dones: torch.Tensor) -> None:
+    """Turn per-step termination counts into the fraction of resets they caused.
+
+    MJLab logs ``count_nonzero`` over the environments reset on that step.
+    Dividing by the number of resets makes each ``Episode_Termination/*`` entry
+    a rate in ``[0, 1]``. Terms can be true together, so the rates on one step
+    can sum to more than one.
+    """
+
+    log = extras.get("log")
+    if not isinstance(log, dict):
+        return
+    reset_count = float(dones.sum().item())
+    if reset_count <= 0.0:
+        return
+    for key, value in list(log.items()):
+        if not str(key).startswith(_TERMINATION_LOG_PREFIX):
+            continue
+        if isinstance(value, torch.Tensor):
+            log[key] = value.detach().float() / reset_count
+        else:
+            log[key] = float(value) / reset_count
+
+
 def _ordered_episode_extra_keys(ep_extras: list[dict]) -> tuple[str, ...]:
     """Return every logged episode key in first-seen order.
 
@@ -188,6 +215,7 @@ class LadderOnPolicyRunner(MjlabOnPolicyRunner):
                         if self.cfg["algorithm"]["rnd_cfg"]
                         else None
                     )
+                    _termination_counts_to_rates(extras, dones)
                     self.logger.process_env_step(
                         rewards,
                         dones,
@@ -304,6 +332,7 @@ class MotionTrackingOnPolicyRunner(MjlabOnPolicyRunner):
                         if self.cfg["algorithm"]["rnd_cfg"]
                         else None
                     )
+                    _termination_counts_to_rates(extras, dones)
                     self.logger.process_env_step(
                         rewards, dones, extras, intrinsic_rewards
                     )
