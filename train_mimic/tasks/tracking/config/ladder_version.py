@@ -8,13 +8,16 @@ from __future__ import annotations
 
 import os
 
-LADDER_CODE_VERSION = "contact-1"
+LADDER_CODE_VERSION = "rate-1"
 LADDER_CODE_VERSION_NOTES = (
-    "Climb pays 0.25 once when a hand welds to the next rung with both feet "
-    "on a tread, or a foot plants the next tread with a hand attached. Air "
-    "distance pays nothing. Ascent still pays min(torso, lower foot + lead0) "
-    "only while both feet are on a tread and a hand is attached. Flight "
-    "charges only when both feet are off. action_rate weight is -0.002."
+    "Climb pays 0.5 per meter of approach until the limb is on the next "
+    "rung, so one 0.20 m rung is +0.10, plus 0.25 per second while a hand "
+    "is welded there with both feet on a tread or a foot is planted there "
+    "with a hand attached, capped at +0.25 per limb. Ascent pays 1 per "
+    "second of unlocked min(torso, lower foot + lead0) above the opening "
+    "torso height, capped at +1, only while both feet are on a tread and a "
+    "hand is attached. Flight charges only when both feet are off. "
+    "action_rate weight is -0.002."
 )
 
 

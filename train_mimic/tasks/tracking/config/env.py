@@ -768,15 +768,20 @@ def make_g1_ladder_rl_env_cfg(
     }
 
     rewards = {
-        # +0.25 the moment a hand welds to the next rung with both feet
-        # still on a tread, or a foot plants the next tread with a hand
-        # still on. Four limbs are +1, matching one rung of ascent. Air
-        # distance is 0, so a fold toward the ladder collects nothing.
+        # 0.5 per meter of approach, so one 0.20 m rung is +0.10. The
+        # tread-1 fold closed about 0.36 m and would score +0.18. Contact
+        # then pays 0.25 per second while the gate holds, capped at +0.25
+        # per limb, so one second on a plant beats that fold. Four plants
+        # are +1, matching one rung of ascent. A single frame is +0.005.
         "ladder_climb": RewardTermCfg(
             func=mdp.ladder_climb,
             weight=1.0,
             params={"command_name": "ladder"},
         ),
+        # 1 per second of unlocked torso height, capped at +1. One frame of
+        # a fully unlocked stance is +0.02. Payable height is
+        # min(torso, lower foot + lead0), and only while both feet are on a
+        # tread and a hand is attached.
         "ladder_ascent": RewardTermCfg(
             func=mdp.ladder_ascent,
             weight=1.0,
