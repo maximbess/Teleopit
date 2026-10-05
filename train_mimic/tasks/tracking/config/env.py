@@ -768,12 +768,13 @@ def make_g1_ladder_rl_env_cfg(
     }
 
     rewards = {
-        # 0.5 on a 0.20 m rung is 0.10 per limb. Feet are paid toward the
-        # tread top. +1 arrives when the torso follows the lower foot up one
-        # rung, with both feet on a tread and a hand still attached.
+        # +0.25 the moment a hand welds to the next rung with both feet
+        # still on a tread, or a foot plants the next tread with a hand
+        # still on. Four limbs are +1, matching one rung of ascent. Air
+        # distance is 0, so a fold toward the ladder collects nothing.
         "ladder_climb": RewardTermCfg(
             func=mdp.ladder_climb,
-            weight=0.5,
+            weight=1.0,
             params={"command_name": "ladder"},
         ),
         "ladder_ascent": RewardTermCfg(
@@ -796,11 +797,13 @@ def make_g1_ladder_rl_env_cfg(
             weight=1.0,
             params={"command_name": "ladder"},
         ),
-        # dt scales this, so -0.01 charges about 0.2 over 20 s when the
-        # squared action change stays near 1.
+        # Squared action change near 1 for the whole 20 s costs 0.04, about
+        # a sixth of one plant. The tread-1 fall averaged near 7.5 and would
+        # cost 0.30 stretched over 20 s, about one plant, so dying early to
+        # escape the penalty saves less than a contact.
         "action_rate_l2": RewardTermCfg(
             func=mdp.action_rate_l2,
-            weight=-0.01,
+            weight=-0.002,
         ),
     }
 

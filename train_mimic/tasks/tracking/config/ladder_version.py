@@ -8,12 +8,13 @@ from __future__ import annotations
 
 import os
 
-LADDER_CODE_VERSION = "tread-1"
+LADDER_CODE_VERSION = "contact-1"
 LADDER_CODE_VERSION_NOTES = (
-    "Ascent pays min(torso rungs, lower supported foot rung + lead0) only "
-    "while both feet are on the tread and a hand is attached. lead0 is the "
-    "torso rung coordinate at reset minus the initial foot rung. Foot climb "
-    "aims at the tread top. A foot under the rung is not support."
+    "Climb pays 0.25 once when a hand welds to the next rung with both feet "
+    "on a tread, or a foot plants the next tread with a hand attached. Air "
+    "distance pays nothing. Ascent still pays min(torso, lower foot + lead0) "
+    "only while both feet are on a tread and a hand is attached. Flight "
+    "charges only when both feet are off. action_rate weight is -0.002."
 )
 
 

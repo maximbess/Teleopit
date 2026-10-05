@@ -31,6 +31,7 @@ from train_mimic.tasks.tracking.config.env import (
 )
 from train_mimic.tasks.tracking.mdp import action_rate_l2
 from train_mimic.tasks.tracking.mdp.ladder import (
+    CLIMB_CONTACT_BONUS,
     FLIGHT_GRACE_STEPS,
     FLIGHT_RATE,
     FOOT_HAND_RUNG_GAP,
@@ -154,14 +155,14 @@ def test_ladder_task_is_one_repeated_hold() -> None:
         "action_rate_l2",
     }
     assert cfg.rewards["ladder_climb"].func is ladder_climb
-    assert cfg.rewards["ladder_climb"].weight == 0.5
+    assert cfg.rewards["ladder_climb"].weight == 1.0
     assert cfg.rewards["ladder_ascent"].func is ladder_ascent
     assert cfg.rewards["ladder_ascent"].weight == 1.0
     assert cfg.rewards["ladder_hold"].func is ladder_hold
     assert cfg.rewards["ladder_hold_completed"].func is ladder_hold_completed
     assert cfg.rewards["ladder_flight"].func is ladder_flight
     assert cfg.rewards["action_rate_l2"].func is action_rate_l2
-    assert cfg.rewards["action_rate_l2"].weight == -0.01
+    assert cfg.rewards["action_rate_l2"].weight == -0.002
     assert cfg.rewards["ladder_hold_completed"].weight == 1.0
     assert cfg.terminations["time_out"].time_out is False
     assert "curriculum_stage_complete" not in cfg.terminations
@@ -324,8 +325,7 @@ def test_limb_axis_distance_caps_at_the_contact_bubble() -> None:
 
 
 def _bind_reward_state(command: _QuietLadder) -> None:
-    command._climb_distance = torch.zeros(1, 4)
-    command._climb_lateral = torch.zeros(1, 4)
+    command._climb_paid = torch.zeros(1, 4, dtype=torch.bool)
     command._climb_valid = torch.zeros(1, dtype=torch.bool)
     command._hold_count_prev = torch.zeros(1, dtype=torch.long)
     command._ascent_prev = torch.zeros(1)
@@ -350,24 +350,57 @@ def _reward_env(command: _QuietLadder) -> SimpleNamespace:
     return command._env
 
 
-def test_climb_pays_the_distance_decrease_and_skips_the_first_sample() -> None:
+def test_climb_pays_a_contact_once_and_ignores_a_reach() -> None:
     command = _quiet_ladder(dwell=50)
     _bind_reward_state(command)
     env = _reward_env(command)
-    features = [
-        (torch.full((1, 4), 0.299), torch.zeros(1, 4)),
-        (torch.full((1, 4), 0.149), torch.zeros(1, 4)),
-    ]
-
-    def _features() -> tuple[torch.Tensor, torch.Tensor]:
-        return features[min(env.common_step_counter, 1)]
-
-    command._limb_features = _features  # type: ignore[method-assign]
-
+    # The next hand rung is 5 and the next foot rung is 2. A hand that is
+    # already there pays nothing while a foot is off, including the first sample.
+    command.held_rung[:, 0] = 5
+    command._contact[:, 1] = False
     assert ladder_climb(env, "ladder").item() == 0.0
     env.common_step_counter = 1
-    # 4 limbs * 0.150 m / 0.02 s
-    assert ladder_climb(env, "ladder").item() == pytest.approx(4 * 0.150 / 0.02)
+    assert ladder_climb(env, "ladder").item() == 0.0
+
+    env.common_step_counter = 2
+    command._contact[:] = True
+    assert ladder_climb(env, "ladder").item() == pytest.approx(CLIMB_CONTACT_BONUS / 0.02)
+    env.common_step_counter = 3
+    assert ladder_climb(env, "ladder").item() == 0.0
+
+    env.common_step_counter = 4
+    command.foot_rung[:, 0] = 2
+    assert ladder_climb(env, "ladder").item() == pytest.approx(CLIMB_CONTACT_BONUS / 0.02)
+    env.common_step_counter = 5
+    assert ladder_climb(env, "ladder").item() == 0.0
+
+    env.common_step_counter = 6
+    command.foot_rung[:, 0] = 1
+    assert ladder_climb(env, "ladder").item() == 0.0
+    env.common_step_counter = 7
+    command.foot_rung[:, 0] = 2
+    assert ladder_climb(env, "ladder").item() == 0.0
+
+    env.common_step_counter = 8
+    command.attached[:] = False
+    command.foot_rung[:, 1] = 2
+    assert ladder_climb(env, "ladder").item() == 0.0
+
+    # Completion clears the paid flags and makes the arrived rungs the baseline.
+    env.common_step_counter = 9
+    command.attached[:, 0] = True
+    command.foot_rung[:, 1] = 1
+    command.just_completed[:] = True
+    command.baseline_hand_rung[:, 0] = 5
+    command.baseline_foot_rung[:, 0] = 2
+    assert ladder_climb(env, "ladder").item() == 0.0
+    env.common_step_counter = 10
+    command.just_completed[:] = False
+    assert ladder_climb(env, "ladder").item() == 0.0
+    env.common_step_counter = 11
+    command.attached[:, 1] = True
+    command.held_rung[:, 1] = 5
+    assert ladder_climb(env, "ladder").item() == pytest.approx(CLIMB_CONTACT_BONUS / 0.02)
 
 
 def test_hold_pays_back_a_broken_gate_and_not_a_completion() -> None:
@@ -421,7 +454,7 @@ def test_flight_penalty_waits_through_the_grace_and_ignores_a_two_hand_reach() -
 
     env.common_step_counter = FLIGHT_GRACE_STEPS + 3
     command.attached[:] = False
-    assert ladder_flight(env, "ladder").item() == pytest.approx(-FLIGHT_RATE)
+    assert ladder_flight(env, "ladder").item() == 0.0
 
 
 def test_supported_torso_progress_banks_only_while_a_foot_is_down() -> None:
