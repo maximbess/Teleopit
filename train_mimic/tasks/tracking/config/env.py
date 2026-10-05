@@ -768,9 +768,9 @@ def make_g1_ladder_rl_env_cfg(
     }
 
     rewards = {
-        # 0.5 on a 0.20 m rung is 0.10 per limb. Two hands are 0.20, against
-        # +1 when the torso follows the higher foot up one rung. Standing
-        # past the reset lead over that foot pays nothing.
+        # 0.5 on a 0.20 m rung is 0.10 per limb. Feet are paid toward the
+        # tread top. +1 arrives when the torso follows the lower foot up one
+        # rung, with both feet on a tread and a hand still attached.
         "ladder_climb": RewardTermCfg(
             func=mdp.ladder_climb,
             weight=0.5,

@@ -771,11 +771,14 @@ class LadderClimbCommand(CommandTerm):
         )
 
     def _detect_foot_rungs(self) -> None:
+        centers = self._env.sim.data.site_xpos[:, self._rung_site_ids]
         for foot_id in (0, 1):
-            indices, distances = self._nearest_rung(self.foot_pos_w[:, foot_id])
-            supported = self.foot_contact[:, foot_id] & (
-                distances <= self.cfg.foot_support_distance
-            )
+            foot_pos = self.foot_pos_w[:, foot_id]
+            indices, _distances = self._nearest_rung(foot_pos)
+            chosen = _gather_rung_centers(centers, indices.unsqueeze(1)).squeeze(1)
+            half_span = self._rung_half_lengths[indices]
+            on_tread = foot_on_tread(foot_pos, chosen, half_span)
+            supported = self.foot_contact[:, foot_id] & on_tread
             detected = torch.where(supported, indices, torch.full_like(indices, -1))
             self.foot_rung[:, foot_id] = torch.where(
                 self._skip_foot_detection,
@@ -843,15 +846,30 @@ class LadderClimbCommand(CommandTerm):
         """Return ``(d, ell)`` for both hands and both feet, shape ``(E, 4)``."""
 
         centers = self._env.sim.data.site_xpos[:, self._rung_site_ids]
-        limbs = torch.cat((self.hand_pos_w, self.foot_pos_w), dim=1)
-        baseline = torch.cat((self.baseline_hand_rung, self.baseline_foot_rung), dim=1)
-        nxt = torch.clamp(baseline + 1, min=0, max=self.num_rungs - 1)
         on_target = self._limbs_on_next_rung()
-        return limb_axis_features(
-            limbs,
-            _gather_rung_centers(centers, baseline),
-            _gather_rung_centers(centers, nxt),
-            on_target,
+        hand_next = torch.clamp(
+            self.baseline_hand_rung + 1, min=0, max=self.num_rungs - 1
+        )
+        foot_next = torch.clamp(
+            self.baseline_foot_rung + 1, min=0, max=self.num_rungs - 1
+        )
+        hand_distance, hand_lateral = limb_axis_features(
+            self.hand_pos_w,
+            _gather_rung_centers(centers, self.baseline_hand_rung),
+            _gather_rung_centers(centers, hand_next),
+            on_target[:, :2],
+        )
+        next_foot_center = _gather_rung_centers(centers, foot_next)
+        half_span = self._rung_half_lengths[foot_next.clamp(min=0)]
+        foot_distance, foot_lateral = foot_tread_features(
+            self.foot_pos_w,
+            next_foot_center,
+            half_span,
+            on_target[:, 2:],
+        )
+        return (
+            torch.cat((hand_distance, foot_distance), dim=1),
+            torch.cat((hand_lateral, foot_lateral), dim=1),
         )
 
     def _torso_rungs_along_rail(self) -> torch.Tensor:
@@ -909,27 +927,28 @@ class LadderClimbCommand(CommandTerm):
             torch.zeros_like(climb),
         )
         height = self._torso_rungs_along_rail()
-        supported = self.foot_support.any(dim=-1)
-        # lead0 is the crouched gap at reset: torso rungs minus the initial
-        # foot rung. Standing in place keeps that gap and pays nothing.
-        # Moving the higher supported foot up by one rung raises the cap by
-        # one, and the torso collects that rung only by following.
+        # lead0 is the crouched gap at reset. The cap follows the lower
+        # foot, and only while both feet are on a tread and a hand is still
+        # attached. One foot stepping ahead, or both hands letting go, freezes it.
         fresh = ~self._ascent_valid
         lead = height - float(self.cfg.initial_foot_rung)
         self._ascent_lead.copy_(torch.where(fresh, lead, self._ascent_lead))
+        both_feet = self.foot_support.all(dim=-1)
+        hand_on = self.attached.any(dim=-1)
+        bank = both_feet & hand_on
         supported_rungs = torch.where(
             self.foot_support,
             self.foot_rung,
-            torch.full_like(self.foot_rung, torch.iinfo(self.foot_rung.dtype).min),
+            torch.full_like(self.foot_rung, torch.iinfo(self.foot_rung.dtype).max),
         )
-        support_rung = supported_rungs.amax(dim=-1).to(dtype=height.dtype)
-        payable = torch.minimum(height, support_rung + self._ascent_lead)
+        lower_rung = supported_rungs.amin(dim=-1).to(dtype=height.dtype)
+        payable = torch.minimum(height, lower_rung + self._ascent_lead)
         delta = payable - self._ascent_prev
-        pay = supported & self._ascent_valid & ~self.just_completed
+        pay = bank & self._ascent_valid & ~self.just_completed
         ascent = torch.where(pay, delta, torch.zeros_like(delta))
-        stored = torch.where(supported, payable, self._ascent_prev)
+        stored = torch.where(bank, payable, self._ascent_prev)
         stored = torch.where(fresh, height, stored)
-        update = fresh | supported | self.just_completed
+        update = fresh | bank | self.just_completed
         self._ascent_prev.copy_(torch.where(update, stored, self._ascent_prev))
         self._ascent_valid[:] = True
         self._reward_cache = {
@@ -1066,6 +1085,7 @@ class LadderClimbCommandCfg(CommandTermCfg):
     weld_release_speed_factor: float = 4.0
     attach_distance: float = 0.06
     max_attach_speed: float = 0.30
+    # No longer the support test. A foot counts only on the top face of a rung.
     foot_support_distance: float = 0.08
     grip_half_span: float | None = None
 
@@ -1124,6 +1144,13 @@ def _ladder_command(env: ManagerBasedRlEnv, command_name: str) -> LadderClimbCom
 CLIMB_CONTACT_BUBBLE_M = 0.06
 LATERAL_COEFF = 0.5
 RUNG_HEIGHT_BAND_M = 0.08
+# The planted ankle site sits about 8 mm above the tread, 0.043 m above the
+# rung center. The box half-height is 0.035 m, so the underside is below the
+# center and this band only covers the top face.
+FOOT_TREAD_ABOVE_CENTER_M = 0.043
+FOOT_TREAD_Z_MIN = 0.02
+FOOT_TREAD_Z_MAX = 0.08
+FOOT_TREAD_HALF_DEPTH_M = 0.07
 HOLD_REWARD = 0.5
 FLIGHT_RATE = 2.0
 FLIGHT_GRACE_STEPS = 4
@@ -1172,18 +1199,79 @@ def limb_axis_features(
     return distance, ell
 
 
-def ladder_climb(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
-    """Along-axis progress toward the next rung, plus lateral cost at rung height.
+def foot_on_tread(
+    foot: torch.Tensor,
+    rung_center: torch.Tensor,
+    half_span: torch.Tensor | float,
+) -> torch.Tensor:
+    """Whether each foot site is on the top face of its rung.
 
-    For limbs ``i`` ordered left hand, right hand, left foot, right foot:
+    The rung box is axis-aligned. ``z`` above the center by 0.02–0.08 m is
+    the top face (the underside is below the center). ``x`` within 0.07 m
+    keeps the foot over the tread, and ``y`` within ``half_span`` keeps it
+    on the rung rather than out on the rail.
+    """
+
+    delta = foot - rung_center
+    on_top = (delta[..., 2] >= FOOT_TREAD_Z_MIN) & (delta[..., 2] <= FOOT_TREAD_Z_MAX)
+    over_tread = delta[..., 0].abs() <= FOOT_TREAD_HALF_DEPTH_M
+    on_span = delta[..., 1].abs() <= half_span
+    return on_top & over_tread & on_span
+
+
+def foot_tread_features(
+    foot: torch.Tensor,
+    next_center: torch.Tensor,
+    half_span: torch.Tensor,
+    on_target: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Distance from each foot to the standing point on the next tread.
+
+    The point keeps the foot's own ``y``, clamped to the rung, and sits
+    0.043 m above the rung center. ``d = 0`` on that next tread, and
+    ``d = max(distance, 0.06)`` otherwise. The lateral term is zero: the
+    point already sits on the top face, so a foot under the rung is farther
+    away instead of being pulled into the wood.
+    """
+
+    y = torch.clamp(
+        foot[..., 1],
+        next_center[..., 1] - half_span,
+        next_center[..., 1] + half_span,
+    )
+    target = torch.stack(
+        (
+            next_center[..., 0],
+            y,
+            next_center[..., 2] + FOOT_TREAD_ABOVE_CENTER_M,
+        ),
+        dim=-1,
+    )
+    distance = torch.linalg.vector_norm(foot - target, dim=-1)
+    bubble = torch.full_like(distance, CLIMB_CONTACT_BUBBLE_M)
+    capped = torch.where(
+        on_target,
+        torch.zeros_like(distance),
+        torch.maximum(distance, bubble),
+    )
+    return capped, torch.zeros_like(capped)
+
+
+def ladder_climb(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Progress toward the next hold, plus lateral cost for the hands.
+
+    Hands move along the rung-to-rung axis. Feet move toward the standing
+    point on the next tread. For limbs ``i`` ordered left hand, right hand,
+    left foot, right foot:
 
         r_climb = Σ_i (d_i⁻ − d_i) + Σ_i (ell_i⁻ − ell_i)
 
-    ``d_i = 0`` when that limb is on exactly baseline + 1, and
-    ``d_i = max(s_i, 0.06)`` otherwise. ``s_i`` is the remaining distance
-    along the rung-to-rung axis. The first sample after a reset, and the step
-    that records a completed hold, store the new distances and contribute 0.
-    The reward manager multiplies by ``dt``, so this returns ``r_climb / dt``.
+    ``d_i = 0`` when that limb is on exactly baseline + 1. Otherwise a hand
+    uses ``d = max(s, 0.06)`` along the rung axis, and a foot uses
+    ``d = max(distance to the tread point, 0.06)``. The first sample after a
+    reset, and the step that records a completed hold, store the new
+    distances and contribute 0. The reward manager multiplies by ``dt``, so
+    this returns ``r_climb / dt``.
     """
 
     command = _ladder_command(env, command_name)
@@ -1194,14 +1282,16 @@ def ladder_ascent(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     """Supported torso progress along the rail, capped at the reset lead.
 
     ``lead0`` is the torso rung coordinate on the first sample after a reset
-    minus the initial foot rung. While a foot is in support the payable
-    height is ``min(torso, highest supported foot rung + lead0)``. One rung
-    of that payable height is +1. A rise with the foot staying put pays 0.
-    A step with both feet off pays 0 and a later landing collects the change,
-    including a drop of the support foot. The first sample after a reset, and
-    the step that records a completed hold, store the new payable height and
-    contribute 0. The manager multiplies by ``dt``, so this returns the rung
-    change divided by ``dt``.
+    minus the initial foot rung. The payable height is
+    ``min(torso, lower supported foot rung + lead0)``, and it is banked only
+    while both feet are on a tread and at least one hand is attached. One
+    rung of that payable height is +1. A rise with the feet staying put, a
+    single foot stepping ahead, or both hands letting go pays 0 and does not
+    move the stored height. A later return to both feet and a hand collects
+    the change, including a drop of the lower foot. The first sample after a
+    reset, and the step that records a completed hold, store the new payable
+    height and contribute 0. The manager multiplies by ``dt``, so this
+    returns the rung change divided by ``dt``.
     """
 
     command = _ladder_command(env, command_name)
