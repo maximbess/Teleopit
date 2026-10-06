@@ -8,18 +8,18 @@ from __future__ import annotations
 
 import os
 
-LADDER_CODE_VERSION = "refund-1"
+LADDER_CODE_VERSION = "cap-3"
 LADDER_CODE_VERSION_NOTES = (
     "Climb pays 0.5 per meter of approach until the limb is on the next "
     "rung. Each limb's approach stops at 0. Ascent pays the change in "
     "clamp(torso - reset height, 0, 1). A foot on a tread that carries 20% "
     "of the robot weight banks that height, and the bank is kept. On the "
     "last step, half of the net unbanked drop in ascent and in each limb's "
-    "approach is given back. A hand pays 0.25 per second while attached, "
-    "and a loaded foot on the next tread pays 0.25 per second, capped at "
-    "+0.25 per limb. The episode ends on the 20 s timeout or when the robot "
-    "touches the ground. Flight charges only when both feet are off. "
-    "action_rate weight is -0.002."
+    "approach is given back. A hand pays 0.25 per second while welded to "
+    "the next rung, and a loaded foot on the next tread pays 0.25 per "
+    "second, capped at +3 per limb. The episode ends on the 20 s timeout "
+    "or when the robot touches the ground. Flight charges only when both "
+    "feet are off. action_rate weight is -0.002."
 )
 
 

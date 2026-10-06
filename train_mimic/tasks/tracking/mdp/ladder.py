@@ -960,14 +960,14 @@ class LadderClimbCommand(CommandTerm):
         # last centimeters. A limb's approach account stops at 0, so moving
         # far away only gives back what that limb earned. Contact accrues
         # separately, at 0.25 per second while that limb's gate holds, and
-        # stops at +0.25 per limb.
+        # stops at +3 per limb.
         dt = float(self._env.step_dt)
         ending = self._episode_ending()
         keep_share = 1.0 - REFUND_FRACTION
         distance, lateral = self._limb_features()
         on_next = self._limbs_on_next_rung()
         bearing = self.foot_bears_weight()
-        gated = torch.cat((self.attached, on_next[:, 2:] & bearing), dim=1)
+        gated = torch.cat((on_next[:, :2], on_next[:, 2:] & bearing), dim=1)
         episode_fresh = ~self._climb_valid
         hold_fresh = episode_fresh | self.just_completed
         # Approach is the gap closed since the reset sample, or since the last
@@ -1275,9 +1275,10 @@ def _ladder_command(env: ManagerBasedRlEnv, command_name: str) -> LadderClimbCom
 
 
 # PPO sees these values after the reward manager multiplies by the 0.02 s step.
-# One 0.20 m rung of approach is +0.10. A full second attached, or a full
-# second with a loaded foot on the next tread, is +0.25. Ascent pays the
-# change in min(torso rise, 1) on the step the torso moves.
+# One 0.20 m rung of approach is +0.10. A full second welded to the next
+# rung, or a full second with a loaded foot on the next tread, is +0.25,
+# and each limb stops at +3. Ascent pays the change in min(torso rise, 1)
+# on the step the torso moves.
 CLIMB_DISTANCE_PER_M = 0.5
 LATERAL_COEFF = 0.5
 RUNG_HEIGHT_BAND_M = 0.08
@@ -1297,7 +1298,7 @@ FOOT_WEIGHT_FRACTION = 0.20
 # Per limb, while its gate holds. reward_terms stores rate * dt, and the
 # public function divides by dt, so one open step returns the rate.
 CLIMB_CONTACT_RATE = 0.25
-CLIMB_CONTACT_CAP = 0.25
+CLIMB_CONTACT_CAP = 3.0
 # One rung of torso height above the reset sample.
 ASCENT_CAP = 1.0
 # Share of an unbanked drop that is given back. 1 gives it all back, 0 keeps
@@ -1406,10 +1407,10 @@ def ladder_climb(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     coming back re-earns that same gap. On the last step of the episode,
     ``1 - REFUND_FRACTION`` of the net approach given back since that limb's
     best point is returned, once.
-    On top of that, a hand pays ``0.25`` per second while it is attached, on
-    any rung, and a foot pays ``0.25`` per second while it stands on the
-    next tread and carries at least 20% of the robot's weight. Each limb
-    caps at ``+0.25``. Letting go pauses that limb. Coming back continues
+    On top of that, a hand pays ``0.25`` per second while it is welded to
+    the next rung, and a foot pays ``0.25`` per second while it stands on
+    the next tread and carries at least 20% of the robot's weight. Each
+    limb caps at ``+3``. Letting go pauses that limb. Coming back continues
     the same cap.
     ``reward_terms`` stores ``0.25 * dt`` for one open step, and this
     divides by ``dt``, so the step returns ``0.25``. The first sample after

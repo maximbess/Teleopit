@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Pull events.out and one chosen checkpoint from a remote logs/rsl_rl run.
+# A run that has no checkpoint yet still downloads its event files.
 # The remote is read-only: scp only writes to the local destination.
 # Usage:
 #   scripts/sync_logs.sh user@host:/path/to/Teleopit --port 12345
@@ -86,24 +87,24 @@ while IFS= read -r remote_model; do
   MODELS[${#MODELS[@]}]="$(basename "${remote_model}")"
 done < <(printf '%s\n' "$MODEL_OUTPUT" | sort -V)
 
+MODEL=""
 if [[ ${#MODELS[@]} -eq 0 ]]; then
-  echo "no model_*.pt checkpoints found in logs/rsl_rl/${RUN_REL}" >&2
-  exit 1
+  echo "no model_*.pt checkpoints in logs/rsl_rl/${RUN_REL}; pulling events only"
+else
+  echo "Available checkpoints in logs/rsl_rl/${RUN_REL}:"
+  for ((i = 0; i < ${#MODELS[@]}; i++)); do
+    printf "  %2d) %s\n" "$((i + 1))" "${MODELS[$i]}"
+  done
+
+  read -r -p "Choose a checkpoint [1-${#MODELS[@]}]: " MODEL_CHOICE
+  if [[ ! "$MODEL_CHOICE" =~ ^[0-9]+$ ]] \
+      || ((MODEL_CHOICE < 1 || MODEL_CHOICE > ${#MODELS[@]})); then
+    echo "invalid selection: ${MODEL_CHOICE}" >&2
+    exit 2
+  fi
+
+  MODEL="${MODELS[$((MODEL_CHOICE - 1))]}"
 fi
-
-echo "Available checkpoints in logs/rsl_rl/${RUN_REL}:"
-for ((i = 0; i < ${#MODELS[@]}; i++)); do
-  printf "  %2d) %s\n" "$((i + 1))" "${MODELS[$i]}"
-done
-
-read -r -p "Choose a checkpoint [1-${#MODELS[@]}]: " MODEL_CHOICE
-if [[ ! "$MODEL_CHOICE" =~ ^[0-9]+$ ]] \
-    || ((MODEL_CHOICE < 1 || MODEL_CHOICE > ${#MODELS[@]})); then
-  echo "invalid selection: ${MODEL_CHOICE}" >&2
-  exit 2
-fi
-
-MODEL="${MODELS[$((MODEL_CHOICE - 1))]}"
 
 EVENT_OUTPUT="$(
   ssh "${SSH_OPTIONS[@]}" "${REMOTE_HOST}" \
@@ -128,9 +129,12 @@ SCP_SOURCES=()
 for event in "${EVENTS[@]}"; do
   SCP_SOURCES+=("${REMOTE_HOST}:${REMOTE_RUN}/${event}")
 done
-SCP_SOURCES+=("${REMOTE_HOST}:${REMOTE_RUN}/${MODEL}")
-
-echo "Downloading logs/rsl_rl/${RUN_REL}/{${EVENTS[*]},${MODEL}}"
+if [[ -n "$MODEL" ]]; then
+  SCP_SOURCES+=("${REMOTE_HOST}:${REMOTE_RUN}/${MODEL}")
+  echo "Downloading logs/rsl_rl/${RUN_REL}/{${EVENTS[*]},${MODEL}}"
+else
+  echo "Downloading logs/rsl_rl/${RUN_REL}/{${EVENTS[*]}}"
+fi
 scp -p -P "${PORT}" \
   -o ControlMaster=auto \
   -o ControlPersist=600 \

@@ -770,9 +770,10 @@ def make_g1_ladder_rl_env_cfg(
 
     rewards = {
         # 0.5 per meter of approach, so one 0.20 m rung is +0.10. Each limb
-        # stops at 0. A hand then pays 0.25 per second while it is attached,
-        # and a foot pays 0.25 per second on the next tread while it carries
-        # 20% of the robot weight. Each limb caps at +0.25. On the last
+        # stops at 0. A hand then pays 0.25 per second while it is welded to
+        # the next rung, and a foot pays 0.25 per second on the next tread
+        # while it carries 20% of the robot weight. Each limb caps at +3.
+        # On the last
         # step, half of each limb's net approach drop is kept.
         "ladder_climb": RewardTermCfg(
             func=mdp.ladder_climb,

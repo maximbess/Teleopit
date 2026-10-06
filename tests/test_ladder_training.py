@@ -460,33 +460,53 @@ def test_climb_pays_a_contact_once_and_ignores_a_reach() -> None:
         step += 1
         return ladder_climb(env, "ladder").item()
 
-    # Both hands start welded. The first sample pays nothing. A hand then
-    # pays while it is attached, even with a foot off the ladder.
+    # Baseline hand rung is 4, so the next rung is 5. The first sample pays
+    # nothing. A hand pays only while it is welded to that next rung.
     command.held_rung[:, 0] = 5
+    command.held_rung[:, 1] = 4
     command._contact[:, 1] = False
     command._bearing[:] = False
     assert climb() == 0.0
+    assert climb() == pytest.approx(CLIMB_CONTACT_RATE)
+
+    # The other hand is welded to the current rung, and one rung too high
+    # is not the next rung either.
+    command.attached[:, 1] = True
+    assert climb() == pytest.approx(CLIMB_CONTACT_RATE)
+    command.held_rung[:, 0] = 6
+    assert climb() == 0.0
+    command.held_rung[:, 0] = 5
     command.attached[:, 1] = False
-    first = climb()
-    assert first == pytest.approx(CLIMB_CONTACT_RATE)
-    assert first < (CLIMB_CONTACT_RATE / env.step_dt) / 2
 
-    for _ in range(49):
-        assert climb() == pytest.approx(CLIMB_CONTACT_RATE)
-    assert command._climb_paid[0, 0].item() == pytest.approx(CLIMB_CONTACT_CAP)
-    assert climb() == pytest.approx(0.0, abs=1e-4)
-
-    # Letting go and welding the same hand again does not open another +0.25.
+    # Letting go pauses the same cap. Coming back continues it.
+    paid = command._climb_paid[0, 0].item()
     command.attached[:, 0] = False
     assert climb() == 0.0
     command.attached[:, 0] = True
-    assert climb() == pytest.approx(0.0, abs=1e-4)
+    assert climb() == pytest.approx(CLIMB_CONTACT_RATE)
+    assert command._climb_paid[0, 0].item() == pytest.approx(
+        paid + CLIMB_CONTACT_RATE * env.step_dt
+    )
 
     # A hand on the next rung that is not welded is only a reach.
     command.attached[:] = False
     assert climb() == 0.0
 
-    # A foot on the next tread pays only while it carries weight.
+    # The cap is +3. A step can pay at most one rate slice, so the last
+    # half-slice pays and the next step pays nothing.
+    command.attached[:, 0] = True
+    remainder = CLIMB_CONTACT_RATE * env.step_dt * 0.5
+    command._climb_paid[0, 0] = CLIMB_CONTACT_CAP - remainder
+    assert climb() == pytest.approx(remainder / env.step_dt, abs=1e-4)
+    assert command._climb_paid[0, 0].item() == pytest.approx(CLIMB_CONTACT_CAP)
+    assert climb() == pytest.approx(0.0, abs=1e-4)
+    command.attached[:, 0] = False
+    assert climb() == 0.0
+    command.attached[:, 0] = True
+    assert climb() == pytest.approx(0.0, abs=1e-4)
+    command.attached[:] = False
+
+    # A foot on the next tread pays only while it carries weight, up to +3.
     command.foot_rung[:, 0] = 2
     assert climb() == 0.0
     command._bearing[:, 0] = True
@@ -499,6 +519,10 @@ def test_climb_pays_a_contact_once_and_ignores_a_reach() -> None:
     assert command._climb_paid[0, 2].item() == pytest.approx(
         paid_foot + CLIMB_CONTACT_RATE * env.step_dt
     )
+    command._climb_paid[0, 2] = CLIMB_CONTACT_CAP - remainder
+    assert climb() == pytest.approx(remainder / env.step_dt, abs=1e-4)
+    assert command._climb_paid[0, 2].item() == pytest.approx(CLIMB_CONTACT_CAP)
+    assert climb() == pytest.approx(0.0, abs=1e-4)
     command._bearing[:, 0] = False
     assert climb() == 0.0
 
