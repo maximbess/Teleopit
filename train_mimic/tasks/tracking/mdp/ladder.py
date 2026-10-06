@@ -8,6 +8,7 @@ import torch
 import torch.nn.functional as F
 from mjlab.managers import CommandTerm, CommandTermCfg
 from mjlab.managers.action_manager import ActionTerm, ActionTermCfg
+from mjlab.sensor import ContactSensor
 
 if TYPE_CHECKING:
     from mjlab.envs import ManagerBasedRlEnv
@@ -315,9 +316,7 @@ class LadderClimbCommand(CommandTerm):
         self._ascent_paid = torch.zeros(
             self.num_envs, dtype=torch.float32, device=self.device
         )
-        self._ascent_lead = torch.zeros(
-            self.num_envs, dtype=torch.float32, device=self.device
-        )
+        self._robot_weight_n = self._nominal_robot_weight_n()
         self._ascent_valid = torch.zeros(
             self.num_envs, dtype=torch.bool, device=self.device
         )
@@ -402,6 +401,34 @@ class LadderClimbCommand(CommandTerm):
         """Feet that are touching the ladder and standing on a rung."""
 
         return self.foot_contact & (self.foot_rung >= 0)
+
+    def foot_bears_weight(self) -> torch.Tensor:
+        """Whether each foot's upward ladder force carries 20% of body weight.
+
+        The contact sensor reports the force on the foot. With the contact
+        frame rotated into the world, a foot standing on a tread has a
+        positive ``z`` component.
+        """
+
+        force = self._foot_contact_sensor.data.force
+        if force is None:
+            return torch.zeros(
+                (self.num_envs, 2), dtype=torch.bool, device=self.device
+            )
+        upward = force[:, self._foot_contact_indices, 2]
+        return upward >= FOOT_WEIGHT_FRACTION * self._robot_weight_n
+
+    def _nominal_robot_weight_n(self) -> float:
+        """Body weight, excluding the ladder, from the unrandomized model."""
+
+        model = self._env.sim.mj_model
+        mass = 0.0
+        for body_id in range(model.nbody):
+            name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, body_id) or ""
+            if "ladder" in name:
+                continue
+            mass += float(model.body_mass[body_id])
+        return mass * GRAVITY
 
     @property
     def next_hand_rung(self) -> torch.Tensor:
@@ -701,7 +728,6 @@ class LadderClimbCommand(CommandTerm):
         self._hold_count_prev[env_ids] = 0
         self._ascent_prev[env_ids] = 0.0
         self._ascent_paid[env_ids] = 0.0
-        self._ascent_lead[env_ids] = 0.0
         self._ascent_valid[env_ids] = False
         self._feet_off_steps[env_ids] = 0
         self._reward_cache_step = -1
@@ -908,10 +934,8 @@ class LadderClimbCommand(CommandTerm):
         dt = float(self._env.step_dt)
         distance, lateral = self._limb_features()
         on_next = self._limbs_on_next_rung()
-        both_feet = self.foot_support.all(dim=-1, keepdim=True)
-        hand_on = self.attached.any(dim=-1, keepdim=True)
         gated = torch.cat(
-            (on_next[:, :2] & both_feet, on_next[:, 2:] & hand_on),
+            (self.attached, on_next[:, 2:] & self.foot_bears_weight()),
             dim=1,
         )
         fresh = ~self._climb_valid | self.just_completed
@@ -965,37 +989,23 @@ class LadderClimbCommand(CommandTerm):
             torch.zeros_like(climb),
         )
         height = self._torso_rungs_along_rail()
-        # lead0 is the crouched gap at reset. The cap follows the lower
-        # foot, and only while both feet are on a tread and a hand is still
-        # attached. Unlocked height above the opening torso sample accrues
-        # at 1 per second, up to +1. Letting go pauses it. A descent does not
-        # refund what was already paid.
-        fresh = ~self._ascent_valid | self.just_completed
-        lead = height - float(self.cfg.initial_foot_rung)
-        self._ascent_lead.copy_(
-            torch.where(~self._ascent_valid, lead, self._ascent_lead)
-        )
-        both_feet = self.foot_support.all(dim=-1)
-        hand_on = self.attached.any(dim=-1)
-        bank = both_feet & hand_on
-        supported_rungs = torch.where(
-            self.foot_support,
-            self.foot_rung,
-            torch.full_like(self.foot_rung, torch.iinfo(self.foot_rung.dtype).max),
-        )
-        lower_rung = supported_rungs.amin(dim=-1).to(dtype=height.dtype)
-        payable = torch.minimum(height, lower_rung + self._ascent_lead)
+        # The opening sample is the origin. The paid total equals
+        # min(height - origin, 1), so a drop in the torso pays the
+        # difference back. Feet and hands do not gate it.
+        fresh = ~self._ascent_valid
         origin = torch.where(fresh, height, self._ascent_prev)
-        unlocked = (payable - origin).clamp(min=0.0, max=ASCENT_CAP)
-        room = (unlocked - self._ascent_paid).clamp(min=0.0)
-        ascent = torch.minimum(room, torch.full_like(room, ASCENT_RATE * dt))
-        ascent = torch.where(bank & ~fresh, ascent, torch.zeros_like(ascent))
-        paid = torch.where(
-            fresh,
-            torch.zeros_like(self._ascent_paid),
-            self._ascent_paid + ascent,
+        unlocked = torch.minimum(
+            height - origin,
+            torch.full_like(height, ASCENT_CAP),
         )
-        self._ascent_paid.copy_(paid)
+        ascent = torch.where(
+            fresh,
+            torch.zeros_like(unlocked),
+            unlocked - self._ascent_paid,
+        )
+        self._ascent_paid.copy_(
+            torch.where(fresh, torch.zeros_like(self._ascent_paid), unlocked)
+        )
         self._ascent_prev.copy_(origin)
         self._ascent_valid[:] = True
         self._reward_cache = {
@@ -1187,10 +1197,9 @@ def _ladder_command(env: ManagerBasedRlEnv, command_name: str) -> LadderClimbCom
 
 
 # PPO sees these values after the reward manager multiplies by the 0.02 s step.
-# One 0.20 m rung of approach is +0.10. The tread-1 fold closed about 0.36 m
-# across the limbs, which is +0.18 here. A full second of contact is +0.25,
-# so a plant still beats that fold, and four plants equal one rung of ascent.
-# The one-frame slices are those totals times dt: +0.005 and +0.02.
+# One 0.20 m rung of approach is +0.10. A full second attached, or a full
+# second with a loaded foot on the next tread, is +0.25. Ascent pays the
+# change in min(torso rise, 1) on the step the torso moves.
 CLIMB_DISTANCE_PER_M = 0.5
 LATERAL_COEFF = 0.5
 RUNG_HEIGHT_BAND_M = 0.08
@@ -1204,12 +1213,14 @@ FOOT_TREAD_HALF_DEPTH_M = 0.07
 HOLD_REWARD = 0.5
 FLIGHT_RATE = 2.0
 FLIGHT_GRACE_STEPS = 4
+GRAVITY = 9.81
+# Share of body weight a foot must carry before its contact rate turns on.
+FOOT_WEIGHT_FRACTION = 0.20
 # Per limb, while its gate holds. reward_terms stores rate * dt, and the
 # public function divides by dt, so one open step returns the rate.
 CLIMB_CONTACT_RATE = 0.25
 CLIMB_CONTACT_CAP = 0.25
-# One rung of unlocked torso height. The same dt split as contact.
-ASCENT_RATE = 1.0
+# One rung of torso height above the reset sample.
 ASCENT_CAP = 1.0
 
 
@@ -1308,14 +1319,14 @@ def ladder_climb(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     is the gap to the standing point on the next tread. Both keep paying
     until that limb is on the next rung, including the last centimeters.
     ``0.5`` per meter makes one 0.20 m rung ``+0.10``. On top of that, a
-    hand pays ``0.25`` per second while it is welded to the next rung and
-    both feet are on a tread, and a foot pays ``0.25`` per second while it
-    stands on the next tread and a hand is still attached. Each limb caps
-    at ``+0.25``. Letting go pauses that limb. Coming back continues the
-    same cap. ``reward_terms`` stores ``0.25 * dt`` for one open step, and
-    this divides by ``dt``, so the step returns ``0.25``. The first sample
-    after a reset, and the step that records a completed hold, pay 0 and
-    clear the caps.
+    hand pays ``0.25`` per second while it is attached, on any rung, and a
+    foot pays ``0.25`` per second while it stands on the next tread and
+    carries at least 20% of the robot's weight. Each limb caps at ``+0.25``.
+    Letting go pauses that limb. Coming back continues the same cap.
+    ``reward_terms`` stores ``0.25 * dt`` for one open step, and this
+    divides by ``dt``, so the step returns ``0.25``. The first sample after
+    a reset, and the step that records a completed hold, pay 0 and clear
+    the caps.
     """
 
     command = _ladder_command(env, command_name)
@@ -1323,20 +1334,14 @@ def ladder_climb(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
 
 
 def ladder_ascent(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
-    """Supported torso progress along the rail, paid as a rate.
+    """Torso height above the reset sample, capped at one rung.
 
-    ``lead0`` is the torso rung coordinate on the first sample after a reset
-    minus the initial foot rung. The payable height is
-    ``min(torso, lower supported foot rung + lead0)``. The origin is the
-    torso height on that first sample, and the unlocked amount is
-    ``clamp(payable - origin, 0, 1)``. While both feet are on a tread and a
-    hand is attached, the term accrues at 1 per second up to what is
-    unlocked. ``reward_terms`` stores ``1 * dt`` for one fully unlocked
-    step, and this divides by ``dt``, so the step returns ``1`` and the
-    episode receives ``0.02``. A foot or the hand leaving pauses the rate.
-    The amount already paid stays, and a descent does not refund it. The
-    origin and the paid amount reset on episode reset and when a hold
-    completes.
+    The origin is the torso coordinate on the first sample after a reset.
+    The unlocked amount is ``min(height - origin, 1)``, in rung pitches.
+    Each step pays ``unlocked - already_paid``, so the episode total equals
+    the capped height and a drop pays the difference back. Feet and hands
+    do not gate it. ``reward_terms`` stores that difference, and this
+    divides by ``dt``.
     """
 
     command = _ladder_command(env, command_name)
@@ -1385,6 +1390,16 @@ def ladder_success(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     """End the rollout after N completed holds."""
 
     return _ladder_command(env, command_name).finished
+
+
+def ladder_touched_ground(env: ManagerBasedRlEnv, sensor_name: str) -> torch.Tensor:
+    """The robot body is touching the ground plane. The ladder is not included."""
+
+    sensor = cast(ContactSensor, env.scene[sensor_name])
+    found = sensor.data.found
+    if found is None:
+        return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+    return found.reshape(env.num_envs, -1).any(dim=1)
 
 
 def ladder_rung_endpoints_torso(

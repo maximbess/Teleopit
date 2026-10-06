@@ -73,6 +73,7 @@ _LADDER_GRIP_RADIUS = 0.075
 _LADDER_START_RUNG = 7
 _LADDER_INITIAL_FOOT_RUNG = 3
 _LADDER_FOOT_CONTACT_SENSOR = "ladder_foot_contact"
+_LADDER_GROUND_CONTACT_SENSOR = "ladder_ground_contact"
 _LADDER_ARM_EFFORT_SCALE = 0.70
 _LADDER_SUCCESSES_PER_ROLLOUT = 4
 # Warp rejects a nonzero margin only for box/box, box/mesh, and mesh/mesh pairs.
@@ -768,20 +769,17 @@ def make_g1_ladder_rl_env_cfg(
     }
 
     rewards = {
-        # 0.5 per meter of approach, so one 0.20 m rung is +0.10. The
-        # tread-1 fold closed about 0.36 m and would score +0.18. Contact
-        # then pays 0.25 per second while the gate holds, capped at +0.25
-        # per limb, so one second on a plant beats that fold. Four plants
-        # are +1, matching one rung of ascent. A single frame is +0.005.
+        # 0.5 per meter of approach, so one 0.20 m rung is +0.10. A hand
+        # then pays 0.25 per second while it is attached, and a foot pays
+        # 0.25 per second on the next tread while it carries 20% of the
+        # robot weight. Each limb caps at +0.25.
         "ladder_climb": RewardTermCfg(
             func=mdp.ladder_climb,
             weight=1.0,
             params={"command_name": "ladder"},
         ),
-        # 1 per second of unlocked torso height, capped at +1. One frame of
-        # a fully unlocked stance is +0.02. Payable height is
-        # min(torso, lower foot + lead0), and only while both feet are on a
-        # tread and a hand is attached.
+        # The change in min(torso height above the reset sample, 1). A drop
+        # pays that difference back. One rung above the reset height is +1.
         "ladder_ascent": RewardTermCfg(
             func=mdp.ladder_ascent,
             weight=1.0,
@@ -819,13 +817,9 @@ def make_g1_ladder_rl_env_cfg(
             func=mdp.ladder_success,
             params={"command_name": "ladder"},
         ),
-        "fell_over": TerminationTermCfg(
-            func=mdp.bad_orientation,
-            params={"limit_angle": 1.48},
-        ),
-        "root_too_low": TerminationTermCfg(
-            func=mdp.root_height_below_minimum,
-            params={"minimum_height": 0.30},
+        "touched_ground": TerminationTermCfg(
+            func=mdp.ladder_touched_ground,
+            params={"sensor_name": _LADDER_GROUND_CONTACT_SENSOR},
         ),
     }
 
@@ -857,10 +851,26 @@ def make_g1_ladder_rl_env_cfg(
                         pattern="left_ladder_body",
                         entity="robot",
                     ),
-                    fields=("found", "force"),
+                    fields=("found", "force", "normal", "tangent"),
                     reduce="maxforce",
                     num_slots=1,
                     history_length=4,
+                    global_frame=True,
+                ),
+                ContactSensorCfg(
+                    name=_LADDER_GROUND_CONTACT_SENSOR,
+                    primary=ContactMatch(
+                        mode="subtree",
+                        pattern="pelvis",
+                        entity="robot",
+                    ),
+                    secondary=ContactMatch(
+                        mode="geom",
+                        pattern="terrain",
+                    ),
+                    fields=("found",),
+                    reduce="maxforce",
+                    num_slots=1,
                 ),
             ),
             num_envs=1,

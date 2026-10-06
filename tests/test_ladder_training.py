@@ -97,6 +97,9 @@ class _QuietLadder(LadderClimbCommand):
         self.grip_strength[env_ids, hand_id] = 1.0
         self.held_rung[env_ids, hand_id] = rung_indices
 
+    def foot_bears_weight(self) -> torch.Tensor:
+        return self._bearing
+
 
 def _quiet_ladder(*, dwell: int = 3, successes: int = 2) -> _QuietLadder:
     command = object.__new__(_QuietLadder)
@@ -167,6 +170,8 @@ def test_ladder_task_is_one_repeated_hold() -> None:
     assert cfg.rewards["action_rate_l2"].weight == -0.002
     assert cfg.rewards["ladder_hold_completed"].weight == 1.0
     assert cfg.terminations["time_out"].time_out is False
+    assert set(cfg.terminations) == {"time_out", "success", "touched_ground"}
+    assert cfg.terminations["touched_ground"].func.__name__ == "ladder_touched_ground"
     assert "curriculum_stage_complete" not in cfg.terminations
     assert "pre_release_stalled" not in cfg.terminations
     assert cfg.curriculum == {}
@@ -183,7 +188,9 @@ def test_ladder_task_is_one_repeated_hold() -> None:
     assert "prepare_ladder_weld_model" not in cfg.events
     assert tuple(sensor.name for sensor in cfg.scene.sensors) == (
         "ladder_foot_contact",
+        "ladder_ground_contact",
     )
+    assert cfg.scene.sensors[0].global_frame is True
     assert load_runner_cls(LADDER_RL_TASK) is LadderOnPolicyRunner
 
     play_cfg = make_g1_ladder_rl_env_cfg(play=True)
@@ -344,7 +351,7 @@ def _bind_reward_state(command: _QuietLadder) -> None:
     command._hold_count_prev = torch.zeros(1, dtype=torch.long)
     command._ascent_prev = torch.zeros(1)
     command._ascent_paid = torch.zeros(1)
-    command._ascent_lead = torch.zeros(1)
+    command._bearing = torch.ones(1, 2, dtype=torch.bool)
     command._ascent_valid = torch.zeros(1, dtype=torch.bool)
     command._torso_rungs = torch.zeros(1)
     command._torso_rungs_along_rail = lambda: command._torso_rungs  # type: ignore[method-assign]
@@ -380,6 +387,7 @@ def test_climb_pays_approach_until_the_contact_and_then_the_bonus() -> None:
         return torch.full((1, 4), gap), torch.zeros(1, 4)
 
     command._limb_features = _features  # type: ignore[method-assign]
+    command.attached[:] = False
 
     assert ladder_climb(env, "ladder").item() == 0.0
     env.common_step_counter = 1
@@ -404,15 +412,13 @@ def test_climb_pays_a_contact_once_and_ignores_a_reach() -> None:
         step += 1
         return ladder_climb(env, "ladder").item()
 
-    # The next hand rung is 5 and the next foot rung is 2. A hand that is
-    # already there pays nothing while a foot is off, including the first sample.
+    # Both hands start welded. The first sample pays nothing. A hand then
+    # pays while it is attached, even with a foot off the ladder.
     command.held_rung[:, 0] = 5
     command._contact[:, 1] = False
+    command._bearing[:] = False
     assert climb() == 0.0
-    assert climb() == 0.0
-
-    # One frame of a true gate is the rate, not the old bonus / dt impulse.
-    command._contact[:] = True
+    command.attached[:, 1] = False
     first = climb()
     assert first == pytest.approx(CLIMB_CONTACT_RATE)
     assert first < (CLIMB_CONTACT_RATE / env.step_dt) / 2
@@ -428,8 +434,14 @@ def test_climb_pays_a_contact_once_and_ignores_a_reach() -> None:
     command.attached[:, 0] = True
     assert climb() == pytest.approx(0.0, abs=1e-4)
 
-    # The foot has its own cap. Leaving the tread pauses it.
+    # A hand on the next rung that is not welded is only a reach.
+    command.attached[:] = False
+    assert climb() == 0.0
+
+    # A foot on the next tread pays only while it carries weight.
     command.foot_rung[:, 0] = 2
+    assert climb() == 0.0
+    command._bearing[:, 0] = True
     assert climb() == pytest.approx(CLIMB_CONTACT_RATE)
     command.foot_rung[:, 0] = 1
     assert climb() == 0.0
@@ -439,24 +451,15 @@ def test_climb_pays_a_contact_once_and_ignores_a_reach() -> None:
     assert command._climb_paid[0, 2].item() == pytest.approx(
         paid_foot + CLIMB_CONTACT_RATE * env.step_dt
     )
-
-    # Both hands off, so a foot on the next tread pays nothing.
-    command.attached[:] = False
-    command.foot_rung[:, 1] = 2
+    command._bearing[:, 0] = False
     assert climb() == 0.0
 
-    # Completion clears the accumulators and makes the arrived rungs the baseline.
-    command.attached[:, 0] = True
-    command.foot_rung[:, 1] = 1
+    # Completion clears the accumulators. The same loaded foot starts again.
     command.just_completed[:] = True
-    command.baseline_hand_rung[:, 0] = 5
-    command.baseline_foot_rung[:, 0] = 2
+    command._bearing[:, 0] = True
     assert climb() == 0.0
     assert command._climb_paid[0].tolist() == pytest.approx([0.0, 0.0, 0.0, 0.0])
     command.just_completed[:] = False
-    assert climb() == 0.0
-    command.attached[:, 1] = True
-    command.held_rung[:, 1] = 5
     assert climb() == pytest.approx(CLIMB_CONTACT_RATE)
 
 
@@ -514,7 +517,7 @@ def test_flight_penalty_waits_through_the_grace_and_ignores_a_two_hand_reach() -
     assert ladder_flight(env, "ladder").item() == 0.0
 
 
-def test_supported_torso_progress_banks_only_while_a_foot_is_down() -> None:
+def test_ascent_tracks_torso_height_and_pays_a_drop_back() -> None:
     command = _quiet_ladder()
     _bind_reward_state(command)
     command._limb_features = lambda: (torch.zeros(1, 4), torch.zeros(1, 4))  # type: ignore[method-assign]
@@ -527,94 +530,33 @@ def test_supported_torso_progress_banks_only_while_a_foot_is_down() -> None:
         step += 1
         return ladder_ascent(env, "ladder").item()
 
-    # Initial foot rung is 1. The first torso sample at 4 fixes lead0 at 3,
-    # so the cap is 4 while both feet stay on rung 1.
-    command.foot_rung[:] = 1
-    command._torso_rungs[:] = 4.0
-    assert ascent() == 0.0
-    assert command._ascent_lead.item() == pytest.approx(3.0)
-
-    command._torso_rungs[:] = 6.0
-    assert ascent() == 0.0
-
-    command.foot_rung[:] = 2
-    command._torso_rungs[:] = 4.0
-    assert ascent() == 0.0
-
-    command._contact[:] = False
-    command._torso_rungs[:] = 8.0
-    assert ascent() == 0.0
-
-    # One frame of a fully unlocked stance is the rate, not 1 / dt.
-    command._contact[:] = True
-    command.foot_rung[:] = 2
-    command._torso_rungs[:] = 8.0
-    first = ascent()
-    assert first == pytest.approx(1.0)
-    assert first < (1.0 / env.step_dt) / 2
-
-    # A gate that drops does not refund the amount already paid.
-    command._contact[:] = False
-    paid = command._ascent_paid.item()
-    assert ascent() == 0.0
-    assert command._ascent_paid.item() == pytest.approx(paid)
-
-    command._contact[:] = True
-    assert ascent() == pytest.approx(1.0)
-    for _ in range(48):
-        assert ascent() == pytest.approx(1.0)
-    assert command._ascent_paid.item() == pytest.approx(1.0)
-    assert ascent() == pytest.approx(0.0, abs=1e-4)
-
-    # Dropping the lower foot pays nothing back.
-    command.foot_rung[:] = 1
-    command._torso_rungs[:] = 8.0
-    assert ascent() == 0.0
-    assert command._ascent_paid.item() == pytest.approx(1.0)
-
-    # Completion stores the torso height and clears the paid amount.
-    command.foot_rung[:] = 2
-    command._torso_rungs[:] = 5.0
-    command.just_completed[:] = True
-    assert ascent() == 0.0
-    assert command._ascent_paid.item() == pytest.approx(0.0)
-    assert command._ascent_prev.item() == pytest.approx(5.0)
-
-    command.just_completed[:] = False
-    command._torso_rungs[:] = 4.5
-    assert ascent() == 0.0
-    command.foot_rung[:] = 3
-    command._torso_rungs[:] = 8.0
-    assert ascent() == pytest.approx(1.0)
-
-
-def test_ascent_waits_for_both_feet_on_the_tread_and_a_hand() -> None:
-    command = _quiet_ladder()
-    _bind_reward_state(command)
-    command._limb_features = lambda: (torch.zeros(1, 4), torch.zeros(1, 4))  # type: ignore[method-assign]
-    env = _reward_env(command)
-    command.foot_rung[:] = 1
-    command.attached[:] = True
-    command._torso_rungs[:] = 4.0
-    assert ladder_ascent(env, "ladder").item() == 0.0
-
-    # One foot a rung higher leaves the lower foot, and the cap, where it was.
-    env.common_step_counter = 1
-    command.foot_rung[:, 0] = 2
-    command._torso_rungs[:] = 8.0
-    assert ladder_ascent(env, "ladder").item() == 0.0
-
-    # Both feet up with both hands off does not bank the rise.
-    env.common_step_counter = 2
-    command.foot_rung[:] = 2
     command.attached[:] = False
-    assert ladder_ascent(env, "ladder").item() == 0.0
+    command._contact[:] = False
+    command._torso_rungs[:] = 4.0
+    assert ascent() == 0.0
     assert command._ascent_prev.item() == pytest.approx(4.0)
 
-    # Both feet and one hand unlock that rung. One frame pays the rate.
-    env.common_step_counter = 3
-    command.attached[:, 0] = True
-    assert ladder_ascent(env, "ladder").item() == pytest.approx(1.0)
+    command._torso_rungs[:] = 4.4
+    assert ascent() == pytest.approx(0.4 / 0.02)
+
+    # The cap is one rung above the reset sample.
+    command._torso_rungs[:] = 6.0
+    assert ascent() == pytest.approx(0.6 / 0.02)
+    assert command._ascent_paid.item() == pytest.approx(1.0)
+    assert ascent() == 0.0
+
+    # A drop pays the difference back, down through the reset height.
+    command._torso_rungs[:] = 4.25
+    assert ascent() == pytest.approx(-0.75 / 0.02)
+    command._torso_rungs[:] = 3.5
+    assert ascent() == pytest.approx(-0.75 / 0.02)
+    assert command._ascent_paid.item() == pytest.approx(-0.5)
+
+    # A completed hold does not move the origin.
+    command.just_completed[:] = True
+    command._torso_rungs[:] = 4.0
+    assert ascent() == pytest.approx(0.5 / 0.02)
+    assert command._ascent_prev.item() == pytest.approx(4.0)
 
 
 def test_over_speed_releases_both_welds_and_a_quiet_hold_keeps_them() -> None:
@@ -1284,7 +1226,7 @@ def test_ladder_run_log_records_the_code_version(tmp_path) -> None:
     text = (tmp_path / "code_version.txt").read_text()
     assert path.endswith("code_version.txt")
     assert text.startswith(f"{LADDER_CODE_VERSION}\n")
-    assert "lead0" in text
+    assert "ground" in text
 
 
 def test_train_ladder_cli_has_no_motion_arguments() -> None:

@@ -130,7 +130,10 @@ def _geoms_collide(model, first: int, second: int) -> bool:
 
 def test_far_face_is_visual_and_robot_geoms_collide_with_each_other():
     cfg = config.make_g1_ladder_rl_env_cfg()
-    assert tuple(sensor.name for sensor in cfg.scene.sensors) == ("ladder_foot_contact",)
+    assert tuple(sensor.name for sensor in cfg.scene.sensors) == (
+        "ladder_foot_contact",
+        "ladder_ground_contact",
+    )
     assert not any(s.name == "self_collision" for s in cfg.scene.sensors)
 
     model = Entity(cfg.scene.entities["robot"]).spec.compile()
