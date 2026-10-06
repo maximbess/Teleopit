@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pull one logs/rsl_rl run from the training machine into this repo.
+# Pull events.out and one chosen checkpoint from a remote logs/rsl_rl run.
 # The remote is read-only: scp only writes to the local destination.
 # Usage:
 #   scripts/sync_logs.sh user@host:/path/to/Teleopit --port 12345
@@ -74,12 +74,66 @@ fi
 
 RUN_REL="${RUNS[$((CHOICE - 1))]}"
 REMOTE_RUN="${REMOTE_ROOT}/logs/rsl_rl/${RUN_REL}"
-LOCAL_PARENT="${ROOT}/logs/rsl_rl/$(dirname "${RUN_REL}")"
-mkdir -p "${LOCAL_PARENT}"
-echo "Downloading logs/rsl_rl/${RUN_REL}"
-scp -r -p -P "${PORT}" \
+
+MODEL_OUTPUT="$(
+  ssh "${SSH_OPTIONS[@]}" "${REMOTE_HOST}" \
+    "find '${REMOTE_RUN}' -maxdepth 1 -type f -name 'model_*.pt' -print | sort"
+)"
+
+MODELS=()
+while IFS= read -r remote_model; do
+  [[ -n "$remote_model" ]] || continue
+  MODELS[${#MODELS[@]}]="$(basename "${remote_model}")"
+done < <(printf '%s\n' "$MODEL_OUTPUT" | sort -V)
+
+if [[ ${#MODELS[@]} -eq 0 ]]; then
+  echo "no model_*.pt checkpoints found in logs/rsl_rl/${RUN_REL}" >&2
+  exit 1
+fi
+
+echo "Available checkpoints in logs/rsl_rl/${RUN_REL}:"
+for ((i = 0; i < ${#MODELS[@]}; i++)); do
+  printf "  %2d) %s\n" "$((i + 1))" "${MODELS[$i]}"
+done
+
+read -r -p "Choose a checkpoint [1-${#MODELS[@]}]: " MODEL_CHOICE
+if [[ ! "$MODEL_CHOICE" =~ ^[0-9]+$ ]] \
+    || ((MODEL_CHOICE < 1 || MODEL_CHOICE > ${#MODELS[@]})); then
+  echo "invalid selection: ${MODEL_CHOICE}" >&2
+  exit 2
+fi
+
+MODEL="${MODELS[$((MODEL_CHOICE - 1))]}"
+
+EVENT_OUTPUT="$(
+  ssh "${SSH_OPTIONS[@]}" "${REMOTE_HOST}" \
+    "find '${REMOTE_RUN}' -maxdepth 1 -type f -name 'events.out*' -print | sort"
+)"
+
+EVENTS=()
+while IFS= read -r remote_event; do
+  [[ -n "$remote_event" ]] || continue
+  EVENTS[${#EVENTS[@]}]="$(basename "${remote_event}")"
+done <<< "$EVENT_OUTPUT"
+
+if [[ ${#EVENTS[@]} -eq 0 ]]; then
+  echo "no events.out files in logs/rsl_rl/${RUN_REL}" >&2
+  exit 1
+fi
+
+LOCAL_RUN="${ROOT}/logs/rsl_rl/${RUN_REL}"
+mkdir -p "${LOCAL_RUN}"
+
+SCP_SOURCES=()
+for event in "${EVENTS[@]}"; do
+  SCP_SOURCES+=("${REMOTE_HOST}:${REMOTE_RUN}/${event}")
+done
+SCP_SOURCES+=("${REMOTE_HOST}:${REMOTE_RUN}/${MODEL}")
+
+echo "Downloading logs/rsl_rl/${RUN_REL}/{${EVENTS[*]},${MODEL}}"
+scp -p -P "${PORT}" \
   -o ControlMaster=auto \
   -o ControlPersist=600 \
   -o "ControlPath=${CONTROL_PATH}" \
-  "${REMOTE_HOST}:${REMOTE_RUN}" \
-  "${LOCAL_PARENT}/"
+  "${SCP_SOURCES[@]}" \
+  "${LOCAL_RUN}/"

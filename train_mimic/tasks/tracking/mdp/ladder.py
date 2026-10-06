@@ -304,6 +304,12 @@ class LadderClimbCommand(CommandTerm):
         self._climb_paid = torch.zeros(
             (self.num_envs, 4), dtype=torch.float32, device=self.device
         )
+        self._approach_paid = torch.zeros(
+            (self.num_envs, 4), dtype=torch.float32, device=self.device
+        )
+        self._approach_peak = torch.zeros(
+            (self.num_envs, 4), dtype=torch.float32, device=self.device
+        )
         self._climb_valid = torch.zeros(
             self.num_envs, dtype=torch.bool, device=self.device
         )
@@ -314,6 +320,12 @@ class LadderClimbCommand(CommandTerm):
             self.num_envs, dtype=torch.float32, device=self.device
         )
         self._ascent_paid = torch.zeros(
+            self.num_envs, dtype=torch.float32, device=self.device
+        )
+        self._ascent_bank = torch.zeros(
+            self.num_envs, dtype=torch.float32, device=self.device
+        )
+        self._ascent_peak = torch.zeros(
             self.num_envs, dtype=torch.float32, device=self.device
         )
         self._robot_weight_n = self._nominal_robot_weight_n()
@@ -724,10 +736,14 @@ class LadderClimbCommand(CommandTerm):
         self._climb_distance[env_ids] = 0.0
         self._climb_lateral[env_ids] = 0.0
         self._climb_paid[env_ids] = 0.0
+        self._approach_paid[env_ids] = 0.0
+        self._approach_peak[env_ids] = 0.0
         self._climb_valid[env_ids] = False
         self._hold_count_prev[env_ids] = 0
         self._ascent_prev[env_ids] = 0.0
         self._ascent_paid[env_ids] = 0.0
+        self._ascent_bank[env_ids] = 0.0
+        self._ascent_peak[env_ids] = 0.0
         self._ascent_valid[env_ids] = False
         self._feet_off_steps[env_ids] = 0
         self._reward_cache_step = -1
@@ -918,6 +934,18 @@ class LadderClimbCommand(CommandTerm):
         along = (self.torso_com_pos_w * direction).sum(dim=-1)
         return along / pitch
 
+    def _episode_ending(self) -> torch.Tensor:
+        """Envs whose reward this step is the last of the episode.
+
+        Terminations are computed before the reward, so ``reset_buf`` is the
+        terminal step. The kept fraction of a drop is paid here, once.
+        """
+
+        reset = getattr(self._env, "reset_buf", None)
+        if isinstance(reset, torch.Tensor):
+            return reset.to(dtype=torch.bool)
+        return torch.zeros(self._climb_valid.shape[0], dtype=torch.bool)
+
     def reward_terms(self) -> dict[str, torch.Tensor]:
         """Agent-visible climb, ascent, hold, and flight terms.
 
@@ -929,22 +957,45 @@ class LadderClimbCommand(CommandTerm):
             return self._reward_cache
 
         # Distance falls until the limb is on the next rung, including the
-        # last centimeters. Contact accrues separately, at 0.25 per second
-        # while that limb's gate holds, and stops at +0.25 per limb.
+        # last centimeters. A limb's approach account stops at 0, so moving
+        # far away only gives back what that limb earned. Contact accrues
+        # separately, at 0.25 per second while that limb's gate holds, and
+        # stops at +0.25 per limb.
         dt = float(self._env.step_dt)
+        ending = self._episode_ending()
+        keep_share = 1.0 - REFUND_FRACTION
         distance, lateral = self._limb_features()
         on_next = self._limbs_on_next_rung()
-        gated = torch.cat(
-            (self.attached, on_next[:, 2:] & self.foot_bears_weight()),
-            dim=1,
+        bearing = self.foot_bears_weight()
+        gated = torch.cat((self.attached, on_next[:, 2:] & bearing), dim=1)
+        episode_fresh = ~self._climb_valid
+        hold_fresh = episode_fresh | self.just_completed
+        # Approach is the gap closed since the reset sample, or since the last
+        # completed hold. The account stops at 0, so a limb that wanders far
+        # gives back only what it earned, and coming back re-earns that same
+        # gap rather than the extra distance.
+        score = CLIMB_DISTANCE_PER_M * (
+            (self._climb_distance - distance) + (self._climb_lateral - lateral)
         )
-        fresh = ~self._climb_valid | self.just_completed
-        closed = (self._climb_distance - distance).sum(dim=-1)
-        closed = closed + (self._climb_lateral - lateral).sum(dim=-1)
+        shown = score.clamp(min=0.0)
         approach = torch.where(
-            fresh,
-            torch.zeros_like(closed),
-            closed * CLIMB_DISTANCE_PER_M,
+            hold_fresh.unsqueeze(1),
+            torch.zeros_like(shown),
+            shown - self._approach_paid,
+        )
+        new_approach = torch.where(
+            hold_fresh.unsqueeze(1), torch.zeros_like(shown), shown
+        )
+        new_approach_peak = torch.where(
+            hold_fresh.unsqueeze(1),
+            torch.zeros_like(self._approach_peak),
+            torch.maximum(self._approach_peak, shown),
+        )
+        approach_kept = keep_share * (new_approach_peak - new_approach)
+        approach = approach + torch.where(
+            ending.unsqueeze(1) & ~hold_fresh.unsqueeze(1),
+            approach_kept,
+            torch.zeros_like(approach_kept),
         )
         room = (CLIMB_CONTACT_CAP - self._climb_paid).clamp(min=0.0)
         contact = torch.minimum(
@@ -952,15 +1003,21 @@ class LadderClimbCommand(CommandTerm):
             torch.full_like(self._climb_paid, CLIMB_CONTACT_RATE * dt),
         )
         contact = torch.where(
-            gated & ~fresh.unsqueeze(1),
+            gated & ~hold_fresh.unsqueeze(1),
             contact,
             torch.zeros_like(contact),
         )
-        climb = approach + contact.sum(dim=-1)
-        self._climb_distance.copy_(distance)
-        self._climb_lateral.copy_(lateral)
+        climb = approach.sum(dim=-1) + contact.sum(dim=-1)
+        self._climb_distance.copy_(
+            torch.where(hold_fresh.unsqueeze(1), distance, self._climb_distance)
+        )
+        self._climb_lateral.copy_(
+            torch.where(hold_fresh.unsqueeze(1), lateral, self._climb_lateral)
+        )
+        self._approach_paid.copy_(new_approach)
+        self._approach_peak.copy_(new_approach_peak)
         paid = torch.where(
-            fresh.unsqueeze(1),
+            hold_fresh.unsqueeze(1),
             torch.zeros_like(self._climb_paid),
             self._climb_paid + contact,
         )
@@ -989,23 +1046,44 @@ class LadderClimbCommand(CommandTerm):
             torch.zeros_like(climb),
         )
         height = self._torso_rungs_along_rail()
-        # The opening sample is the origin. The paid total equals
-        # min(height - origin, 1), so a drop in the torso pays the
-        # difference back. Feet and hands do not gate it.
+        # The opening sample is the origin. u is the torso rise above it,
+        # floored at 0 and capped at 1. A loaded foot ratchets the bank up
+        # to u, and that part is never given back. The rest refunds in full
+        # while the episode continues, so a bob nets zero. On the terminal
+        # step the kept share of the net drop is paid once.
         fresh = ~self._ascent_valid
         origin = torch.where(fresh, height, self._ascent_prev)
-        unlocked = torch.minimum(
-            height - origin,
-            torch.full_like(height, ASCENT_CAP),
+        unlocked = (height - origin).clamp(0.0, ASCENT_CAP)
+        loaded = (self.foot_support & bearing).any(dim=-1)
+        new_bank = torch.where(
+            fresh,
+            torch.zeros_like(self._ascent_bank),
+            torch.where(
+                loaded,
+                torch.maximum(self._ascent_bank, unlocked),
+                self._ascent_bank,
+            ),
         )
+        displayed = torch.maximum(new_bank, unlocked)
         ascent = torch.where(
             fresh,
-            torch.zeros_like(unlocked),
-            unlocked - self._ascent_paid,
+            torch.zeros_like(displayed),
+            displayed - self._ascent_paid,
+        )
+        new_peak = torch.where(
+            fresh,
+            torch.zeros_like(displayed),
+            torch.maximum(self._ascent_peak, displayed),
+        )
+        ascent_kept = keep_share * (new_peak - displayed)
+        ascent = ascent + torch.where(
+            ending & ~fresh, ascent_kept, torch.zeros_like(ascent_kept)
         )
         self._ascent_paid.copy_(
-            torch.where(fresh, torch.zeros_like(self._ascent_paid), unlocked)
+            torch.where(fresh, torch.zeros_like(self._ascent_paid), displayed)
         )
+        self._ascent_bank.copy_(new_bank)
+        self._ascent_peak.copy_(new_peak)
         self._ascent_prev.copy_(origin)
         self._ascent_valid[:] = True
         self._reward_cache = {
@@ -1222,6 +1300,10 @@ CLIMB_CONTACT_RATE = 0.25
 CLIMB_CONTACT_CAP = 0.25
 # One rung of torso height above the reset sample.
 ASCENT_CAP = 1.0
+# Share of an unbanked drop that is given back. 1 gives it all back, 0 keeps
+# it. Applied once, to the net drop from the highest point, on the terminal
+# step. Banked ascent is not included.
+REFUND_FRACTION = 0.5
 
 
 def _gather_rung_centers(centers: torch.Tensor, indices: torch.Tensor) -> torch.Tensor:
@@ -1318,11 +1400,17 @@ def ladder_climb(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     A hand's distance is the remaining gap along the rail. A foot's distance
     is the gap to the standing point on the next tread. Both keep paying
     until that limb is on the next rung, including the last centimeters.
-    ``0.5`` per meter makes one 0.20 m rung ``+0.10``. On top of that, a
-    hand pays ``0.25`` per second while it is attached, on any rung, and a
-    foot pays ``0.25`` per second while it stands on the next tread and
-    carries at least 20% of the robot's weight. Each limb caps at ``+0.25``.
-    Letting go pauses that limb. Coming back continues the same cap.
+    ``0.5`` per meter makes one 0.20 m rung ``+0.10``. The account is the gap
+    closed since the reset sample, or since the last completed hold, and it
+    stops at 0. Moving far away gives back only what that limb earned, and
+    coming back re-earns that same gap. On the last step of the episode,
+    ``1 - REFUND_FRACTION`` of the net approach given back since that limb's
+    best point is returned, once.
+    On top of that, a hand pays ``0.25`` per second while it is attached, on
+    any rung, and a foot pays ``0.25`` per second while it stands on the
+    next tread and carries at least 20% of the robot's weight. Each limb
+    caps at ``+0.25``. Letting go pauses that limb. Coming back continues
+    the same cap.
     ``reward_terms`` stores ``0.25 * dt`` for one open step, and this
     divides by ``dt``, so the step returns ``0.25``. The first sample after
     a reset, and the step that records a completed hold, pay 0 and clear
@@ -1337,11 +1425,12 @@ def ladder_ascent(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     """Torso height above the reset sample, capped at one rung.
 
     The origin is the torso coordinate on the first sample after a reset.
-    The unlocked amount is ``min(height - origin, 1)``, in rung pitches.
-    Each step pays ``unlocked - already_paid``, so the episode total equals
-    the capped height and a drop pays the difference back. Feet and hands
-    do not gate it. ``reward_terms`` stores that difference, and this
-    divides by ``dt``.
+    ``u = clamp(height - origin, 0, 1)``, in rung pitches. While a foot is
+    on a tread and carries 20% of the robot's weight, the bank ratchets up
+    to ``u`` and is kept in full. Each step pays the change above that bank,
+    so a drop gives the unbanked part back and a bob nets zero. On the last
+    step, ``1 - REFUND_FRACTION`` of the net unbanked drop is returned, once.
+    ``reward_terms`` stores that amount, and this divides by ``dt``.
     """
 
     command = _ladder_command(env, command_name)

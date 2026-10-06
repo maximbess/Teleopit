@@ -39,6 +39,7 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     FOOT_HAND_RUNG_GAP,
     FOOT_TREAD_ABOVE_CENTER_M,
     HOLD_REWARD,
+    REFUND_FRACTION,
     RUNG_WINDOW_COUNT,
     foot_on_tread,
     foot_tread_features,
@@ -191,6 +192,7 @@ def test_ladder_task_is_one_repeated_hold() -> None:
         "ladder_ground_contact",
     )
     assert cfg.scene.sensors[0].global_frame is True
+    assert cfg.sim.contact_sensor_maxmatch == 128
     assert load_runner_cls(LADDER_RL_TASK) is LadderOnPolicyRunner
 
     play_cfg = make_g1_ladder_rl_env_cfg(play=True)
@@ -347,10 +349,14 @@ def _bind_reward_state(command: _QuietLadder) -> None:
     command._climb_distance = torch.zeros(1, 4)
     command._climb_lateral = torch.zeros(1, 4)
     command._climb_paid = torch.zeros(1, 4)
+    command._approach_paid = torch.zeros(1, 4)
+    command._approach_peak = torch.zeros(1, 4)
     command._climb_valid = torch.zeros(1, dtype=torch.bool)
     command._hold_count_prev = torch.zeros(1, dtype=torch.long)
     command._ascent_prev = torch.zeros(1)
     command._ascent_paid = torch.zeros(1)
+    command._ascent_bank = torch.zeros(1)
+    command._ascent_peak = torch.zeros(1)
     command._bearing = torch.ones(1, 2, dtype=torch.bool)
     command._ascent_valid = torch.zeros(1, dtype=torch.bool)
     command._torso_rungs = torch.zeros(1)
@@ -397,6 +403,48 @@ def test_climb_pays_approach_until_the_contact_and_then_the_bonus() -> None:
     env.common_step_counter = 2
     last = 4 * 0.03 * CLIMB_DISTANCE_PER_M
     assert ladder_climb(env, "ladder").item() == pytest.approx(last / 0.02)
+
+
+def test_approach_floors_at_zero_and_keeps_half_when_the_episode_ends() -> None:
+    command = _quiet_ladder(dwell=50)
+    _bind_reward_state(command)
+    env = _reward_env(command)
+    gaps = {0: 0.20, 1: 0.0, 2: 1.0, 3: 1.0}
+
+    def _features() -> tuple[torch.Tensor, torch.Tensor]:
+        gap = gaps.get(env.common_step_counter, 1.0)
+        return torch.full((1, 4), gap), torch.zeros(1, 4)
+
+    command._limb_features = _features  # type: ignore[method-assign]
+    command.attached[:] = False
+    command._bearing[:] = False
+    command._contact[:] = False
+
+    assert ladder_climb(env, "ladder").item() == 0.0
+    env.common_step_counter = 1
+    earned = 4 * 0.20 * CLIMB_DISTANCE_PER_M
+    assert ladder_climb(env, "ladder").item() == pytest.approx(earned / 0.02)
+
+    # Opening far past the start gives back only what was earned.
+    env.common_step_counter = 2
+    assert ladder_climb(env, "ladder").item() == pytest.approx(-earned / 0.02)
+    assert command._approach_paid[0].tolist() == pytest.approx([0.0, 0.0, 0.0, 0.0])
+    env.common_step_counter = 3
+    assert ladder_climb(env, "ladder").item() == 0.0
+
+    # A wave that returns to the best point and leaves again adds nothing,
+    # and the ending step keeps half of the one net drop.
+    gaps[4] = 0.0
+    gaps[5] = 1.0
+    env.common_step_counter = 4
+    assert ladder_climb(env, "ladder").item() == pytest.approx(earned / 0.02)
+    env.common_step_counter = 5
+    assert ladder_climb(env, "ladder").item() == pytest.approx(-earned / 0.02)
+    env.common_step_counter = 6
+    env.reset_buf = torch.tensor([True])
+    assert ladder_climb(env, "ladder").item() == pytest.approx(
+        (1.0 - REFUND_FRACTION) * earned / 0.02
+    )
 
 
 def test_climb_pays_a_contact_once_and_ignores_a_reach() -> None:
@@ -517,7 +565,7 @@ def test_flight_penalty_waits_through_the_grace_and_ignores_a_two_hand_reach() -
     assert ladder_flight(env, "ladder").item() == 0.0
 
 
-def test_ascent_tracks_torso_height_and_pays_a_drop_back() -> None:
+def test_ascent_floors_at_zero_and_a_loaded_foot_keeps_its_height() -> None:
     command = _quiet_ladder()
     _bind_reward_state(command)
     command._limb_features = lambda: (torch.zeros(1, 4), torch.zeros(1, 4))  # type: ignore[method-assign]
@@ -532,6 +580,7 @@ def test_ascent_tracks_torso_height_and_pays_a_drop_back() -> None:
 
     command.attached[:] = False
     command._contact[:] = False
+    command._bearing[:] = False
     command._torso_rungs[:] = 4.0
     assert ascent() == 0.0
     assert command._ascent_prev.item() == pytest.approx(4.0)
@@ -539,24 +588,72 @@ def test_ascent_tracks_torso_height_and_pays_a_drop_back() -> None:
     command._torso_rungs[:] = 4.4
     assert ascent() == pytest.approx(0.4 / 0.02)
 
-    # The cap is one rung above the reset sample.
     command._torso_rungs[:] = 6.0
     assert ascent() == pytest.approx(0.6 / 0.02)
     assert command._ascent_paid.item() == pytest.approx(1.0)
     assert ascent() == 0.0
 
-    # A drop pays the difference back, down through the reset height.
+    # A drop gives the unbanked rise back, and stops at the reset height.
     command._torso_rungs[:] = 4.25
     assert ascent() == pytest.approx(-0.75 / 0.02)
     command._torso_rungs[:] = 3.5
-    assert ascent() == pytest.approx(-0.75 / 0.02)
-    assert command._ascent_paid.item() == pytest.approx(-0.5)
+    assert ascent() == pytest.approx(-0.25 / 0.02)
+    assert command._ascent_paid.item() == pytest.approx(0.0)
+    assert ascent() == 0.0
+
+    # Rising and falling again, without the episode ending, nets zero.
+    command._torso_rungs[:] = 4.4
+    assert ascent() == pytest.approx(0.4 / 0.02)
+    command._torso_rungs[:] = 4.0
+    assert ascent() == pytest.approx(-0.4 / 0.02)
+    assert command._ascent_paid.item() == pytest.approx(0.0)
 
     # A completed hold does not move the origin.
     command.just_completed[:] = True
-    command._torso_rungs[:] = 4.0
-    assert ascent() == pytest.approx(0.5 / 0.02)
+    command._torso_rungs[:] = 4.2
+    assert ascent() == pytest.approx(0.2 / 0.02)
     assert command._ascent_prev.item() == pytest.approx(4.0)
+    command.just_completed[:] = False
+
+    # A foot on a tread that carries weight banks the current height.
+    command._contact[:] = True
+    command._bearing[:] = True
+    command.foot_rung[:] = 1
+    command._torso_rungs[:] = 5.0
+    assert ascent() == pytest.approx(0.8 / 0.02)
+    assert command._ascent_bank.item() == pytest.approx(1.0)
+    command._contact[:] = False
+    command._torso_rungs[:] = 3.0
+    assert ascent() == 0.0
+    assert command._ascent_paid.item() == pytest.approx(1.0)
+
+
+def test_ending_step_keeps_half_of_the_net_unbanked_drop() -> None:
+    command = _quiet_ladder()
+    _bind_reward_state(command)
+    command._limb_features = lambda: (torch.zeros(1, 4), torch.zeros(1, 4))  # type: ignore[method-assign]
+    env = _reward_env(command)
+    command.attached[:] = False
+    command._contact[:] = False
+    command._bearing[:] = False
+    command._torso_rungs[:] = 4.0
+    assert ladder_ascent(env, "ladder").item() == 0.0
+
+    env.common_step_counter = 1
+    command._torso_rungs[:] = 5.0
+    assert ladder_ascent(env, "ladder").item() == pytest.approx(1.0 / 0.02)
+
+    env.common_step_counter = 2
+    command._torso_rungs[:] = 4.0
+    assert ladder_ascent(env, "ladder").item() == pytest.approx(-1.0 / 0.02)
+
+    # The same drop settled at the end of the episode keeps half.
+    env.common_step_counter = 3
+    env.reset_buf = torch.tensor([True])
+    assert ladder_ascent(env, "ladder").item() == pytest.approx(
+        (1.0 - REFUND_FRACTION) / 0.02
+    )
+    assert REFUND_FRACTION == pytest.approx(0.5)
 
 
 def test_over_speed_releases_both_welds_and_a_quiet_hold_keeps_them() -> None:

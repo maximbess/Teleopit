@@ -769,17 +769,19 @@ def make_g1_ladder_rl_env_cfg(
     }
 
     rewards = {
-        # 0.5 per meter of approach, so one 0.20 m rung is +0.10. A hand
-        # then pays 0.25 per second while it is attached, and a foot pays
-        # 0.25 per second on the next tread while it carries 20% of the
-        # robot weight. Each limb caps at +0.25.
+        # 0.5 per meter of approach, so one 0.20 m rung is +0.10. Each limb
+        # stops at 0. A hand then pays 0.25 per second while it is attached,
+        # and a foot pays 0.25 per second on the next tread while it carries
+        # 20% of the robot weight. Each limb caps at +0.25. On the last
+        # step, half of each limb's net approach drop is kept.
         "ladder_climb": RewardTermCfg(
             func=mdp.ladder_climb,
             weight=1.0,
             params={"command_name": "ladder"},
         ),
-        # The change in min(torso height above the reset sample, 1). A drop
-        # pays that difference back. One rung above the reset height is +1.
+        # The change in clamp(torso height above the reset sample, 0, 1).
+        # A loaded foot banks its height. On the last step, half of the net
+        # unbanked drop is kept. One rung above the reset height is +1.
         "ladder_ascent": RewardTermCfg(
             func=mdp.ladder_ascent,
             weight=1.0,
@@ -897,6 +899,9 @@ def make_g1_ladder_rl_env_cfg(
         sim=SimulationCfg(
             nconmax=200,
             njmax=1200,
+            # Pelvis-vs-ground matching overflows the default of 64 when the
+            # body is on the floor. The slot index in the warning must fit.
+            contact_sensor_maxmatch=128,
             mujoco=MujocoCfg(
                 timestep=0.005,
                 iterations=10,
