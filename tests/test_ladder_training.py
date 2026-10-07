@@ -37,6 +37,7 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     FLIGHT_GRACE_STEPS,
     FLIGHT_RATE,
     FOOT_HAND_RUNG_GAP,
+    FOOT_SOLE_END_OFFSETS,
     FOOT_TREAD_ABOVE_CENTER_M,
     HOLD_REWARD,
     REFUND_FRACTION,
@@ -288,34 +289,40 @@ def test_a_foot_counts_only_on_the_top_of_the_rung() -> None:
     assert not foot_on_tread(on_the_rail, center, half).item()
 
 
-def test_foot_climb_aims_at_the_tread_and_the_underside_is_farther() -> None:
-    center = torch.tensor([[0.0, 0.0, 1.0]])
-    half = torch.tensor([0.35])
-    standing = torch.tensor([[0.0, 0.12, 1.0 + FOOT_TREAD_ABOVE_CENTER_M]])
-    planted, lateral = foot_tread_features(
-        standing,
-        center,
-        half,
-        torch.tensor([True]),
-    )
-    assert planted.item() == 0.0
+def test_foot_approach_uses_the_sole_point_furthest_down_the_rail() -> None:
+    base = torch.zeros(1, 1, 3)
+    nxt = torch.tensor([[[0.0, 0.0, 0.20]]])
+    standing_z = 0.20 + FOOT_TREAD_ABOVE_CENTER_M
+    ankle = torch.tensor([0.0, 0.0, standing_z])
+    heel = torch.tensor([0.0, 0.0, standing_z - 0.10])
+    points = torch.stack((ankle, heel)).view(1, 1, 2, 3)
+    on_rung = torch.tensor([[False]])
+
+    distance, lateral = foot_tread_features(points, base, nxt, on_rung)
+    assert distance.item() == pytest.approx(0.10)
     assert lateral.item() == 0.0
 
-    hovering, _ = foot_tread_features(standing, center, half, torch.tensor([False]))
-    assert hovering.item() == pytest.approx(0.0)
+    # The ankle is already at the standing height. It does not pay the heel's gap.
+    alone, _ = foot_tread_features(ankle.view(1, 1, 1, 3), base, nxt, on_rung)
+    assert alone.item() == pytest.approx(0.0)
 
-    short = standing.clone()
-    short[:, 2] -= 0.03
-    almost, _ = foot_tread_features(short, center, half, torch.tensor([False]))
-    assert almost.item() == pytest.approx(0.03)
+    planted, _ = foot_tread_features(points, base, nxt, torch.tensor([[True]]))
+    assert planted.item() == 0.0
 
-    under = torch.tensor([[0.0, 0.12, 1.0 - 0.04]])
-    farther, _ = foot_tread_features(under, center, half, torch.tensor([False]))
-    assert farther.item() > hovering.item()
+    # Past the standing height, and off the end of the rung, adds nothing.
+    ahead = torch.tensor([0.0, 0.50, standing_z + 0.05])
+    clear, _ = foot_tread_features(
+        torch.stack((ankle, ahead)).view(1, 1, 2, 3),
+        base,
+        nxt,
+        on_rung,
+    )
+    assert clear.item() == pytest.approx(0.0)
 
-    past_the_end = torch.tensor([[0.0, 0.50, 1.0 + FOOT_TREAD_ABOVE_CENTER_M]])
-    overhang, _ = foot_tread_features(past_the_end, center, half, torch.tensor([False]))
-    assert overhang.item() == pytest.approx(0.15)
+    # The target is above the rung center, so the center itself is still short.
+    center_point = torch.tensor([0.0, 0.0, 0.20]).view(1, 1, 1, 3)
+    short, _ = foot_tread_features(center_point, base, nxt, on_rung)
+    assert short.item() == pytest.approx(FOOT_TREAD_ABOVE_CENTER_M)
 
 
 def test_limb_axis_distance_falls_until_the_limb_is_on_the_rung() -> None:
@@ -571,6 +578,7 @@ def test_flight_penalty_waits_through_the_grace_and_ignores_a_two_hand_reach() -
         assert ladder_flight(env, "ladder").item() == 0.0
 
     env.common_step_counter = FLIGHT_GRACE_STEPS
+    assert FLIGHT_RATE == pytest.approx(1.0)
     assert ladder_flight(env, "ladder").item() == pytest.approx(-FLIGHT_RATE)
 
     env.common_step_counter = FLIGHT_GRACE_STEPS + 1
@@ -1196,6 +1204,20 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
         ).item()
         hip_to_foot = np.linalg.norm(data.site_xpos[foot_site] - hip)
         assert 0.50 <= hip_to_foot <= 0.62
+        sole = torch.tensor(FOOT_SOLE_END_OFFSETS, dtype=torch.float32)
+        rotation = torch.tensor(
+            data.site_xmat[foot_site].reshape(3, 3),
+            dtype=torch.float32,
+        )
+        site = torch.tensor(data.site_xpos[foot_site], dtype=torch.float32)
+        ends = site + sole @ rotation.T
+        gap, _ = foot_tread_features(
+            ends.view(1, 1, 2, 3),
+            torch.tensor(data.site_xpos[foot_rung_site], dtype=torch.float32).view(1, 1, 3),
+            torch.tensor(data.site_xpos[next_rung_site], dtype=torch.float32).view(1, 1, 3),
+            torch.tensor([[False]]),
+        )
+        assert 0.12 < gap.item() < 0.28
         next_point = data.site_xpos[next_rung_site].copy()
         next_point[1] = hip[1]
         assert np.linalg.norm(hip - next_point) <= 0.69

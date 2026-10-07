@@ -238,6 +238,11 @@ class LadderClimbCommand(CommandTerm):
             dtype=torch.float32,
             device=self.device,
         )
+        self._foot_sole_offsets = torch.tensor(
+            FOOT_SOLE_END_OFFSETS,
+            dtype=torch.float32,
+            device=self.device,
+        )
 
         self._foot_contact_sensor = env.scene[cfg.foot_contact_sensor_name]
         primary_names = [
@@ -397,6 +402,20 @@ class LadderClimbCommand(CommandTerm):
     @property
     def foot_pos_w(self) -> torch.Tensor:
         return self._env.sim.data.site_xpos[:, self._foot_site_ids]
+
+    @property
+    def foot_sole_points_w(self) -> torch.Tensor:
+        """Heel and toe on the sole, shape ``(num_envs, 2, 2, 3)``.
+
+        The offsets are in the foot-site frame. The site frame matches the
+        ankle frame, so the climb axis picks whichever end is still behind.
+        """
+
+        rotation = _as_rotation_matrix(
+            self._env.sim.data.site_xmat[:, self._foot_site_ids]
+        )
+        offset = torch.einsum("efij,pj->efpi", rotation, self._foot_sole_offsets)
+        return self.foot_pos_w.unsqueeze(2) + offset
 
     @property
     def foot_contact(self) -> torch.Tensor:
@@ -912,11 +931,10 @@ class LadderClimbCommand(CommandTerm):
             on_target[:, :2],
         )
         next_foot_center = _gather_rung_centers(centers, foot_next)
-        half_span = self._rung_half_lengths[foot_next.clamp(min=0)]
         foot_distance, foot_lateral = foot_tread_features(
-            self.foot_pos_w,
+            self.foot_sole_points_w,
+            _gather_rung_centers(centers, self.baseline_foot_rung),
             next_foot_center,
-            half_span,
             on_target[:, 2:],
         )
         return (
@@ -1289,8 +1307,15 @@ FOOT_TREAD_ABOVE_CENTER_M = 0.043
 FOOT_TREAD_Z_MIN = 0.02
 FOOT_TREAD_Z_MAX = 0.08
 FOOT_TREAD_HALF_DEPTH_M = 0.07
+# Canonical sole, both feet. Capsules run from x=-0.054 to x=0.132 at
+# z=-0.035, and the foot site sits at x=0.04. These are the site-frame
+# offsets of those two ends.
+FOOT_SOLE_END_OFFSETS = (
+    (-0.094, 0.0, 0.0),
+    (0.092, 0.0, 0.0),
+)
 HOLD_REWARD = 0.5
-FLIGHT_RATE = 2.0
+FLIGHT_RATE = 1.0
 FLIGHT_GRACE_STEPS = 4
 GRAVITY = 9.81
 # Share of body weight a foot must carry before its contact rate turns on.
@@ -1363,34 +1388,31 @@ def foot_on_tread(
 
 
 def foot_tread_features(
-    foot: torch.Tensor,
+    sole_points: torch.Tensor,
+    base_center: torch.Tensor,
     next_center: torch.Tensor,
-    half_span: torch.Tensor,
     on_target: torch.Tensor,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Distance from each foot to the standing point on the next tread.
+    """Remaining climb of the sole point furthest behind the next tread.
 
-    The point keeps the foot's own ``y``, clamped to the rung, and sits
-    0.043 m above the rung center. ``d`` is the distance to that point and
-    falls until the foot is on that next tread, where ``d = 0``. The
-    lateral term is zero: the point already sits on the top face, so a foot
-    under the rung is farther away instead of being pulled into the wood.
+    ``sole_points`` has shape ``(E, F, P, 3)``. The axis runs from the
+    baseline rung center to the next rung center, the same axis as a hand.
+    The target on that axis is 0.043 m above the next rung center. ``d`` is
+    the largest remaining distance among the sole points, clamped at 0, so
+    an ankle that has arrived does not hide a heel still a rung below.
+    ``d = 0`` once the foot is on that next tread. The lateral term is zero.
     """
 
-    y = torch.clamp(
-        foot[..., 1],
-        next_center[..., 1] - half_span,
-        next_center[..., 1] + half_span,
-    )
-    target = torch.stack(
-        (
-            next_center[..., 0],
-            y,
-            next_center[..., 2] + FOOT_TREAD_ABOVE_CENTER_M,
-        ),
-        dim=-1,
-    )
-    distance = torch.linalg.vector_norm(foot - target, dim=-1)
+    axis = next_center - base_center
+    length = torch.linalg.vector_norm(axis, dim=-1, keepdim=True)
+    direction = axis / length.clamp_min(1.0e-8)
+    degenerate = length.squeeze(-1) < 1.0e-6
+    standing = next_center.clone()
+    standing[..., 2] = standing[..., 2] + FOOT_TREAD_ABOVE_CENTER_M
+    gap = standing.unsqueeze(-2) - sole_points
+    remaining = (gap * direction.unsqueeze(-2)).sum(dim=-1).clamp_min(0.0)
+    distance = remaining.amax(dim=-1)
+    distance = torch.where(degenerate, torch.zeros_like(distance), distance)
     distance = torch.where(on_target, torch.zeros_like(distance), distance)
     return distance, torch.zeros_like(distance)
 
@@ -1399,8 +1421,9 @@ def ladder_climb(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     """Approach toward the next rung, plus contact time on that rung.
 
     A hand's distance is the remaining gap along the rail. A foot's distance
-    is the gap to the standing point on the next tread. Both keep paying
-    until that limb is on the next rung, including the last centimeters.
+    is the rung-to-rung gap of the sole point furthest behind the standing
+    height on the next tread. Both keep paying until that limb is on the
+    next rung, including the last centimeters.
     ``0.5`` per meter makes one 0.20 m rung ``+0.10``. The account is the gap
     closed since the reset sample, or since the last completed hold, and it
     stops at 0. Moving far away gives back only what that limb earned, and
@@ -1456,7 +1479,7 @@ def ladder_hold(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
 def ladder_flight(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     """Both feet off the ladder. The manager scales by ``dt``.
 
-    The first 4 steps (0.08 s) are free, then the rate is −2 per second.
+    The first 4 steps (0.08 s) are free, then the rate is −1 per second.
     One foot swinging, with the hands open or closed, costs nothing.
     """
 

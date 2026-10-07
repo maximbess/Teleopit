@@ -769,8 +769,10 @@ def make_g1_ladder_rl_env_cfg(
     }
 
     rewards = {
-        # 0.5 per meter of approach, so one 0.20 m rung is +0.10. Each limb
-        # stops at 0. A hand then pays 0.25 per second while it is welded to
+        # 0.5 per meter of approach, so one 0.20 m rung is +0.10. A foot's
+        # gap is the sole point furthest behind the next rung. Each limb
+        # stops at 0.
+        # A hand then pays 0.25 per second while it is welded to
         # the next rung, and a foot pays 0.25 per second on the next tread
         # while it carries 20% of the robot weight. Each limb caps at +3.
         # On the last
