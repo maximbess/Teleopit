@@ -42,6 +42,7 @@ def test_deadline_is_terminal_and_has_no_failure_reward() -> None:
         "ladder_hold",
         "ladder_hold_completed",
         "ladder_flight",
+        "ladder_alive",
         "action_rate_l2",
     }
     assert "remaining_time" not in cfg.observations["actor"].terms

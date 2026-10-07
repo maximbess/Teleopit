@@ -952,6 +952,19 @@ class LadderClimbCommand(CommandTerm):
         along = (self.torso_com_pos_w * direction).sum(dim=-1)
         return along / pitch
 
+    def _ground_contact(self, like: torch.Tensor) -> torch.Tensor:
+        """Whether this step's termination is the body touching the ground."""
+
+        manager = getattr(self._env, "termination_manager", None)
+        get_term = getattr(manager, "get_term", None)
+        if not callable(get_term):
+            return torch.zeros(like.shape[0], dtype=torch.bool, device=like.device)
+        try:
+            done = get_term("touched_ground")
+        except (KeyError, ValueError):
+            return torch.zeros(like.shape[0], dtype=torch.bool, device=like.device)
+        return done.to(device=like.device, dtype=torch.bool).reshape(like.shape[0])
+
     def _episode_ending(self) -> torch.Tensor:
         """Envs whose reward this step is the last of the episode.
 
@@ -965,7 +978,7 @@ class LadderClimbCommand(CommandTerm):
         return torch.zeros(self._climb_valid.shape[0], dtype=torch.bool)
 
     def reward_terms(self) -> dict[str, torch.Tensor]:
-        """Agent-visible climb, ascent, hold, and flight terms.
+        """Agent-visible climb, ascent, hold, flight, and alive terms.
 
         Cached on ``common_step_counter`` so the reward terms share one sample.
         """
@@ -1104,11 +1117,21 @@ class LadderClimbCommand(CommandTerm):
         self._ascent_peak.copy_(new_peak)
         self._ascent_prev.copy_(origin)
         self._ascent_valid[:] = True
+        elapsed = self._env.episode_length_buf.to(
+            device=climb.device, dtype=climb.dtype
+        ) * dt
+        on_ground = self._ground_contact(climb)
+        alive = torch.where(
+            (elapsed <= ALIVE_WINDOW_S) & ~on_ground,
+            torch.full_like(climb, ALIVE_RATE),
+            torch.zeros_like(climb),
+        )
         self._reward_cache = {
             "climb": climb,
             "ascent": ascent,
             "hold": hold,
             "flight": flight_rate,
+            "alive": alive,
         }
         self._reward_cache_step = step_id
         return self._reward_cache
@@ -1317,6 +1340,10 @@ FOOT_SOLE_END_OFFSETS = (
 HOLD_REWARD = 0.5
 FLIGHT_RATE = 1.0
 FLIGHT_GRACE_STEPS = 4
+# Off the ground. The manager multiplies by dt. The rate is 1 per second
+# until the episode has lasted 2 s, then 0. The ground-contact step pays 0.
+ALIVE_RATE = 1.0
+ALIVE_WINDOW_S = 2.0
 GRAVITY = 9.81
 # Share of body weight a foot must carry before its contact rate turns on.
 FOOT_WEIGHT_FRACTION = 0.20
@@ -1474,6 +1501,17 @@ def ladder_hold(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
 
     command = _ladder_command(env, command_name)
     return command.reward_terms()["hold"] / env.step_dt
+
+
+def ladder_alive(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Off the ground, for the first 2 seconds. The manager scales by ``dt``.
+
+    The rate is 1 per second while the episode time is at most 2 s, then 0.
+    The step that touches the ground pays nothing.
+    """
+
+    command = _ladder_command(env, command_name)
+    return command.reward_terms()["alive"]
 
 
 def ladder_flight(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:

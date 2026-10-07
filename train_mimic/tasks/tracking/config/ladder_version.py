@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 
-LADDER_CODE_VERSION = "cap-4"
+LADDER_CODE_VERSION = "cap-5"
 LADDER_CODE_VERSION_NOTES = (
     "Climb pays 0.5 per meter of approach until the limb is on the next "
     "rung. A foot's approach is the rung-to-rung gap of the sole point "
@@ -21,7 +21,9 @@ LADDER_CODE_VERSION_NOTES = (
     "the next rung, and a loaded foot on the next tread pays 0.25 per "
     "second, capped at +3 per limb. The episode ends on the 20 s timeout "
     "or when the robot touches the ground. Flight charges 1 per second "
-    "only when both feet are off. action_rate weight is -0.002."
+    "only when both feet are off. Staying off the ground pays 1 per second "
+    "until the episode has lasted 2 seconds, and the ground-contact step "
+    "pays nothing. action_rate weight is -0.002."
 )
 
 

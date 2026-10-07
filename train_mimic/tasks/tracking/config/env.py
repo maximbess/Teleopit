@@ -805,6 +805,14 @@ def make_g1_ladder_rl_env_cfg(
             weight=1.0,
             params={"command_name": "ladder"},
         ),
+        # 1 per second while the episode has lasted at most 2 s and this step
+        # is not the ground contact. A full window is +2. After 2 s the rate
+        # is zero, so a long weld collects nothing more from this term.
+        "ladder_alive": RewardTermCfg(
+            func=mdp.ladder_alive,
+            weight=1.0,
+            params={"command_name": "ladder"},
+        ),
         # Squared action change near 1 for the whole 20 s costs 0.04, about
         # a sixth of one plant. The tread-1 fall averaged near 7.5 and would
         # cost 0.30 stretched over 20 s, about one plant, so dying early to

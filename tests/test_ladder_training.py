@@ -34,6 +34,8 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     CLIMB_CONTACT_CAP,
     CLIMB_CONTACT_RATE,
     CLIMB_DISTANCE_PER_M,
+    ALIVE_RATE,
+    ALIVE_WINDOW_S,
     FLIGHT_GRACE_STEPS,
     FLIGHT_RATE,
     FOOT_HAND_RUNG_GAP,
@@ -46,6 +48,7 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     foot_tread_features,
     LadderClimbCommand,
     LadderGripActionCfg,
+    ladder_alive,
     ladder_ascent,
     ladder_climb,
     ladder_flight,
@@ -159,6 +162,7 @@ def test_ladder_task_is_one_repeated_hold() -> None:
         "ladder_hold",
         "ladder_hold_completed",
         "ladder_flight",
+        "ladder_alive",
         "action_rate_l2",
     }
     assert cfg.rewards["ladder_climb"].func is ladder_climb
@@ -168,6 +172,8 @@ def test_ladder_task_is_one_repeated_hold() -> None:
     assert cfg.rewards["ladder_hold"].func is ladder_hold
     assert cfg.rewards["ladder_hold_completed"].func is ladder_hold_completed
     assert cfg.rewards["ladder_flight"].func is ladder_flight
+    assert cfg.rewards["ladder_alive"].func is ladder_alive
+    assert cfg.rewards["ladder_alive"].weight == 1.0
     assert cfg.rewards["action_rate_l2"].func is action_rate_l2
     assert cfg.rewards["action_rate_l2"].weight == -0.002
     assert cfg.rewards["ladder_hold_completed"].weight == 1.0
@@ -204,6 +210,7 @@ def test_ladder_task_is_one_repeated_hold() -> None:
         "ladder_hold",
         "ladder_hold_completed",
         "ladder_flight",
+        "ladder_alive",
         "action_rate_l2",
     }
 
@@ -381,6 +388,7 @@ def _bind_reward_state(command: _QuietLadder) -> None:
 def _reward_env(command: _QuietLadder) -> SimpleNamespace:
     command._env.step_dt = 0.02
     command._env.common_step_counter = 0
+    command._env.episode_length_buf = torch.zeros(1, dtype=torch.long)
     command._env.command_manager = SimpleNamespace(get_term=lambda _name: command)
     return command._env
 
@@ -563,6 +571,29 @@ def test_hold_pays_back_a_broken_gate_and_not_a_completion() -> None:
     command._hold_count_prev[:] = 49
     assert ladder_hold(env, "ladder").item() == pytest.approx((HOLD_REWARD / 50) / 0.02)
     assert ladder_hold_completed(env, "ladder").item() == pytest.approx(50.0)
+
+
+def test_alive_pays_for_two_seconds_off_the_ground() -> None:
+    command = _quiet_ladder()
+    _bind_reward_state(command)
+    command._limb_features = lambda: (torch.zeros(1, 4), torch.zeros(1, 4))  # type: ignore[method-assign]
+    env = _reward_env(command)
+
+    def alive(step: int) -> float:
+        env.common_step_counter = step
+        env.episode_length_buf[:] = step
+        return ladder_alive(env, "ladder").item()
+
+    assert ALIVE_RATE == pytest.approx(1.0)
+    assert ALIVE_WINDOW_S == pytest.approx(2.0)
+    assert alive(1) == pytest.approx(ALIVE_RATE)
+    assert alive(100) == pytest.approx(ALIVE_RATE)
+    assert alive(101) == pytest.approx(0.0)
+
+    env.termination_manager = SimpleNamespace(
+        get_term=lambda name: torch.tensor([name == "touched_ground"])
+    )
+    assert alive(10) == pytest.approx(0.0)
 
 
 def test_flight_penalty_waits_through_the_grace_and_ignores_a_two_hand_reach() -> None:
