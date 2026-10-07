@@ -113,3 +113,5 @@ data/modelscope_upload/
 # the canonical G1 XML; do not commit a second mesh tree.
 assets/ladder_g1/
 assets/ladders/
+
+autoresearch/runs
