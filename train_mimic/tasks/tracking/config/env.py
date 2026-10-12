@@ -83,6 +83,16 @@ _LADDER_BOX_MARGIN = 0.0
 # Climb-face geoms advertise bit 0 and listen to nothing. See ROBOT_CONTYPE.
 _LADDER_CONTYPE = 1
 _LADDER_CONAFFINITY = 0
+# MuJoCo's default is (0, 0, -9.81). This run uses one third of that.
+_LADDER_GRAVITY = (0.0, 0.0, -9.81 / 3.0)
+# Radius of ``left_hand_collision`` / ``right_hand_collision`` and of the
+# grip-site markers. The farthest fingertip is 0.085 m from the grip site.
+_HAND_COLLISION_RADIUS = 0.085
+# Grip site to rung centerline. A sphere of radius 0.085 m cannot sit on the
+# top face: the next rung occupies that point. The clear seat is the near
+# upper corner, 0.136 m from the centerline. Attachment allows a few
+# millimetres past that seat.
+_LADDER_ATTACH_DISTANCE = 0.14
 
 _LADDER_FLOOR_MATERIAL = spec_cfg.MaterialCfg(
     name="ladder_floor_material",
@@ -121,21 +131,38 @@ def _add_ladder_to_g1_spec(spec: mujoco.MjSpec) -> None:
 
     left_wrist = _required_spec_body(spec, "left_wrist_yaw_link")
     right_wrist = _required_spec_body(spec, "right_wrist_yaw_link")
+    for geom in spec.worldbody.find_all(mujoco.mjtObj.mjOBJ_GEOM):
+        if geom.name in ("left_hand_collision", "right_hand_collision"):
+            size = list(geom.size)
+            size[0] = _HAND_COLLISION_RADIUS
+            geom.size = size
+    # The fatter hand capsule reaches back into the wrist roll mesh, and the
+    # two hands overlap while both rest on the start rung. Those pairs are
+    # one robot, not a grasp.
+    for side in ("left", "right"):
+        spec.add_exclude(
+            bodyname1=f"{side}_wrist_yaw_link",
+            bodyname2=f"{side}_wrist_roll_link",
+        )
+    spec.add_exclude(
+        bodyname1="left_wrist_yaw_link",
+        bodyname2="right_wrist_yaw_link",
+    )
     left_wrist.add_site(
         name="left_grip_site",
         type=mujoco.mjtGeom.mjGEOM_SPHERE,
         pos=(0.10, 0.0, 0.0),
-        size=(0.05,),
-        group=3,
-        rgba=(1.0, 0.0, 0.0, 0.7),
+        size=(_HAND_COLLISION_RADIUS,),
+        group=2,
+        rgba=(1.0, 0.0, 0.0, 0.35),
     )
     right_wrist.add_site(
         name="right_grip_site",
         type=mujoco.mjtGeom.mjGEOM_SPHERE,
         pos=(0.10, 0.0, 0.0),
-        size=(0.05,),
-        group=3,
-        rgba=(0.0, 0.0, 1.0, 0.7),
+        size=(_HAND_COLLISION_RADIUS,),
+        group=2,
+        rgba=(0.0, 0.0, 1.0, 0.35),
     )
 
     world = spec.worldbody
@@ -711,7 +738,7 @@ def make_g1_ladder_rl_env_cfg(
             max_stabilization_waist_joint_speed=0.60,
             max_stabilization_support_offset_error=0.18,
             weld_release_speed_factor=4.0,
-            attach_distance=0.10,
+            attach_distance=_LADDER_ATTACH_DISTANCE,
             max_attach_speed=0.35,
             grip_half_span=0.18,
             foot_support_distance=0.11,
@@ -918,6 +945,7 @@ def make_g1_ladder_rl_env_cfg(
                 iterations=10,
                 ls_iterations=20,
                 ccd_iterations=100,
+                gravity=_LADDER_GRAVITY,
             ),
         ),
         decimation=4,

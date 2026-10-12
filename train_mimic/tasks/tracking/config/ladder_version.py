@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 
-LADDER_CODE_VERSION = "cap-5"
+LADDER_CODE_VERSION = "cap-8"
 LADDER_CODE_VERSION_NOTES = (
     "Climb pays 0.5 per meter of approach until the limb is on the next "
     "rung. A foot's approach is the rung-to-rung gap of the sole point "
@@ -23,7 +23,10 @@ LADDER_CODE_VERSION_NOTES = (
     "or when the robot touches the ground. Flight charges 1 per second "
     "only when both feet are off. Staying off the ground pays 1 per second "
     "until the episode has lasted 2 seconds, and the ground-contact step "
-    "pays nothing. action_rate weight is -0.002."
+    "pays nothing. Gravity is one third of 9.81. The hand collision capsule "
+    "and its marker share radius 0.085. The start pose sets those spheres on "
+    "the near upper corner of the hand rung, clear of the ladder, and a hand "
+    "attaches within 0.14 m of a rung centerline. action_rate weight is -0.002."
 )
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import MethodType
 from typing import TYPE_CHECKING, cast
 
 import mujoco
@@ -8,6 +9,7 @@ import torch
 import torch.nn.functional as F
 from mjlab.managers import CommandTerm, CommandTermCfg
 from mjlab.managers.action_manager import ActionTerm, ActionTermCfg
+from mjlab.managers.reward_manager import RewardManager
 from mjlab.sensor import ContactSensor
 
 if TYPE_CHECKING:
@@ -59,6 +61,53 @@ def _matrix_to_quaternion(matrix: torch.Tensor) -> torch.Tensor:
 FOOT_HAND_RUNG_GAP = 4
 # One rung below the feet through one rung above the hands.
 RUNG_WINDOW_COUNT = FOOT_HAND_RUNG_GAP + 3
+
+_EPISODE_REWARD_LOG_PREFIX = "Episode_Reward/"
+
+
+class EpisodeSumRewardManager(RewardManager):
+    """Log the mean summed return of each reward term.
+
+    MJLab reports ``mean(episode sum) / max_episode_length_s``, the return
+    spread across the deadline. These logs are the mean of the summed return
+    over the environments reset on this step.
+    """
+
+    def reset(
+        self, env_ids: torch.Tensor | slice | None = None
+    ) -> dict[str, torch.Tensor]:
+        extras = RewardManager.reset(self, env_ids)
+        horizon_s = float(self._env.max_episode_length_s)
+        for key, value in extras.items():
+            if key.startswith(_EPISODE_REWARD_LOG_PREFIX):
+                extras[key] = value * horizon_s
+        return extras
+
+
+def install_episode_sum_reward_logs(env: ManagerBasedRlEnv) -> None:
+    """Make the next reset log reward totals, then leave ``_reset_idx`` alone.
+
+    The ladder command is built before the reward manager, so the swap waits
+    until the first environment reset.
+    """
+
+    if getattr(env, "_reward_logs_episode_sums", False):
+        return
+    original_reset_idx = env._reset_idx
+
+    def _reset_idx(env_ids: torch.Tensor | None = None) -> None:
+        manager = getattr(env, "reward_manager", None)
+        if isinstance(manager, RewardManager) and not getattr(
+            manager, "_logs_episode_sums", False
+        ):
+            manager.reset = MethodType(EpisodeSumRewardManager.reset, manager)  # type: ignore[method-assign]
+            manager._logs_episode_sums = True
+            env._reset_idx = original_reset_idx  # type: ignore[method-assign]
+            env._reward_logs_episode_sums = True
+        return original_reset_idx(env_ids)
+
+    env._reset_idx = _reset_idx  # type: ignore[method-assign]
+    env._reward_logs_episode_sums = True
 
 
 class LadderClimbCommand(CommandTerm):
@@ -382,6 +431,8 @@ class LadderClimbCommand(CommandTerm):
             "stabilization_gate_valid",
         ):
             self.metrics[metric_name] = torch.zeros(self.num_envs, device=self.device)
+
+        install_episode_sum_reward_logs(env)
 
     @property
     def command(self) -> torch.Tensor:
@@ -1259,7 +1310,7 @@ class LadderClimbCommandCfg(CommandTermCfg):
     max_stabilization_waist_joint_speed: float = 0.60
     max_stabilization_support_offset_error: float = 0.18
     weld_release_speed_factor: float = 4.0
-    attach_distance: float = 0.06
+    attach_distance: float = 0.14
     max_attach_speed: float = 0.30
     # No longer the support test. A foot counts only on the top face of a rung.
     foot_support_distance: float = 0.08

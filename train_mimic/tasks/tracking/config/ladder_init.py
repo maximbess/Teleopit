@@ -5,7 +5,8 @@ read the same pose without compiling MuJoCo.
 
 Feet stand on 0-based rung 3 and hands hold rung 7, four rungs above. The
 root pitch follows the rail, the knees stay bent, and both feet can still
-reach the next rung.
+reach the next rung. The arms set the 0.085 m hand spheres on the near
+upper corner of rung 7, clear of that rung and of the rung above it.
 """
 
 from __future__ import annotations
@@ -20,15 +21,15 @@ LADDER_INITIAL_JOINT_POS = {
     ".*_knee_joint": 1.107530,
     ".*_ankle_pitch_joint": -0.037076,
     "waist_pitch_joint": 0.142894,
-    ".*_shoulder_pitch_joint": -1.494941,
-    "left_shoulder_roll_joint": 0.519626,
-    "right_shoulder_roll_joint": -0.519626,
-    "left_shoulder_yaw_joint": -0.245816,
-    "right_shoulder_yaw_joint": 0.245816,
-    ".*_elbow_joint": 1.402475,
-    "left_wrist_roll_joint": -0.603839,
-    "right_wrist_roll_joint": 0.603839,
-    ".*_wrist_pitch_joint": 0.067013,
-    "left_wrist_yaw_joint": -1.521873,
-    "right_wrist_yaw_joint": 1.521873,
+    ".*_shoulder_pitch_joint": -1.874871,
+    "left_shoulder_roll_joint": 0.680692,
+    "right_shoulder_roll_joint": -0.680692,
+    "left_shoulder_yaw_joint": -0.317588,
+    "right_shoulder_yaw_joint": 0.317588,
+    ".*_elbow_joint": 1.430890,
+    "left_wrist_roll_joint": -0.522403,
+    "right_wrist_roll_joint": 0.522403,
+    ".*_wrist_pitch_joint": 0.433655,
+    "left_wrist_yaw_joint": -1.572522,
+    "right_wrist_yaw_joint": 1.572522,
 }

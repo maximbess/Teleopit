@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 import torch
 from mjlab.entity import Entity
+from mjlab.managers.reward_manager import RewardManager, RewardTermCfg
 from mjlab.rl import MjlabOnPolicyRunner
 from mjlab.tasks.registry import load_env_cfg, load_rl_cfg, load_runner_cls
 
@@ -44,8 +45,10 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     HOLD_REWARD,
     REFUND_FRACTION,
     RUNG_WINDOW_COUNT,
+    EpisodeSumRewardManager,
     foot_on_tread,
     foot_tread_features,
+    install_episode_sum_reward_logs,
     LadderClimbCommand,
     LadderGripActionCfg,
     ladder_alive,
@@ -177,6 +180,8 @@ def test_ladder_task_is_one_repeated_hold() -> None:
     assert cfg.rewards["action_rate_l2"].func is action_rate_l2
     assert cfg.rewards["action_rate_l2"].weight == -0.002
     assert cfg.rewards["ladder_hold_completed"].weight == 1.0
+    assert cfg.sim.mujoco.gravity == pytest.approx((0.0, 0.0, -9.81 / 3.0))
+    assert cfg.commands["ladder"].attach_distance == pytest.approx(0.14)
     assert cfg.terminations["time_out"].time_out is False
     assert set(cfg.terminations) == {"time_out", "success", "touched_ground"}
     assert cfg.terminations["touched_ground"].func.__name__ == "ladder_touched_ground"
@@ -811,6 +816,76 @@ def _zero_ladder_metrics(command: _QuietLadder) -> None:
     }
 
 
+def test_reward_logs_are_the_mean_episode_sum() -> None:
+    def _zero(env, command_name: str) -> torch.Tensor:
+        del command_name
+        return torch.zeros(env.num_envs)
+
+    env = SimpleNamespace(
+        num_envs=2,
+        device="cpu",
+        max_episode_length_s=20.0,
+        scene=None,
+    )
+    manager = RewardManager(
+        {
+            "ladder_climb": RewardTermCfg(
+                func=_zero, weight=1.0, params={"command_name": "ladder"}
+            ),
+            "ladder_ascent": RewardTermCfg(
+                func=_zero, weight=1.0, params={"command_name": "ladder"}
+            ),
+        },
+        env,
+    )
+    env_ids = torch.tensor([0, 1])
+    manager._episode_sums["ladder_climb"][:] = torch.tensor([2.0, 4.0])
+    manager._episode_sums["ladder_ascent"][:] = torch.tensor([1.0, 1.0])
+
+    averaged = RewardManager.reset(manager, env_ids)
+    manager._episode_sums["ladder_climb"][:] = torch.tensor([2.0, 4.0])
+    manager._episode_sums["ladder_ascent"][:] = torch.tensor([1.0, 1.0])
+    manager.__class__ = EpisodeSumRewardManager
+    totals = manager.reset(env_ids)
+
+    assert averaged["Episode_Reward/ladder_climb"].item() == pytest.approx(3.0 / 20.0)
+    assert totals["Episode_Reward/ladder_climb"].item() == pytest.approx(3.0)
+    assert totals["Episode_Reward/ladder_ascent"].item() == pytest.approx(1.0)
+    assert torch.count_nonzero(manager._episode_sums["ladder_climb"]).item() == 0
+
+
+def test_reset_installs_episode_sum_reward_logs_before_clearing() -> None:
+    logged: dict[str, float] = {}
+
+    def _reset_idx(env_ids: torch.Tensor | None = None) -> None:
+        value = env.reward_manager.reset(env_ids)["Episode_Reward/ladder_climb"]
+        logged["ladder_climb"] = float(value)
+
+    env = SimpleNamespace(
+        num_envs=1,
+        device="cpu",
+        max_episode_length_s=20.0,
+        scene=None,
+        _reset_idx=_reset_idx,
+    )
+    env.reward_manager = RewardManager(
+        {
+            "ladder_climb": RewardTermCfg(
+                func=lambda env, command_name: torch.zeros(env.num_envs),
+                weight=1.0,
+                params={"command_name": "ladder"},
+            )
+        },
+        env,
+    )
+    env.reward_manager._episode_sums["ladder_climb"][:] = 2.5
+    install_episode_sum_reward_logs(env)
+    env._reset_idx(torch.tensor([0]))
+
+    assert logged["ladder_climb"] == pytest.approx(2.5)
+    assert env._reset_idx is _reset_idx
+
+
 def test_ladder_metrics_sum_the_episode_instead_of_the_last_step() -> None:
     command = _quiet_ladder()
     _zero_ladder_metrics(command)
@@ -1166,14 +1241,19 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
         )
         == -1
     )
-    assert (
-        mujoco.mj_name2id(
-            model,
-            mujoco.mjtObj.mjOBJ_SITE,
-            "left_grip_site",
+    for side in ("left", "right"):
+        hand_site = mujoco.mj_name2id(
+            model, mujoco.mjtObj.mjOBJ_SITE, f"{side}_grip_site"
         )
-        >= 0
-    )
+        hand_geom = mujoco.mj_name2id(
+            model, mujoco.mjtObj.mjOBJ_GEOM, f"{side}_hand_collision"
+        )
+        assert hand_site >= 0 and hand_geom >= 0
+        assert model.site_size[hand_site, 0] == pytest.approx(0.085)
+        assert model.geom_size[hand_geom, 0] == pytest.approx(
+            model.site_size[hand_site, 0]
+        )
+        assert model.site_type[hand_site] == mujoco.mjtGeom.mjGEOM_SPHERE
 
     # Reload the climbing keyframe. Feet are on rung 4 and hands on rung 8
     # (1-based names), with a bent knee and the next rung still in reach.
@@ -1256,13 +1336,19 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
         hand_site = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, hand_name)
         target = data.site_xpos[hand_rung_site].copy()
         target[1] = data.site_xpos[hand_site, 1]
-        assert np.linalg.norm(data.site_xpos[hand_site] - target) < 0.10
+        hand_distance = np.linalg.norm(data.site_xpos[hand_site] - target)
+        # Clear of the wood, and inside the 0.14 m attach distance.
+        assert 0.12 < hand_distance < 0.14
     torso = data.xmat[
         mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "torso_link")
     ].reshape(3, 3)
     assert float(torso[:, 2] @ rail) > 0.95
     for contact in data.contact:
-        assert contact.dist >= -0.005
+        geom_names = {
+            mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, contact.geom[0]) or "",
+            mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, contact.geom[1]) or "",
+        }
+        assert contact.dist >= -0.001
     lowest_z = min(
         float(data.geom_xpos[geom_id, 2])
         for geom_id in range(model.ngeom)
