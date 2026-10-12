@@ -382,7 +382,8 @@ class LadderClimbCommand(CommandTerm):
         self._ascent_peak = torch.zeros(
             self.num_envs, dtype=torch.float32, device=self.device
         )
-        self._robot_weight_n = self._nominal_robot_weight_n()
+        self._robot_mass = self._robot_mass_kg()
+        self._robot_weight_n = self._robot_mass * GRAVITY
         self._ascent_valid = torch.zeros(
             self.num_envs, dtype=torch.bool, device=self.device
         )
@@ -489,7 +490,8 @@ class LadderClimbCommand(CommandTerm):
 
         The contact sensor reports the force on the foot. With the contact
         frame rotated into the world, a foot standing on a tread has a
-        positive ``z`` component.
+        positive ``z`` component. This threshold banks ascent. The step
+        reward uses ``foot_load_fraction`` instead.
         """
 
         force = self._foot_contact_sensor.data.force
@@ -500,8 +502,27 @@ class LadderClimbCommand(CommandTerm):
         upward = force[:, self._foot_contact_indices, 2]
         return upward >= FOOT_WEIGHT_FRACTION * self._robot_weight_n
 
-    def _nominal_robot_weight_n(self) -> float:
-        """Body weight, excluding the ladder, from the unrandomized model."""
+    def foot_load_fraction(self) -> torch.Tensor:
+        """Share of body weight on each foot, clamped to ``[0, 0.35]``.
+
+        The denominator is body mass times the simulator's gravity, so the
+        same stance is the same share when gravity changes.
+        """
+
+        force = self._foot_contact_sensor.data.force
+        if force is None:
+            return torch.zeros(
+                (self.num_envs, 2), dtype=torch.float32, device=self.device
+            )
+        upward = force[:, self._foot_contact_indices, 2]
+        weight = self._robot_mass * self._gravity_magnitude()
+        return foot_step_load(
+            upward,
+            torch.as_tensor(weight, device=upward.device, dtype=upward.dtype),
+        )
+
+    def _robot_mass_kg(self) -> float:
+        """Body mass, excluding the ladder, from the unrandomized model."""
 
         model = self._env.sim.mj_model
         mass = 0.0
@@ -510,7 +531,15 @@ class LadderClimbCommand(CommandTerm):
             if "ladder" in name:
                 continue
             mass += float(model.body_mass[body_id])
-        return mass * GRAVITY
+        return mass
+
+    def _gravity_magnitude(self) -> float:
+        """Live gravity magnitude from the simulator, in m/s²."""
+
+        gravity = torch.as_tensor(
+            self._env.sim.mj_model.opt.gravity, dtype=torch.float32
+        )
+        return float(torch.linalg.vector_norm(gravity).clamp_min(1.0e-8).item())
 
     @property
     def next_hand_rung(self) -> torch.Tensor:
@@ -1041,15 +1070,23 @@ class LadderClimbCommand(CommandTerm):
         # Distance falls until the limb is on the next rung, including the
         # last centimeters. A limb's approach account stops at 0, so moving
         # far away only gives back what that limb earned. Contact accrues
-        # separately, at 0.25 per second while that limb's gate holds, and
-        # stops at +3 per limb.
+        # separately and stops at +3 per limb. A welded hand on the next
+        # rung pays 0.25 per second. A foot on the next tread pays 0.25 per
+        # second times its share of body weight, and that share stops at 0.35.
         dt = float(self._env.step_dt)
         ending = self._episode_ending()
         keep_share = 1.0 - REFUND_FRACTION
         distance, lateral = self._limb_features()
         on_next = self._limbs_on_next_rung()
         bearing = self.foot_bears_weight()
-        gated = torch.cat((on_next[:, :2], on_next[:, 2:] & bearing), dim=1)
+        load = self.foot_load_fraction().clamp(0.0, FOOT_LOAD_CAP)
+        contact_rate = torch.cat(
+            (
+                torch.full_like(load[:, :2], CLIMB_CONTACT_RATE),
+                CLIMB_CONTACT_RATE * load,
+            ),
+            dim=1,
+        )
         episode_fresh = ~self._climb_valid
         hold_fresh = episode_fresh | self.just_completed
         # Approach is the gap closed since the reset sample, or since the last
@@ -1080,12 +1117,9 @@ class LadderClimbCommand(CommandTerm):
             torch.zeros_like(approach_kept),
         )
         room = (CLIMB_CONTACT_CAP - self._climb_paid).clamp(min=0.0)
-        contact = torch.minimum(
-            room,
-            torch.full_like(self._climb_paid, CLIMB_CONTACT_RATE * dt),
-        )
+        contact = torch.minimum(room, contact_rate * dt)
         contact = torch.where(
-            gated & ~hold_fresh.unsqueeze(1),
+            on_next & ~hold_fresh.unsqueeze(1),
             contact,
             torch.zeros_like(contact),
         )
@@ -1368,9 +1402,9 @@ def _ladder_command(env: ManagerBasedRlEnv, command_name: str) -> LadderClimbCom
 
 # PPO sees these values after the reward manager multiplies by the 0.02 s step.
 # One 0.20 m rung of approach is +0.10. A full second welded to the next
-# rung, or a full second with a loaded foot on the next tread, is +0.25,
-# and each limb stops at +3. Ascent pays the change in min(torso rise, 1)
-# on the step the torso moves.
+# rung is +0.25. A foot on the next tread pays that rate times its share of
+# body weight, and the share stops at 0.35. Each limb stops at +3. Ascent
+# pays the change in min(torso rise, 1) on the step the torso moves.
 CLIMB_DISTANCE_PER_M = 0.5
 LATERAL_COEFF = 0.5
 RUNG_HEIGHT_BAND_M = 0.08
@@ -1396,8 +1430,12 @@ FLIGHT_GRACE_STEPS = 4
 ALIVE_RATE = 1.0
 ALIVE_WINDOW_S = 2.0
 GRAVITY = 9.81
-# Share of body weight a foot must carry before its contact rate turns on.
+# Share of body weight a foot must carry before it banks ascent.
 FOOT_WEIGHT_FRACTION = 0.20
+# A foot's step rate is 0.25 times this share of body weight. The share is
+# the upward contact force divided by mass times the live gravity, and it
+# stops rising at 0.35, so the foot rate stops at 0.0875 per second.
+FOOT_LOAD_CAP = 0.35
 # Per limb, while its gate holds. reward_terms stores rate * dt, and the
 # public function divides by dt, so one open step returns the rate.
 CLIMB_CONTACT_RATE = 0.25
@@ -1443,6 +1481,18 @@ def limb_axis_features(
     ell = torch.where(at_height, LATERAL_COEFF * lateral, torch.zeros_like(lateral))
     distance = torch.where(on_target, torch.zeros_like(remaining), remaining)
     return distance, ell
+
+
+def foot_step_load(upward_n: torch.Tensor, body_weight_n: torch.Tensor) -> torch.Tensor:
+    """Share of body weight on each foot, clamped to ``[0, FOOT_LOAD_CAP]``.
+
+    ``body_weight_n`` is mass times the live gravity magnitude. A stance that
+    carries the same share of the robot pays the same value when gravity
+    changes, because the contact force scales with gravity too.
+    """
+
+    share = upward_n / body_weight_n.clamp_min(1.0e-8)
+    return share.clamp(0.0, FOOT_LOAD_CAP)
 
 
 def foot_on_tread(
@@ -1509,12 +1559,14 @@ def ladder_climb(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     ``1 - REFUND_FRACTION`` of the net approach given back since that limb's
     best point is returned, once.
     On top of that, a hand pays ``0.25`` per second while it is welded to
-    the next rung, and a foot pays ``0.25`` per second while it stands on
-    the next tread and carries at least 20% of the robot's weight. Each
-    limb caps at ``+3``. Letting go pauses that limb. Coming back continues
-    the same cap.
-    ``reward_terms`` stores ``0.25 * dt`` for one open step, and this
-    divides by ``dt``, so the step returns ``0.25``. The first sample after
+    the next rung. A foot on the next tread pays ``0.25`` per second times
+    the share of body weight on that foot. The share is the upward contact
+    force divided by body mass times the simulator gravity, clamped to
+    ``[0, 0.35]``, so the foot rate rises linearly up to ``0.0875`` per
+    second. Each limb caps at ``+3``. Letting go pauses that limb. Coming
+    back continues the same cap.
+    ``reward_terms`` stores ``rate * dt`` for one open step, and this
+    divides by ``dt``, so the step returns the rate. The first sample after
     a reset, and the step that records a completed hold, pay 0 and clear
     the caps.
     """

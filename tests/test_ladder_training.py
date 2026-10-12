@@ -40,6 +40,7 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     FLIGHT_GRACE_STEPS,
     FLIGHT_RATE,
     FOOT_HAND_RUNG_GAP,
+    FOOT_LOAD_CAP,
     FOOT_SOLE_END_OFFSETS,
     FOOT_TREAD_ABOVE_CENTER_M,
     HOLD_REWARD,
@@ -47,6 +48,7 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     RUNG_WINDOW_COUNT,
     EpisodeSumRewardManager,
     foot_on_tread,
+    foot_step_load,
     foot_tread_features,
     install_episode_sum_reward_logs,
     LadderClimbCommand,
@@ -108,6 +110,9 @@ class _QuietLadder(LadderClimbCommand):
     def foot_bears_weight(self) -> torch.Tensor:
         return self._bearing
 
+    def foot_load_fraction(self) -> torch.Tensor:
+        return self._foot_load
+
 
 def _quiet_ladder(*, dwell: int = 3, successes: int = 2) -> _QuietLadder:
     command = object.__new__(_QuietLadder)
@@ -130,6 +135,7 @@ def _quiet_ladder(*, dwell: int = 3, successes: int = 2) -> _QuietLadder:
     command._hands = torch.zeros(1, 2, 3)
     command._feet = torch.zeros(1, 2, 3)
     command._contact = torch.ones(1, 2, dtype=torch.bool)
+    command._foot_load = torch.zeros(1, 2)
     command._torso = torch.zeros(1, 3)
     command._torso_vel = torch.zeros(1, 3)
     command._torso_spin = torch.zeros(1, 3)
@@ -467,6 +473,28 @@ def test_approach_floors_at_zero_and_keeps_half_when_the_episode_ends() -> None:
     )
 
 
+def test_foot_step_load_follows_the_share_of_live_weight() -> None:
+    mass = 30.0
+    full_g = 9.81
+    light_g = full_g / 3.0
+    share = 0.20
+    full = foot_step_load(
+        torch.tensor([[mass * full_g * share, mass * full_g, -5.0]]),
+        torch.tensor(mass * full_g),
+    )
+    light = foot_step_load(
+        torch.tensor([[mass * light_g * share, mass * light_g, 0.0]]),
+        torch.tensor(mass * light_g),
+    )
+
+    assert full[0, 0].item() == pytest.approx(share)
+    assert light[0, 0].item() == pytest.approx(share)
+    assert full[0, 1].item() == pytest.approx(FOOT_LOAD_CAP)
+    assert light[0, 1].item() == pytest.approx(FOOT_LOAD_CAP)
+    assert full[0, 2].item() == 0.0
+    assert light[0, 2].item() == 0.0
+
+
 def test_climb_pays_a_contact_once_and_ignores_a_reach() -> None:
     command = _quiet_ladder(dwell=50)
     _bind_reward_state(command)
@@ -526,33 +554,38 @@ def test_climb_pays_a_contact_once_and_ignores_a_reach() -> None:
     assert climb() == pytest.approx(0.0, abs=1e-4)
     command.attached[:] = False
 
-    # A foot on the next tread pays only while it carries weight, up to +3.
+    # A foot on the next tread pays 0.25 per second times its load share.
+    # The share rises linearly and stops at 0.35.
     command.foot_rung[:, 0] = 2
     assert climb() == 0.0
-    command._bearing[:, 0] = True
-    assert climb() == pytest.approx(CLIMB_CONTACT_RATE)
+    command._foot_load[:, 0] = 0.10
+    assert climb() == pytest.approx(CLIMB_CONTACT_RATE * 0.10)
+    command._foot_load[:, 0] = 0.80
+    foot_rate = CLIMB_CONTACT_RATE * FOOT_LOAD_CAP
+    assert climb() == pytest.approx(foot_rate)
     command.foot_rung[:, 0] = 1
     assert climb() == 0.0
     paid_foot = command._climb_paid[0, 2].item()
     command.foot_rung[:, 0] = 2
-    assert climb() == pytest.approx(CLIMB_CONTACT_RATE)
+    assert climb() == pytest.approx(foot_rate)
     assert command._climb_paid[0, 2].item() == pytest.approx(
-        paid_foot + CLIMB_CONTACT_RATE * env.step_dt
+        paid_foot + foot_rate * env.step_dt
     )
-    command._climb_paid[0, 2] = CLIMB_CONTACT_CAP - remainder
-    assert climb() == pytest.approx(remainder / env.step_dt, abs=1e-4)
+    foot_remainder = foot_rate * env.step_dt * 0.5
+    command._climb_paid[0, 2] = CLIMB_CONTACT_CAP - foot_remainder
+    assert climb() == pytest.approx(foot_remainder / env.step_dt, abs=1e-4)
     assert command._climb_paid[0, 2].item() == pytest.approx(CLIMB_CONTACT_CAP)
     assert climb() == pytest.approx(0.0, abs=1e-4)
-    command._bearing[:, 0] = False
+    command._foot_load[:, 0] = 0.0
     assert climb() == 0.0
 
     # Completion clears the accumulators. The same loaded foot starts again.
     command.just_completed[:] = True
-    command._bearing[:, 0] = True
+    command._foot_load[:, 0] = FOOT_LOAD_CAP
     assert climb() == 0.0
     assert command._climb_paid[0].tolist() == pytest.approx([0.0, 0.0, 0.0, 0.0])
     command.just_completed[:] = False
-    assert climb() == pytest.approx(CLIMB_CONTACT_RATE)
+    assert climb() == pytest.approx(foot_rate)
 
 
 def test_hold_pays_back_a_broken_gate_and_not_a_completion() -> None:

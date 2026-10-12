@@ -800,8 +800,9 @@ def make_g1_ladder_rl_env_cfg(
         # gap is the sole point furthest behind the next rung. Each limb
         # stops at 0.
         # A hand then pays 0.25 per second while it is welded to
-        # the next rung, and a foot pays 0.25 per second on the next tread
-        # while it carries 20% of the robot weight. Each limb caps at +3.
+        # the next rung. A foot on the next tread pays 0.25 per second times
+        # its share of body weight, and that share stops at 0.35. The share
+        # uses the simulator gravity. Each limb caps at +3.
         # On the last
         # step, half of each limb's net approach drop is kept.
         "ladder_climb": RewardTermCfg(
