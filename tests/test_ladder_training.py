@@ -41,6 +41,8 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     FLIGHT_RATE,
     FOOT_HAND_RUNG_GAP,
     FOOT_LOAD_CAP,
+    FOOT_PRESSURE_RATE,
+    FOOT_STEP_RATE,
     FOOT_SOLE_END_OFFSETS,
     FOOT_TREAD_ABOVE_CENTER_M,
     HOLD_REWARD,
@@ -554,14 +556,14 @@ def test_climb_pays_a_contact_once_and_ignores_a_reach() -> None:
     assert climb() == pytest.approx(0.0, abs=1e-4)
     command.attached[:] = False
 
-    # A foot on the next tread pays 0.25 per second times its load share.
-    # The share rises linearly and stops at 0.35.
+    # A foot on the next tread pays 0.10 per second for the contact, plus
+    # 1 per second times its load share. The share stops at 0.35.
     command.foot_rung[:, 0] = 2
-    assert climb() == 0.0
+    assert climb() == pytest.approx(FOOT_STEP_RATE)
     command._foot_load[:, 0] = 0.10
-    assert climb() == pytest.approx(CLIMB_CONTACT_RATE * 0.10)
+    assert climb() == pytest.approx(FOOT_STEP_RATE + FOOT_PRESSURE_RATE * 0.10)
     command._foot_load[:, 0] = 0.80
-    foot_rate = CLIMB_CONTACT_RATE * FOOT_LOAD_CAP
+    foot_rate = FOOT_STEP_RATE + FOOT_PRESSURE_RATE * FOOT_LOAD_CAP
     assert climb() == pytest.approx(foot_rate)
     command.foot_rung[:, 0] = 1
     assert climb() == 0.0

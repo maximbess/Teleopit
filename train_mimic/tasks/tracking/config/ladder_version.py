@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 
-LADDER_CODE_VERSION = "cap-9"
+LADDER_CODE_VERSION = "cap-11"
 LADDER_CODE_VERSION_NOTES = (
     "Climb pays 0.5 per meter of approach until the limb is on the next "
     "rung. A foot's approach is the rung-to-rung gap of the sole point "
@@ -18,9 +18,10 @@ LADDER_CODE_VERSION_NOTES = (
     "of the robot weight banks that height, and the bank is kept. On the "
     "last step, half of the net unbanked drop in ascent and in each limb's "
     "approach is given back. A hand pays 0.25 per second while welded to "
-    "the next rung. A foot on the next tread pays 0.25 per second times "
-    "its share of body weight, clamped to 0.35, so the foot rate stops at "
-    "0.0875 per second. The share is the upward force divided by mass times "
+    "the next rung. A foot on the next tread pays 0.10 per second for the "
+    "contact, plus 1 per second times its share of body weight, clamped "
+    "to 0.35, so the foot rate rises from 0.10 to 0.45 per second. The "
+    "share is the upward force divided by mass times "
     "the simulator gravity. Each limb caps at +3. The episode ends on the 20 s timeout "
     "or when the robot touches the ground. Flight charges 1 per second "
     "only when both feet are off. Staying off the ground pays 1 per second "

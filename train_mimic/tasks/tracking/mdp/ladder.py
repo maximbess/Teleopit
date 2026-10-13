@@ -1071,8 +1071,9 @@ class LadderClimbCommand(CommandTerm):
         # last centimeters. A limb's approach account stops at 0, so moving
         # far away only gives back what that limb earned. Contact accrues
         # separately and stops at +3 per limb. A welded hand on the next
-        # rung pays 0.25 per second. A foot on the next tread pays 0.25 per
-        # second times its share of body weight, and that share stops at 0.35.
+        # rung pays 0.25 per second. A foot on the next tread pays 0.10 per
+        # second for the contact, plus 1 per second times its share of body
+        # weight. That share stops at 0.35.
         dt = float(self._env.step_dt)
         ending = self._episode_ending()
         keep_share = 1.0 - REFUND_FRACTION
@@ -1083,7 +1084,7 @@ class LadderClimbCommand(CommandTerm):
         contact_rate = torch.cat(
             (
                 torch.full_like(load[:, :2], CLIMB_CONTACT_RATE),
-                CLIMB_CONTACT_RATE * load,
+                FOOT_STEP_RATE + FOOT_PRESSURE_RATE * load,
             ),
             dim=1,
         )
@@ -1402,8 +1403,10 @@ def _ladder_command(env: ManagerBasedRlEnv, command_name: str) -> LadderClimbCom
 
 # PPO sees these values after the reward manager multiplies by the 0.02 s step.
 # One 0.20 m rung of approach is +0.10. A full second welded to the next
-# rung is +0.25. A foot on the next tread pays that rate times its share of
-# body weight, and the share stops at 0.35. Each limb stops at +3. Ascent
+# rung is +0.25. A foot on the next tread pays 0.10 per second for the
+# contact, plus 1 per second times its share of body weight. The share
+# stops at 0.35, so a fully loaded foot pays 0.45 per second. Each limb
+# stops at +3. Ascent
 # pays the change in min(torso rise, 1) on the step the torso moves.
 CLIMB_DISTANCE_PER_M = 0.5
 LATERAL_COEFF = 0.5
@@ -1432,9 +1435,14 @@ ALIVE_WINDOW_S = 2.0
 GRAVITY = 9.81
 # Share of body weight a foot must carry before it banks ascent.
 FOOT_WEIGHT_FRACTION = 0.20
-# A foot's step rate is 0.25 times this share of body weight. The share is
-# the upward contact force divided by mass times the live gravity, and it
-# stops rising at 0.35, so the foot rate stops at 0.0875 per second.
+# Flat rate for a foot standing on the next tread, paid on top of the load
+# term so a light contact is worth taking before the foot bears weight.
+FOOT_STEP_RATE = 0.10
+# Per unit of body-weight share on a foot. The share is the upward contact
+# force divided by mass times the live gravity, and it stops rising at 0.35,
+# so the pressure term stops at 0.35 per second. With the flat contact rate,
+# a fully loaded foot pays 0.45 per second.
+FOOT_PRESSURE_RATE = 1.0
 FOOT_LOAD_CAP = 0.35
 # Per limb, while its gate holds. reward_terms stores rate * dt, and the
 # public function divides by dt, so one open step returns the rate.
@@ -1559,11 +1567,12 @@ def ladder_climb(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     ``1 - REFUND_FRACTION`` of the net approach given back since that limb's
     best point is returned, once.
     On top of that, a hand pays ``0.25`` per second while it is welded to
-    the next rung. A foot on the next tread pays ``0.25`` per second times
-    the share of body weight on that foot. The share is the upward contact
-    force divided by body mass times the simulator gravity, clamped to
-    ``[0, 0.35]``, so the foot rate rises linearly up to ``0.0875`` per
-    second. Each limb caps at ``+3``. Letting go pauses that limb. Coming
+    the next rung. A foot on the next tread pays ``0.10`` per second for
+    the contact, plus ``1`` per second times the share of body weight on
+    that foot. The share is the upward contact force divided by body mass
+    times the simulator gravity, clamped to ``[0, 0.35]``, so the foot rate
+    rises from ``0.10`` to ``0.45`` per second as the foot takes weight.
+    Each limb caps at ``+3``. Letting go pauses that limb. Coming
     back continues the same cap.
     ``reward_terms`` stores ``rate * dt`` for one open step, and this
     divides by ``dt``, so the step returns the rate. The first sample after
