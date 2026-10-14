@@ -4,7 +4,10 @@ from pathlib import Path
 
 import torch
 
-from train_mimic.tasks.tracking.rl.runner import MotionTrackingOnPolicyRunner
+from train_mimic.tasks.tracking.rl.runner import (
+    MotionTrackingOnPolicyRunner,
+    _keep_recent_model_checkpoints,
+)
 
 
 class _DummyOnnxModel(torch.nn.Module):
@@ -27,6 +30,21 @@ class _DummyPolicy:
 class _DummyAlg:
     def get_policy(self) -> _DummyPolicy:
         return _DummyPolicy()
+
+
+def test_a_run_keeps_only_the_three_newest_model_checkpoints(tmp_path: Path) -> None:
+    for step in (8000, 9000, 10000, 11000, 12000):
+        (tmp_path / f"model_{step}.pt").write_bytes(b"checkpoint")
+    (tmp_path / "events.out.tfevents").write_text("log", encoding="utf-8")
+
+    _keep_recent_model_checkpoints(tmp_path)
+
+    assert sorted(path.name for path in tmp_path.glob("model_*.pt")) == [
+        "model_10000.pt",
+        "model_11000.pt",
+        "model_12000.pt",
+    ]
+    assert (tmp_path / "events.out.tfevents").is_file()
 
 
 def test_runner_export_policy_to_onnx_defaults_to_deploy_signature(monkeypatch, tmp_path: Path) -> None:

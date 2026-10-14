@@ -170,8 +170,9 @@ def _run_worker(args: argparse.Namespace) -> None:
             "num_rungs": len(ladder_cmd.rung_site_names),
             "successes_per_rollout": ladder_cmd.successes_per_rollout,
             "stabilization_dwell_steps": ladder_cmd.stabilization_dwell_steps,
-            "max_stabilization_support_offset_error": (
-                ladder_cmd.max_stabilization_support_offset_error
+            "max_stabilization_torso_speed": ladder_cmd.max_stabilization_torso_speed,
+            "max_stabilization_body_angular_speed": (
+                ladder_cmd.max_stabilization_body_angular_speed
             ),
         },
     )

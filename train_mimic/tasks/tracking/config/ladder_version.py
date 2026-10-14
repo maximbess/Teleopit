@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 
-LADDER_CODE_VERSION = "cap-11"
+LADDER_CODE_VERSION = "cap-12"
 LADDER_CODE_VERSION_NOTES = (
     "Climb pays 0.5 per meter of approach until the limb is on the next "
     "rung. A foot's approach is the rung-to-rung gap of the sole point "
@@ -29,7 +29,12 @@ LADDER_CODE_VERSION_NOTES = (
     "pays nothing. Gravity is one third of 9.81. The hand collision capsule "
     "and its marker share radius 0.085. The start pose sets those spheres on "
     "the near upper corner of the hand rung, clear of the ladder, and a hand "
-    "attaches within 0.14 m of a rung centerline. action_rate weight is -0.002."
+    "attaches within 0.14 m of a rung centerline. action_rate weight is -0.002. "
+    "A hold counts while all four supports stay on the next rung. It completes "
+    "when that trailing second averages at most 0.20 m/s of torso speed and "
+    "0.40 rad/s of torso and pelvis angular speed. Leaving a support claws "
+    "the 0.5 hold potential back. Completion pays each limb the unpaid part "
+    "of its +3 contact cap and then clears the cap."
 )
 
 

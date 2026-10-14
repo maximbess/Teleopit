@@ -1,5 +1,6 @@
 import os
 import pathlib
+import re
 import statistics
 import time
 from collections.abc import Mapping
@@ -13,6 +14,31 @@ from mjlab.rl.runner import MjlabOnPolicyRunner
 from rsl_rl.utils import check_nan
 
 from train_mimic.tasks.tracking.config.ladder_version import LADDER_CODE_VERSION
+
+
+_MODEL_CHECKPOINT = re.compile(r"^model_(\d+)\.pt$")
+_MODEL_CHECKPOINTS_TO_KEEP = 3
+
+
+def _keep_recent_model_checkpoints(
+    log_dir: str | pathlib.Path, keep: int = _MODEL_CHECKPOINTS_TO_KEEP
+) -> None:
+    """Delete numbered checkpoints beyond the newest ``keep`` in this run."""
+
+    numbered: list[tuple[int, pathlib.Path]] = []
+    for path in pathlib.Path(log_dir).glob("model_*.pt"):
+        match = _MODEL_CHECKPOINT.fullmatch(path.name)
+        if match is not None:
+            numbered.append((int(match.group(1)), path))
+    numbered.sort()
+    for _, path in numbered[:-keep]:
+        path.unlink()
+
+
+def _save_model_checkpoint(runner, iteration: int) -> None:
+    log_dir = runner.logger.log_dir
+    runner.save(os.path.join(log_dir, f"model_{iteration}.pt"))
+    _keep_recent_model_checkpoints(log_dir)
 
 
 def _one_based_iteration_range(start_iteration: int, total_iterations: int) -> range:
@@ -349,15 +375,10 @@ class LadderOnPolicyRunner(MjlabOnPolicyRunner):
                     it,
                 )
             if self.logger.writer is not None and it % self.cfg["save_interval"] == 0:
-                self.save(os.path.join(self.logger.log_dir, f"model_{it}.pt"))
+                _save_model_checkpoint(self, it)
 
         if self.logger.writer is not None:
-            self.save(
-                os.path.join(
-                    self.logger.log_dir,
-                    f"model_{self.current_learning_iteration}.pt",
-                )
-            )
+            _save_model_checkpoint(self, self.current_learning_iteration)
             self.logger.stop_logging_writer()
 
     def load(
@@ -458,14 +479,10 @@ class MotionTrackingOnPolicyRunner(MjlabOnPolicyRunner):
             )
 
             if self.logger.writer is not None and it % self.cfg["save_interval"] == 0:
-                self.save(os.path.join(self.logger.log_dir, f"model_{it}.pt"))  # type: ignore[arg-type]
+                _save_model_checkpoint(self, it)
 
         if self.logger.writer is not None:
-            self.save(
-                os.path.join(
-                    self.logger.log_dir, f"model_{self.current_learning_iteration}.pt"
-                )
-            )  # type: ignore[arg-type]
+            _save_model_checkpoint(self, self.current_learning_iteration)
             self.logger.stop_logging_writer()
 
     def _log_one_based_iteration(

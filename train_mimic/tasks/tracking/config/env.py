@@ -733,10 +733,8 @@ def make_g1_ladder_rl_env_cfg(
             successes_per_rollout=_LADDER_SUCCESSES_PER_ROLLOUT,
             stabilization_dwell_steps=50,
             max_stabilization_torso_speed=0.20,
-            max_stabilization_joint_speed=1.0,
             max_stabilization_body_angular_speed=0.40,
-            max_stabilization_waist_joint_speed=0.60,
-            max_stabilization_support_offset_error=0.18,
+            weld_release_joint_speed=4.0,
             weld_release_speed_factor=4.0,
             attach_distance=_LADDER_ATTACH_DISTANCE,
             max_attach_speed=0.35,
@@ -803,7 +801,8 @@ def make_g1_ladder_rl_env_cfg(
         # the next rung. A foot on the next tread pays 0.10 per second for
         # the contact, plus 1 per second times its share of body weight.
         # That share stops at 0.35 and uses the simulator gravity. Each limb
-        # caps at +3.
+        # caps at +3. A completed hold pays whatever is left of that cap,
+        # then the next rung starts a new one.
         # On the last
         # step, half of each limb's net approach drop is kept.
         "ladder_climb": RewardTermCfg(
@@ -841,6 +840,14 @@ def make_g1_ladder_rl_env_cfg(
             func=mdp.ladder_alive,
             weight=1.0,
             params={"command_name": "ladder"},
+        ),
+        # Squared gap from the reset leg clearance, 0.233 m between the
+        # hip-roll origins. A full scissor costs 0.54 per second, about five
+        # plants of approach. The reset stance costs nothing, and opening
+        # the feet does not, because the minimum stays at the hips.
+        "leg_distance": RewardTermCfg(
+            func=mdp.leg_distance,
+            weight=-10.0,
         ),
         # Squared action change near 1 for the whole 20 s costs 0.04, about
         # a sixth of one plant. The tread-1 fall averaged near 7.5 and would

@@ -115,10 +115,12 @@ class LadderClimbCommand(CommandTerm):
 
     The first attempt in a rollout starts on the climbing keyframe. Each
     attempt records the 0-based rung under the feet and the hand rung
-    ``FOOT_HAND_RUNG_GAP`` above it. It completes only after every support
-    is on the next rung and the stabilize gates stay true for a fixed number
-    of frames. A broken gate clears that counter. The completed pose is kept, those rungs
-    become the next baseline, and the same policy is asked for another rung.
+    ``FOOT_HAND_RUNG_GAP`` above it. The hold counts while every support
+    stays on the next rung. It completes when that trailing window's mean
+    torso speed and mean torso and pelvis angular speeds are inside the
+    limits. Leaving a support clears the counter. The completed pose is kept,
+    those rungs become the next baseline, and the same policy is asked for
+    another rung.
     After ``successes_per_rollout`` holds the episode ends. The command never
     chooses a limb or a phase.
     """
@@ -179,16 +181,12 @@ class LadderClimbCommand(CommandTerm):
             raise ValueError("stabilization_dwell_steps must be > 0")
         if cfg.max_stabilization_torso_speed < 0.0:
             raise ValueError("max_stabilization_torso_speed must be >= 0")
-        if cfg.max_stabilization_joint_speed < 0.0:
-            raise ValueError("max_stabilization_joint_speed must be >= 0")
         if cfg.max_stabilization_body_angular_speed < 0.0:
             raise ValueError("max_stabilization_body_angular_speed must be >= 0")
-        if cfg.max_stabilization_waist_joint_speed < 0.0:
-            raise ValueError("max_stabilization_waist_joint_speed must be >= 0")
-        if cfg.max_stabilization_support_offset_error <= 0.0:
-            raise ValueError("max_stabilization_support_offset_error must be > 0")
         if cfg.weld_release_speed_factor <= 0.0:
             raise ValueError("weld_release_speed_factor must be > 0")
+        if cfg.weld_release_joint_speed < 0.0:
+            raise ValueError("weld_release_joint_speed must be >= 0")
         if cfg.grip_half_span is not None and cfg.grip_half_span <= 0.0:
             raise ValueError("grip_half_span must be > 0 or None")
 
@@ -346,6 +344,7 @@ class LadderClimbCommand(CommandTerm):
         self.hold_count = torch.zeros(
             self.num_envs, dtype=torch.long, device=self.device
         )
+        self._init_quiet_window()
         self.successes = torch.zeros(
             self.num_envs, dtype=torch.long, device=self.device
         )
@@ -408,7 +407,6 @@ class LadderClimbCommand(CommandTerm):
         torso_com_pos = self.torso_com_pos_w
         self._previous_torso_com_pos_w = torso_com_pos.clone()
         self._torso_com_vel_w = torch.zeros_like(torso_com_pos)
-        self._reference_torso_rotation_w = self.torso_rotation_w.clone()
         self._reference_torso_support_offset_w = torch.zeros(
             (self.num_envs, 3), dtype=torch.float32, device=self.device
         )
@@ -421,15 +419,10 @@ class LadderClimbCommand(CommandTerm):
             self.num_envs, device=self.device
         )
         for metric_name in (
-            "stabilization_hands_attached",
-            "stabilization_feet_supported",
             "stabilization_torso_speed",
-            "stabilization_joint_speed_rms",
             "stabilization_torso_angular_speed",
             "stabilization_pelvis_angular_speed",
-            "stabilization_waist_joint_speed",
-            "stabilization_support_offset_error",
-            "stabilization_gate_valid",
+            "hold_quiet",
         ):
             self.metrics[metric_name] = torch.zeros(self.num_envs, device=self.device)
 
@@ -591,6 +584,8 @@ class LadderClimbCommand(CommandTerm):
 
     @property
     def support_centroid_w(self) -> torch.Tensor:
+        """Centroid of the hands and feet that are currently supporting."""
+
         hand_weights = self.attached.float()
         foot_weights = self.foot_support.float()
         weighted_sum = (self.hand_pos_w * hand_weights.unsqueeze(-1)).sum(dim=1)
@@ -599,26 +594,17 @@ class LadderClimbCommand(CommandTerm):
         return weighted_sum / total_weight.clamp_min(1.0).unsqueeze(-1)
 
     @property
-    def torso_support_offset_w(self) -> torch.Tensor:
-        return self.torso_com_pos_w - self.support_centroid_w
-
-    @property
-    def torso_orientation_error(self) -> torch.Tensor:
-        relative = torch.matmul(
-            self._reference_torso_rotation_w.transpose(-1, -2),
-            self.torso_rotation_w,
-        )
-        cosine = torch.clamp(
-            0.5 * (relative[:, 0, 0] + relative[:, 1, 1] + relative[:, 2, 2] - 1.0),
-            min=-1.0,
-            max=1.0,
-        )
-        return torch.acos(cosine)
-
-    @property
     def torso_support_offset_error(self) -> torch.Tensor:
+        """Torso offset from the support centroid, compared with the reset pose.
+
+        Kept for the critic observation. Checkpoints trained before the hold
+        change read this slot, and the hold itself does not.
+        """
+
         return torch.linalg.vector_norm(
-            self.torso_support_offset_w - self._reference_torso_support_offset_w,
+            self.torso_com_pos_w
+            - self.support_centroid_w
+            - self._reference_torso_support_offset_w,
             dim=-1,
         )
 
@@ -647,59 +633,85 @@ class LadderClimbCommand(CommandTerm):
         )
         return start[:, None] + offsets
 
-    def _stabilization_conditions(self) -> dict[str, torch.Tensor]:
-        """Gates that must stay true for the whole hold."""
+    def _init_quiet_window(self) -> None:
+        """Trailing speed samples for the planted hold. One row per environment."""
 
-        torso_speed = torch.linalg.vector_norm(self.torso_com_vel_w, dim=-1)
-        joint_speed_rms = torch.sqrt(
-            torch.mean(torch.square(self.robot.data.joint_vel), dim=1)
+        dwell = int(self.cfg.stabilization_dwell_steps)
+        envs = int(self.hold_count.shape[0])
+        device = self.hold_count.device
+        self._torso_speed_window = torch.zeros(
+            (envs, dwell), dtype=torch.float32, device=device
         )
-        torso_angular_speed = torch.linalg.vector_norm(self.torso_ang_vel_w, dim=-1)
-        pelvis_angular_speed = torch.linalg.vector_norm(self.pelvis_ang_vel_w, dim=-1)
-        body_angular_speed = torch.maximum(torso_angular_speed, pelvis_angular_speed)
-        waist_joint_speed = torch.amax(
-            torch.abs(self.robot.data.joint_vel[:, self._waist_joint_ids]),
-            dim=1,
+        self._torso_ang_window = torch.zeros(
+            (envs, dwell), dtype=torch.float32, device=device
         )
-        hands_attached = self.attached.all(dim=1)
-        feet_supported = self.foot_support.all(dim=1)
-        torso_speed_valid = torso_speed <= self.cfg.max_stabilization_torso_speed
-        joint_speed_valid = joint_speed_rms <= self.cfg.max_stabilization_joint_speed
-        angular_speed_valid = (
-            body_angular_speed <= self.cfg.max_stabilization_body_angular_speed
+        self._pelvis_ang_window = torch.zeros(
+            (envs, dwell), dtype=torch.float32, device=device
         )
-        waist_speed_valid = (
-            waist_joint_speed <= self.cfg.max_stabilization_waist_joint_speed
+        self._torso_speed_sum = torch.zeros(envs, dtype=torch.float32, device=device)
+        self._torso_ang_sum = torch.zeros(envs, dtype=torch.float32, device=device)
+        self._pelvis_ang_sum = torch.zeros(envs, dtype=torch.float32, device=device)
+        self._quiet_fill = torch.zeros(envs, dtype=torch.long, device=device)
+        self._quiet_cursor = torch.zeros(envs, dtype=torch.long, device=device)
+        self._hold_quiet = torch.zeros(envs, dtype=torch.bool, device=device)
+
+    def _clear_quiet_window(self, env_ids: torch.Tensor) -> None:
+        if env_ids.numel() == 0:
+            return
+        self._quiet_fill[env_ids] = 0
+        self._quiet_cursor[env_ids] = 0
+        self._torso_speed_window[env_ids] = 0.0
+        self._torso_ang_window[env_ids] = 0.0
+        self._pelvis_ang_window[env_ids] = 0.0
+        self._torso_speed_sum[env_ids] = 0.0
+        self._torso_ang_sum[env_ids] = 0.0
+        self._pelvis_ang_sum[env_ids] = 0.0
+
+    def _record_quiet_sample(
+        self,
+        active: torch.Tensor,
+        torso_speed: torch.Tensor,
+        torso_ang: torch.Tensor,
+        pelvis_ang: torch.Tensor,
+    ) -> None:
+        """Push one speed sample for each planted environment."""
+
+        ids = torch.where(active)[0]
+        if ids.numel() == 0:
+            return
+        dwell = int(self.cfg.stabilization_dwell_steps)
+        cursor = self._quiet_cursor
+        full = self._quiet_fill >= dwell
+        cols = cursor[ids]
+        self._torso_speed_window[ids, cols] = torso_speed[ids]
+        self._torso_ang_window[ids, cols] = torso_ang[ids]
+        self._pelvis_ang_window[ids, cols] = pelvis_ang[ids]
+        self._torso_speed_sum[ids] = self._torso_speed_window[ids].sum(dim=1)
+        self._torso_ang_sum[ids] = self._torso_ang_window[ids].sum(dim=1)
+        self._pelvis_ang_sum[ids] = self._pelvis_ang_window[ids].sum(dim=1)
+        self._quiet_fill = torch.where(
+            active & ~full, self._quiet_fill + 1, self._quiet_fill
         )
-        support_offset_valid = (
-            self.torso_support_offset_error
-            <= self.cfg.max_stabilization_support_offset_error
+        self._quiet_cursor = torch.where(
+            active, (cursor + 1) % dwell, self._quiet_cursor
         )
-        stable = (
-            hands_attached
-            & feet_supported
-            & torso_speed_valid
-            & joint_speed_valid
-            & angular_speed_valid
-            & waist_speed_valid
-            & support_offset_valid
+
+    def _quiet_window_satisfied(self) -> torch.Tensor:
+        """Whether the trailing planted second is slow enough to finish."""
+
+        dwell = float(self.cfg.stabilization_dwell_steps)
+        full = self._quiet_fill >= int(self.cfg.stabilization_dwell_steps)
+        mean_torso = self._torso_speed_sum / dwell
+        mean_torso_ang = self._torso_ang_sum / dwell
+        mean_pelvis_ang = self._pelvis_ang_sum / dwell
+        linear_limit = float(self.cfg.max_stabilization_torso_speed)
+        angular_limit = float(self.cfg.max_stabilization_body_angular_speed)
+        return (
+            full
+            & (mean_torso <= linear_limit)
+            & (mean_torso_ang <= angular_limit)
+            & (mean_pelvis_ang <= angular_limit)
         )
-        return {
-            "hands_attached": hands_attached,
-            "feet_supported": feet_supported,
-            "torso_speed": torso_speed,
-            "torso_speed_valid": torso_speed_valid,
-            "joint_speed_rms": joint_speed_rms,
-            "joint_speed_valid": joint_speed_valid,
-            "torso_angular_speed": torso_angular_speed,
-            "pelvis_angular_speed": pelvis_angular_speed,
-            "angular_speed_valid": angular_speed_valid,
-            "waist_joint_speed": waist_joint_speed,
-            "waist_speed_valid": waist_speed_valid,
-            "support_offset_error": self.torso_support_offset_error,
-            "support_offset_valid": support_offset_valid,
-            "stable": stable,
-        }
 
     @property
     def rung_endpoints_torso(self) -> torch.Tensor:
@@ -791,7 +803,9 @@ class LadderClimbCommand(CommandTerm):
         """
 
         dt = float(self._env.step_dt)
-        conditions = self._stabilization_conditions()
+        torso_speed = torch.linalg.vector_norm(self.torso_com_vel_w, dim=-1)
+        torso_ang = torch.linalg.vector_norm(self.torso_ang_vel_w, dim=-1)
+        pelvis_ang = torch.linalg.vector_norm(self.pelvis_ang_vel_w, dim=-1)
         self.metrics["attached_hands"] += self.attached.sum(dim=1).float() * dt
         self.metrics["supported_feet"] += self.foot_support.sum(dim=1).float() * dt
         self.metrics["hold_progress"] += (
@@ -805,20 +819,10 @@ class LadderClimbCommand(CommandTerm):
         self.metrics["supports_one_rung_higher"] += (
             self.supports_one_rung_higher.float() * dt
         )
-        for metric_name, condition_name in (
-            ("stabilization_hands_attached", "hands_attached"),
-            ("stabilization_feet_supported", "feet_supported"),
-            ("stabilization_torso_speed", "torso_speed"),
-            ("stabilization_joint_speed_rms", "joint_speed_rms"),
-            ("stabilization_torso_angular_speed", "torso_angular_speed"),
-            ("stabilization_pelvis_angular_speed", "pelvis_angular_speed"),
-            ("stabilization_waist_joint_speed", "waist_joint_speed"),
-            ("stabilization_support_offset_error", "support_offset_error"),
-            ("stabilization_gate_valid", "stable"),
-        ):
-            value = conditions[condition_name]
-            sample = value.float() if value.dtype == torch.bool else value
-            self.metrics[metric_name] += sample * dt
+        self.metrics["stabilization_torso_speed"] += torso_speed * dt
+        self.metrics["stabilization_torso_angular_speed"] += torso_ang * dt
+        self.metrics["stabilization_pelvis_angular_speed"] += pelvis_ang * dt
+        self.metrics["hold_quiet"] += self._hold_quiet.float() * dt
 
     def _resample_command(self, env_ids: torch.Tensor) -> None:
         if env_ids.numel() == 0:
@@ -831,6 +835,8 @@ class LadderClimbCommand(CommandTerm):
         self.finished[env_ids] = False
         self.just_completed[env_ids] = False
         self.hold_count[env_ids] = 0
+        self._clear_quiet_window(env_ids)
+        self._hold_quiet[env_ids] = False
         self.successes[env_ids] = 0
         self._climb_distance[env_ids] = 0.0
         self._climb_lateral[env_ids] = 0.0
@@ -911,9 +917,10 @@ class LadderClimbCommand(CommandTerm):
         self.baseline_foot_rung[env_ids] = self.cfg.initial_foot_rung
         self.initialized[env_ids] = True
         self.hold_count[env_ids] = 0
+        self._clear_quiet_window(env_ids)
+        self._hold_quiet[env_ids] = False
         self.successes[env_ids] = 0
         self.finished[env_ids] = False
-        self._reference_torso_rotation_w[env_ids] = self.torso_rotation_w[env_ids]
         hand_pos = self.hand_pos_w[env_ids]
         foot_pos = self.foot_pos_w[env_ids]
         centroid = (hand_pos.sum(dim=1) + foot_pos.sum(dim=1)) / 4.0
@@ -938,46 +945,57 @@ class LadderClimbCommand(CommandTerm):
             )
 
     def _advance_hold(self) -> None:
-        """Count a fixed hold, then continue from the pose that completed it."""
+        """Count a planted hold, then continue from the pose that completed it.
+
+        The counter runs only while every support is on the next rung. The
+        trailing window has to be full and quiet before that pose counts.
+        A planted window that is still fast stays full and waits.
+        """
 
         self.just_completed.zero_()
-        conditions = self._stabilization_conditions()
-        ready = (
-            self.initialized
-            & ~self.finished
-            & self.supports_one_rung_higher
-            & conditions["stable"]
+        placed = (
+            self.initialized & ~self.finished & self.supports_one_rung_higher
         )
+        torso_speed = torch.linalg.vector_norm(self.torso_com_vel_w, dim=-1)
+        torso_ang = torch.linalg.vector_norm(self.torso_ang_vel_w, dim=-1)
+        pelvis_ang = torch.linalg.vector_norm(self.pelvis_ang_vel_w, dim=-1)
+        leaving = torch.where(~placed)[0]
+        self._clear_quiet_window(leaving)
         self.hold_count = torch.where(
-            ready,
-            self.hold_count + 1,
-            torch.zeros_like(self.hold_count),
+            placed, self.hold_count, torch.zeros_like(self.hold_count)
         )
-        complete = self.hold_count >= self.cfg.stabilization_dwell_steps
+        self._record_quiet_sample(placed, torso_speed, torso_ang, pelvis_ang)
+        self.hold_count = torch.where(placed, self._quiet_fill, self.hold_count)
+        quiet = self._quiet_window_satisfied()
+        self._hold_quiet = quiet
+        complete = placed & quiet
         if not torch.any(complete):
             return
         self.just_completed[complete] = True
         self.baseline_hand_rung[complete] = self.held_rung[complete]
         self.baseline_foot_rung[complete] = self.foot_rung[complete]
         self.hold_count[complete] = 0
+        self._clear_quiet_window(torch.where(complete)[0])
         self.successes[complete] += 1
-        self.finished[complete] = self.successes[complete] >= self.cfg.successes_per_rollout
+        self.finished[complete] = (
+            self.successes[complete] >= self.cfg.successes_per_rollout
+        )
 
     def _release_over_speed_welds(self) -> None:
         """Open both grips when the body is spinning hard enough to blow the weld.
 
         The check runs after the physics step, so the next step is unwelded.
-        The factor sits above the stabilize limits: a quiet hold keeps its grips,
-        and a fall releases them while the state is still finite.
+        Joint speed uses an absolute trip. Pelvis spin uses the quiet-window
+        limit times the release factor, so a quiet hold keeps its grips.
         """
 
         factor = float(self.cfg.weld_release_speed_factor)
-        conditions = self._stabilization_conditions()
-        over_speed = (
-            conditions["joint_speed_rms"]
-            > factor * float(self.cfg.max_stabilization_joint_speed)
-        ) | (
-            conditions["pelvis_angular_speed"]
+        joint_speed_rms = torch.sqrt(
+            torch.mean(torch.square(self.robot.data.joint_vel), dim=1)
+        )
+        pelvis_ang = torch.linalg.vector_norm(self.pelvis_ang_vel_w, dim=-1)
+        over_speed = (joint_speed_rms > float(self.cfg.weld_release_joint_speed)) | (
+            pelvis_ang
             > factor * float(self.cfg.max_stabilization_body_angular_speed)
         )
         env_ids = torch.where(over_speed & self.attached.any(dim=1))[0]
@@ -1070,10 +1088,11 @@ class LadderClimbCommand(CommandTerm):
         # Distance falls until the limb is on the next rung, including the
         # last centimeters. A limb's approach account stops at 0, so moving
         # far away only gives back what that limb earned. Contact accrues
-        # separately and stops at +3 per limb. A welded hand on the next
-        # rung pays 0.25 per second. A foot on the next tread pays 0.10 per
-        # second for the contact, plus 1 per second times its share of body
-        # weight. That share stops at 0.35.
+        # separately and stops at +3 per limb, including during the hold.
+        # A welded hand on the next rung pays 0.25 per second. A foot on the
+        # next tread pays 0.10 per second for the contact, plus 1 per second
+        # times its share of body weight. That share stops at 0.35.
+        # Completion pays each planted limb the unpaid part of its cap.
         dt = float(self._env.step_dt)
         ending = self._episode_ending()
         keep_share = 1.0 - REFUND_FRACTION
@@ -1124,6 +1143,14 @@ class LadderClimbCommand(CommandTerm):
             contact,
             torch.zeros_like(contact),
         )
+        # A finished hold pays whatever is left of each planted limb's cap,
+        # then the reset below starts the next rung at zero. The rate slice
+        # is already zero on this step, so the remainder is not counted twice.
+        contact = torch.where(
+            self.just_completed.unsqueeze(1) & on_next,
+            room,
+            contact,
+        )
         climb = approach.sum(dim=-1) + contact.sum(dim=-1)
         self._climb_distance.copy_(
             torch.where(hold_fresh.unsqueeze(1), distance, self._climb_distance)
@@ -1142,9 +1169,10 @@ class LadderClimbCommand(CommandTerm):
         self._climb_valid[:] = True
 
         dwell = float(self.cfg.stabilization_dwell_steps)
+        reached = torch.full_like(self._hold_count_prev, int(self.cfg.stabilization_dwell_steps))
         hold_step = torch.where(
             self.just_completed,
-            torch.ones_like(self.hold_count),
+            (reached - self._hold_count_prev).clamp(min=0),
             self.hold_count - self._hold_count_prev,
         )
         hold = HOLD_REWARD * hold_step.float() / dwell
@@ -1340,10 +1368,8 @@ class LadderClimbCommandCfg(CommandTermCfg):
     successes_per_rollout: int = 4
     stabilization_dwell_steps: int = 50
     max_stabilization_torso_speed: float = 0.20
-    max_stabilization_joint_speed: float = 1.0
     max_stabilization_body_angular_speed: float = 0.40
-    max_stabilization_waist_joint_speed: float = 0.60
-    max_stabilization_support_offset_error: float = 0.18
+    weld_release_joint_speed: float = 4.0
     weld_release_speed_factor: float = 4.0
     attach_distance: float = 0.14
     max_attach_speed: float = 0.30
@@ -1406,7 +1432,7 @@ def _ladder_command(env: ManagerBasedRlEnv, command_name: str) -> LadderClimbCom
 # rung is +0.25. A foot on the next tread pays 0.10 per second for the
 # contact, plus 1 per second times its share of body weight. The share
 # stops at 0.35, so a fully loaded foot pays 0.45 per second. Each limb
-# stops at +3. Ascent
+# stops at +3, and a completed hold pays whatever is left of that cap. Ascent
 # pays the change in min(torso rise, 1) on the step the torso moves.
 CLIMB_DISTANCE_PER_M = 0.5
 LATERAL_COEFF = 0.5
@@ -1444,8 +1470,9 @@ FOOT_STEP_RATE = 0.10
 # a fully loaded foot pays 0.45 per second.
 FOOT_PRESSURE_RATE = 1.0
 FOOT_LOAD_CAP = 0.35
-# Per limb, while its gate holds. reward_terms stores rate * dt, and the
-# public function divides by dt, so one open step returns the rate.
+# Per limb while it is on the next rung. reward_terms stores rate * dt, and
+# the public function divides by dt, so one open step returns the rate.
+# Completion pays the unpaid remainder of this cap, then clears it.
 CLIMB_CONTACT_RATE = 0.25
 CLIMB_CONTACT_CAP = 3.0
 # One rung of torso height above the reset sample.
@@ -1454,6 +1481,19 @@ ASCENT_CAP = 1.0
 # it. Applied once, to the net drop from the highest point, on the terminal
 # step. Banked ascent is not included.
 REFUND_FRACTION = 0.5
+# Thigh and shin bones, left then right. Each leg is hip roll -> knee -> ankle.
+LEG_LINK_NAMES = (
+    "left_hip_roll_link",
+    "left_knee_link",
+    "left_ankle_roll_link",
+    "right_hip_roll_link",
+    "right_knee_link",
+    "right_ankle_roll_link",
+)
+# Minimum of the four segment pairs in the ladder reset pose. It is the
+# distance between the hip-roll origins; the knees and ankles sit slightly
+# wider, so spreading the feet does not increase this value.
+LEG_DISTANCE_OPT_M = 0.232904
 
 
 def _gather_rung_centers(centers: torch.Tensor, indices: torch.Tensor) -> torch.Tensor:
@@ -1573,11 +1613,14 @@ def ladder_climb(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     times the simulator gravity, clamped to ``[0, 0.35]``, so the foot rate
     rises from ``0.10`` to ``0.45`` per second as the foot takes weight.
     Each limb caps at ``+3``. Letting go pauses that limb. Coming
-    back continues the same cap.
+    back continues the same cap. The hold keeps ticking toward that same
+    cap. The step that completes the hold pays whatever is left of the cap
+    for each limb still on the next rung, then clears it, so waiting out
+    the rate pays the same total as finishing.
     ``reward_terms`` stores ``rate * dt`` for one open step, and this
-    divides by ``dt``, so the step returns the rate. The first sample after
-    a reset, and the step that records a completed hold, pay 0 and clear
-    the caps.
+    divides by ``dt``, so the step returns the rate. The completion
+    remainder is stored as the amount, and this divides by ``dt`` too.
+    The first sample after a reset pays 0 and clears the caps.
     """
 
     command = _ladder_command(env, command_name)
@@ -1601,18 +1644,127 @@ def ladder_ascent(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
 
 
 def ladder_hold(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
-    """Potential on the dwell counter. One finished quiet second is worth 0.5.
+    """Potential on the planted dwell. One finished second is worth 0.5.
 
         r_hold = 0.5 * (n_t − n_{t−1}) / N_dwell
 
-    A broken gate sets ``n_t = 0``, which pays the accumulated count back.
-    Completion also clears ``n``, but that step pays ``+0.5 / N_dwell`` instead
-    of the payback. ``r_done`` carries the separate ``+1`` impulse. The reward
-    manager multiplies by ``dt``, so this returns ``r_hold / dt``.
+    ``n`` counts frames with every support on the next rung, and it stops at
+    ``N_dwell``. Leaving a support sets ``n_t = 0`` and pays the accumulated
+    count back. The counter can sit at ``N_dwell`` while the trailing window
+    is still fast; those steps pay 0. Completion clears ``n``. The step that
+    first reaches ``N_dwell`` pays the last slice, and a completion from a
+    counter that was already full pays 0. ``r_done`` carries the separate
+    ``+1`` impulse. The reward manager multiplies by ``dt``, so this returns
+    ``r_hold / dt``.
     """
 
     command = _ladder_command(env, command_name)
     return command.reward_terms()["hold"] / env.step_dt
+
+
+def segment_segment_distance(
+    origin: torch.Tensor,
+    end: torch.Tensor,
+    other_origin: torch.Tensor,
+    other_end: torch.Tensor,
+) -> torch.Tensor:
+    """Shortest distance between two batches of 3D segments.
+
+    Each argument has shape ``(..., 3)``. The result has the batch shape.
+    """
+
+    direction = end - origin
+    other_direction = other_end - other_origin
+    offset = origin - other_origin
+    a = (direction * direction).sum(dim=-1)
+    b = (direction * other_direction).sum(dim=-1)
+    c = (other_direction * other_direction).sum(dim=-1)
+    d = (direction * offset).sum(dim=-1)
+    e = (other_direction * offset).sum(dim=-1)
+    denom = a * c - b * b
+    eps = 1.0e-8
+
+    parallel = denom < eps
+    s_num = torch.where(parallel, torch.zeros_like(a), b * e - c * d)
+    s_den = torch.where(parallel, torch.ones_like(a), denom)
+    t_num = torch.where(parallel, e, a * e - b * d)
+    t_den = torch.where(parallel, c, denom)
+
+    before = s_num < 0
+    s_num = torch.where(before, torch.zeros_like(s_num), s_num)
+    t_num = torch.where(before, e, t_num)
+    t_den = torch.where(before, c, t_den)
+    after = s_num > s_den
+    s_num = torch.where(after, s_den, s_num)
+    t_num = torch.where(after, e + b, t_num)
+    t_den = torch.where(after, c, t_den)
+
+    below = t_num < 0
+    t_num = torch.where(below, torch.zeros_like(t_num), t_num)
+    s_num = torch.where(below, (-d).clamp(min=0.0), s_num)
+    s_den = torch.where(below, a, s_den)
+    s_num = torch.where(below & (s_num > a), a, s_num)
+    above = t_num > t_den
+    t_num = torch.where(above, t_den, t_num)
+    along = -d + b
+    s_num = torch.where(above, along.clamp(min=0.0), s_num)
+    s_den = torch.where(above, a, s_den)
+    s_num = torch.where(above & (s_num > a), a, s_num)
+
+    s_scale = s_num / s_den.clamp_min(eps)
+    t_scale = t_num / t_den.clamp_min(eps)
+    s_scale = torch.where(s_num.abs() < eps, torch.zeros_like(s_scale), s_scale)
+    t_scale = torch.where(t_num.abs() < eps, torch.zeros_like(t_scale), t_scale)
+    closest = (
+        offset
+        + direction * s_scale.unsqueeze(-1)
+        - other_direction * t_scale.unsqueeze(-1)
+    )
+    return torch.linalg.vector_norm(closest, dim=-1)
+
+
+def leg_segment_clearance(link_pos: torch.Tensor) -> torch.Tensor:
+    """Minimum distance between the two legs' thigh and shin segments.
+
+    ``link_pos`` has shape ``(E, 6, 3)``: hip, knee, ankle on the left, then
+    the same three on the right. A scissor drives the minimum to 0. In the
+    ladder reset pose it is the hip gap, so a wider step stays there.
+    """
+
+    left_thigh = (link_pos[:, 0], link_pos[:, 1])
+    left_shin = (link_pos[:, 1], link_pos[:, 2])
+    right_thigh = (link_pos[:, 3], link_pos[:, 4])
+    right_shin = (link_pos[:, 4], link_pos[:, 5])
+    pairs = (
+        segment_segment_distance(*left_thigh, *right_thigh),
+        segment_segment_distance(*left_thigh, *right_shin),
+        segment_segment_distance(*left_shin, *right_thigh),
+        segment_segment_distance(*left_shin, *right_shin),
+    )
+    return torch.stack(pairs, dim=0).amin(dim=0)
+
+
+def _leg_link_positions(env: ManagerBasedRlEnv) -> torch.Tensor:
+    robot = env.scene["robot"]
+    indexes, names = robot.find_bodies(LEG_LINK_NAMES, preserve_order=True)
+    if tuple(names) != LEG_LINK_NAMES:
+        raise ValueError(f"Expected leg links {LEG_LINK_NAMES}, found {tuple(names)}")
+    positions = robot.data.body_link_pos_w
+    link_ids = torch.as_tensor(indexes, dtype=torch.long, device=positions.device)
+    return positions[:, link_ids]
+
+
+def leg_distance(env: ManagerBasedRlEnv) -> torch.Tensor:
+    """Squared gap of the leg clearance from the ladder reset stance.
+
+    The manager scales by ``dt``. Clearance is the shortest of the four
+    thigh/shin segment pairs. It equals ``LEG_DISTANCE_OPT_M`` at the reset
+    pose and falls toward 0 when the legs scissor. The reward weight turns
+    this positive error into a cost.
+    """
+
+    clearance = leg_segment_clearance(_leg_link_positions(env))
+    return torch.square(clearance - LEG_DISTANCE_OPT_M)
 
 
 def ladder_alive(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
@@ -1642,7 +1794,9 @@ def ladder_hold_completed(env: ManagerBasedRlEnv, command_name: str) -> torch.Te
 
         r_done = 1
 
-    when the dwell just finished, and 0 on a fall or a deadline.
+    when the trailing planted window is full and its mean torso speed and
+    mean torso and pelvis angular speeds are inside the limits. A fall, a
+    deadline, or a fast planted window pays 0.
     """
 
     command = _ladder_command(env, command_name)
@@ -1693,20 +1847,33 @@ def ladder_critic_privileged(
     env: ManagerBasedRlEnv,
     command_name: str,
 ) -> torch.Tensor:
-    """Hold progress and the stabilize gates, with no stage index."""
+    """Privileged critic features in the checkpoint layout.
+
+    The order is fixed so a model trained before the hold change still loads.
+    Thirteen values: hold progress, successes, torso speed, joint-speed RMS,
+    torso angular speed, pelvis angular speed, waist joint speed, support
+    offset, the one-rung placement bit, both hand attachments, and both foot
+    supports. The hold reward does not read this vector.
+    """
 
     command = _ladder_command(env, command_name)
-    gates = command._stabilization_conditions()
     dwell = float(command.cfg.stabilization_dwell_steps)
     limit = float(command.cfg.successes_per_rollout)
+    joint_speed_rms = torch.sqrt(
+        torch.mean(torch.square(command.robot.data.joint_vel), dim=1)
+    )
+    waist_joint_speed = torch.amax(
+        torch.abs(command.robot.data.joint_vel[:, command._waist_joint_ids]),
+        dim=1,
+    )
     scalar_terms = (
         command.hold_count.float() / dwell,
         command.successes.float() / limit,
-        gates["torso_speed"],
-        gates["joint_speed_rms"],
-        gates["torso_angular_speed"],
-        gates["pelvis_angular_speed"],
-        gates["waist_joint_speed"],
+        torch.linalg.vector_norm(command.torso_com_vel_w, dim=-1),
+        joint_speed_rms,
+        torch.linalg.vector_norm(command.torso_ang_vel_w, dim=-1),
+        torch.linalg.vector_norm(command.pelvis_ang_vel_w, dim=-1),
+        waist_joint_speed,
         command.torso_support_offset_error,
         command.supports_one_rung_higher.float(),
     )

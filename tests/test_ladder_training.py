@@ -39,6 +39,8 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     ALIVE_WINDOW_S,
     FLIGHT_GRACE_STEPS,
     FLIGHT_RATE,
+    LEG_DISTANCE_OPT_M,
+    LEG_LINK_NAMES,
     FOOT_HAND_RUNG_GAP,
     FOOT_LOAD_CAP,
     FOOT_PRESSURE_RATE,
@@ -59,8 +61,12 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     ladder_ascent,
     ladder_climb,
     ladder_flight,
+    leg_distance,
+    leg_segment_clearance,
+    segment_segment_distance,
     ladder_hold,
     ladder_hold_completed,
+    ladder_critic_privileged,
     limb_axis_features,
 )
 from train_mimic.tasks.tracking.rl import LadderOnPolicyRunner
@@ -124,16 +130,15 @@ def _quiet_ladder(*, dwell: int = 3, successes: int = 2) -> _QuietLadder:
         start_rung=4,
         initial_foot_rung=1,
         max_stabilization_torso_speed=0.20,
-        max_stabilization_joint_speed=1.0,
         max_stabilization_body_angular_speed=0.40,
-        max_stabilization_waist_joint_speed=0.60,
-        max_stabilization_support_offset_error=0.18,
+        weld_release_joint_speed=4.0,
         weld_release_speed_factor=4.0,
     )
     command.robot = SimpleNamespace(
         data=SimpleNamespace(joint_vel=torch.zeros(1, 2)),
     )
     command._waist_joint_ids = torch.tensor([0])
+    command._reference_torso_support_offset_w = torch.zeros(1, 3)
     command._hands = torch.zeros(1, 2, 3)
     command._feet = torch.zeros(1, 2, 3)
     command._contact = torch.ones(1, 2, dtype=torch.bool)
@@ -154,9 +159,8 @@ def _quiet_ladder(*, dwell: int = 3, successes: int = 2) -> _QuietLadder:
     command.hold_count = torch.tensor([0])
     command.successes = torch.tensor([0])
     command._pending_start_pose_init = torch.tensor([False])
-    command._reference_torso_rotation_w = torch.eye(3).reshape(1, 3, 3)
-    command._reference_torso_support_offset_w = torch.zeros(1, 3)
     command._env = SimpleNamespace(device="cpu")
+    command._init_quiet_window()
     return command
 
 
@@ -174,6 +178,7 @@ def test_ladder_task_is_one_repeated_hold() -> None:
         "ladder_hold_completed",
         "ladder_flight",
         "ladder_alive",
+        "leg_distance",
         "action_rate_l2",
     }
     assert cfg.rewards["ladder_climb"].func is ladder_climb
@@ -185,6 +190,8 @@ def test_ladder_task_is_one_repeated_hold() -> None:
     assert cfg.rewards["ladder_flight"].func is ladder_flight
     assert cfg.rewards["ladder_alive"].func is ladder_alive
     assert cfg.rewards["ladder_alive"].weight == 1.0
+    assert cfg.rewards["leg_distance"].func is leg_distance
+    assert cfg.rewards["leg_distance"].weight == -10.0
     assert cfg.rewards["action_rate_l2"].func is action_rate_l2
     assert cfg.rewards["action_rate_l2"].weight == -0.002
     assert cfg.rewards["ladder_hold_completed"].weight == 1.0
@@ -199,7 +206,13 @@ def test_ladder_task_is_one_repeated_hold() -> None:
     ladder_cmd = cfg.commands["ladder"]
     assert ladder_cmd.successes_per_rollout == 4
     assert ladder_cmd.stabilization_dwell_steps == 50
+    assert ladder_cmd.max_stabilization_torso_speed == pytest.approx(0.20)
+    assert ladder_cmd.max_stabilization_body_angular_speed == pytest.approx(0.40)
+    assert ladder_cmd.weld_release_joint_speed == pytest.approx(4.0)
     assert ladder_cmd.weld_release_speed_factor == 4.0
+    assert not hasattr(ladder_cmd, "max_stabilization_joint_speed")
+    assert not hasattr(ladder_cmd, "max_stabilization_waist_joint_speed")
+    assert not hasattr(ladder_cmd, "max_stabilization_support_offset_error")
     assert ladder_cmd.initialize_on_reset is True
     assert ladder_cmd.start_rung == 7
     assert ladder_cmd.initial_foot_rung == 3
@@ -224,6 +237,7 @@ def test_ladder_task_is_one_repeated_hold() -> None:
         "ladder_hold_completed",
         "ladder_flight",
         "ladder_alive",
+        "leg_distance",
         "action_rate_l2",
     }
 
@@ -251,7 +265,7 @@ def test_one_attempt_records_the_keyframe_baseline() -> None:
     assert not command.just_completed.item()
 
 
-def test_hold_counter_resets_when_a_gate_breaks() -> None:
+def test_hold_counter_resets_when_a_support_leaves() -> None:
     command = _quiet_ladder(dwell=4)
     command.held_rung[:] = 5
     command.foot_rung[:] = 2
@@ -263,9 +277,39 @@ def test_hold_counter_resets_when_a_gate_breaks() -> None:
 
     command._torso_vel[:] = 1.0
     command._advance_hold()
+    assert command.hold_count.item() == 3
+    assert not command.just_completed.item()
+
+    command.foot_rung[:, 0] = 1
+    command._advance_hold()
     assert command.hold_count.item() == 0
     assert not command.just_completed.item()
     assert command.successes.item() == 0
+
+
+def test_a_fast_planted_window_waits_for_a_quiet_second() -> None:
+    command = _quiet_ladder(dwell=3)
+    command.held_rung[:] = 5
+    command.foot_rung[:] = 2
+    command._torso_vel[:] = 1.0
+
+    for _ in range(3):
+        command._advance_hold()
+    assert command.hold_count.item() == 3
+    assert not command.just_completed.item()
+    assert command.successes.item() == 0
+
+    command._torso_vel.zero_()
+    command._advance_hold()
+    command._advance_hold()
+    assert command.hold_count.item() == 3
+    assert not command.just_completed.item()
+
+    command._advance_hold()
+    assert command.just_completed.item()
+    assert command.hold_count.item() == 0
+    assert command.successes.item() == 1
+    assert command.baseline_hand_rung.tolist() == [[5, 5]]
 
 
 def test_success_pays_only_after_the_full_hold() -> None:
@@ -581,13 +625,39 @@ def test_climb_pays_a_contact_once_and_ignores_a_reach() -> None:
     command._foot_load[:, 0] = 0.0
     assert climb() == 0.0
 
-    # Completion clears the accumulators. The same loaded foot starts again.
+    # This foot is already at the cap, so completion adds nothing and clears it.
     command.just_completed[:] = True
     command._foot_load[:, 0] = FOOT_LOAD_CAP
     assert climb() == 0.0
     assert command._climb_paid[0].tolist() == pytest.approx([0.0, 0.0, 0.0, 0.0])
     command.just_completed[:] = False
     assert climb() == pytest.approx(foot_rate)
+
+
+def test_completion_fills_the_unpaid_contact_caps() -> None:
+    command = _quiet_ladder(dwell=50)
+    _bind_reward_state(command)
+    command._limb_features = lambda: (torch.zeros(1, 4), torch.zeros(1, 4))  # type: ignore[method-assign]
+    env = _reward_env(command)
+    command.held_rung[:] = 5
+    command.foot_rung[:] = 2
+    command._foot_load[:] = 0.0
+    command.hold_count[:] = 10
+    open_rate = 2 * CLIMB_CONTACT_RATE + 2 * FOOT_STEP_RATE
+
+    assert ladder_climb(env, "ladder").item() == 0.0
+    env.common_step_counter = 1
+    assert ladder_climb(env, "ladder").item() == pytest.approx(open_rate)
+
+    env.common_step_counter = 2
+    command.just_completed[:] = True
+    remainder = (CLIMB_CONTACT_CAP - command._climb_paid).sum().item()
+    assert ladder_climb(env, "ladder").item() == pytest.approx(remainder / env.step_dt)
+    assert command._climb_paid[0].tolist() == pytest.approx([0.0, 0.0, 0.0, 0.0])
+
+    env.common_step_counter = 3
+    command.just_completed[:] = False
+    assert ladder_climb(env, "ladder").item() == pytest.approx(open_rate)
 
 
 def test_hold_pays_back_a_broken_gate_and_not_a_completion() -> None:
@@ -612,6 +682,14 @@ def test_hold_pays_back_a_broken_gate_and_not_a_completion() -> None:
     assert ladder_hold(env, "ladder").item() == pytest.approx((HOLD_REWARD / 50) / 0.02)
     assert ladder_hold_completed(env, "ladder").item() == pytest.approx(50.0)
 
+    # The counter was already full, so completion pays the impulse only.
+    env.common_step_counter = 3
+    command.just_completed[:] = True
+    command.hold_count[:] = 0
+    command._hold_count_prev[:] = 50
+    assert ladder_hold(env, "ladder").item() == pytest.approx(0.0)
+    assert ladder_hold_completed(env, "ladder").item() == pytest.approx(50.0)
+
 
 def test_alive_pays_for_two_seconds_off_the_ground() -> None:
     command = _quiet_ladder()
@@ -634,6 +712,81 @@ def test_alive_pays_for_two_seconds_off_the_ground() -> None:
         get_term=lambda name: torch.tensor([name == "touched_ground"])
     )
     assert alive(10) == pytest.approx(0.0)
+
+
+def test_leg_distance_is_zero_on_the_reset_stance_and_peaks_on_a_scissor() -> None:
+    reset = torch.tensor(
+        [
+            [
+                [0.03031904, 0.11645200, 0.65432144],
+                [0.33497390, 0.11962464, 0.62438806],
+                [0.44903379, 0.11983901, 0.32802257],
+                [0.03031904, -0.11645200, 0.65432144],
+                [0.33497390, -0.11962464, 0.62438806],
+                [0.44903379, -0.11983901, 0.32802257],
+            ]
+        ]
+    )
+    assert leg_segment_clearance(reset).item() == pytest.approx(LEG_DISTANCE_OPT_M, abs=1.0e-5)
+    assert leg_distance(_leg_env(reset)).item() == pytest.approx(0.0, abs=1.0e-8)
+
+    crossed = reset.clone()
+    crossed[:, 1:, 1] *= -1
+    crossed[:, 0, 1] = reset[:, 0, 1]
+    crossed[:, 3, 1] = reset[:, 3, 1]
+    assert leg_segment_clearance(crossed).item() == pytest.approx(0.0, abs=1.0e-4)
+    assert leg_distance(_leg_env(crossed)).item() == pytest.approx(LEG_DISTANCE_OPT_M**2)
+
+    apart = torch.tensor(
+        [
+            [
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [1.0, 0.0, -1.0],
+                [3.0, 1.0, 0.0],
+                [4.0, 1.0, 0.0],
+                [4.0, 1.0, -1.0],
+            ]
+        ]
+    )
+    # Closest points are the facing ends of the two thighs.
+    assert segment_segment_distance(
+        apart[:, 0], apart[:, 1], apart[:, 3], apart[:, 4]
+    ).item() == pytest.approx(5.0**0.5)
+    assert leg_segment_clearance(apart).item() == pytest.approx(5.0**0.5)
+    parallel = segment_segment_distance(
+        torch.tensor([[0.0, 0.0, 0.0]]),
+        torch.tensor([[1.0, 0.0, 0.0]]),
+        torch.tensor([[0.0, 1.0, 0.0]]),
+        torch.tensor([[1.0, 1.0, 0.0]]),
+    )
+    assert parallel.item() == pytest.approx(1.0)
+    junction = segment_segment_distance(
+        torch.tensor([[0.0, 0.0, 0.0]]),
+        torch.tensor([[2.0, 0.0, 0.0]]),
+        torch.tensor([[1.0, 1.0, 0.0]]),
+        torch.tensor([[1.0, 2.0, 0.0]]),
+    )
+    assert junction.item() == pytest.approx(1.0)
+
+    skew = torch.zeros(1, 6, 3)
+    skew[:, 1] = torch.tensor([0.0, 1.0, 0.0])
+    skew[:, 2] = torch.tensor([0.0, 1.0, -1.0])
+    skew[:, 3] = torch.tensor([0.04, 0.5, -0.5])
+    skew[:, 4] = torch.tensor([0.04, 0.5, 0.5])
+    skew[:, 5] = torch.tensor([0.04, 0.5, 1.5])
+    assert leg_segment_clearance(skew).item() == pytest.approx(0.04)
+
+
+def _leg_env(link_pos: torch.Tensor) -> SimpleNamespace:
+    robot = SimpleNamespace(
+        find_bodies=lambda _names, preserve_order=False: (
+            list(range(6)),
+            list(LEG_LINK_NAMES),
+        ),
+        data=SimpleNamespace(body_link_pos_w=link_pos),
+    )
+    return SimpleNamespace(scene={"robot": robot})
 
 
 def test_flight_penalty_waits_through_the_grace_and_ignores_a_two_hand_reach() -> None:
@@ -838,15 +991,10 @@ def _zero_ladder_metrics(command: _QuietLadder) -> None:
             "hold_progress",
             "successes",
             "supports_one_rung_higher",
-            "stabilization_hands_attached",
-            "stabilization_feet_supported",
             "stabilization_torso_speed",
-            "stabilization_joint_speed_rms",
             "stabilization_torso_angular_speed",
             "stabilization_pelvis_angular_speed",
-            "stabilization_waist_joint_speed",
-            "stabilization_support_offset_error",
-            "stabilization_gate_valid",
+            "hold_quiet",
         )
     }
 
@@ -1091,6 +1239,30 @@ def test_overshoot_is_not_exactly_one_rung() -> None:
     assert command.supports_one_rung_higher.item()
 
 
+def test_privileged_critic_observation_keeps_the_checkpoint_layout() -> None:
+    command = _quiet_ladder(dwell=50, successes=4)
+    command.hold_count[:] = 25
+    command.successes[:] = 1
+    command.held_rung[:] = 5
+    command.foot_rung[:] = 2
+    command.robot.data.joint_vel[:] = 2.0
+    command._torso_vel[:] = torch.tensor([[0.3, 0.0, 0.0]])
+    env = SimpleNamespace(
+        command_manager=SimpleNamespace(get_term=lambda _name: command),
+    )
+
+    observation = ladder_critic_privileged(env, "ladder")
+
+    assert observation.shape == (1, 13)
+    assert observation[0, 0].item() == pytest.approx(0.5)
+    assert observation[0, 1].item() == pytest.approx(0.25)
+    assert observation[0, 2].item() == pytest.approx(0.3)
+    assert observation[0, 3].item() == pytest.approx(2.0)
+    assert observation[0, 8].item() == pytest.approx(1.0)
+    assert observation[0, 9:11].tolist() == pytest.approx([1.0, 1.0])
+    assert observation[0, 11:].tolist() == pytest.approx([1.0, 1.0])
+
+
 def test_ladder_geometry_observation_spans_one_below_the_feet_to_one_above_the_hands() -> None:
     command = object.__new__(LadderClimbCommand)
     num_rungs = 14
@@ -1308,6 +1480,19 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
             if re.fullmatch(pattern, joint_name):
                 data.qpos[model.jnt_qposadr[joint_id]] = value
     mujoco.mj_forward(model, data)
+
+    reset_links = torch.tensor(
+        np.array(
+            [
+                data.xpos[mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, name)]
+                for name in LEG_LINK_NAMES
+            ]
+        ),
+        dtype=torch.float32,
+    ).unsqueeze(0)
+    assert leg_segment_clearance(reset_links).item() == pytest.approx(
+        LEG_DISTANCE_OPT_M, abs=1.0e-5
+    )
 
     foot_rung_site = mujoco.mj_name2id(
         model,
