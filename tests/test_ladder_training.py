@@ -191,7 +191,7 @@ def test_ladder_task_is_one_repeated_hold() -> None:
     assert cfg.rewards["ladder_alive"].func is ladder_alive
     assert cfg.rewards["ladder_alive"].weight == 1.0
     assert cfg.rewards["leg_distance"].func is leg_distance
-    assert cfg.rewards["leg_distance"].weight == -10.0
+    assert cfg.rewards["leg_distance"].weight == -5.0
     assert cfg.rewards["action_rate_l2"].func is action_rate_l2
     assert cfg.rewards["action_rate_l2"].weight == -0.002
     assert cfg.rewards["ladder_hold_completed"].weight == 1.0

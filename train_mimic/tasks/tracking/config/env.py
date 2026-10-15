@@ -842,12 +842,12 @@ def make_g1_ladder_rl_env_cfg(
             params={"command_name": "ladder"},
         ),
         # Squared gap from the reset leg clearance, 0.233 m between the
-        # hip-roll origins. A full scissor costs 0.54 per second, about five
-        # plants of approach. The reset stance costs nothing, and opening
-        # the feet does not, because the minimum stays at the hips.
+        # hip-roll origins. A full scissor costs 0.27 per second, a bit more
+        # than two plants of approach. The reset stance costs nothing, and
+        # opening the feet does not, because the minimum stays at the hips.
         "leg_distance": RewardTermCfg(
             func=mdp.leg_distance,
-            weight=-10.0,
+            weight=-5.0,
         ),
         # Squared action change near 1 for the whole 20 s costs 0.04, about
         # a sixth of one plant. The tread-1 fall averaged near 7.5 and would

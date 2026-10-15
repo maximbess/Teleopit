@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Push the current branch to the devbox checkout over SSH.
-# A fresh SSH session is opened first. The remote repo is set to
+# A fresh SSH session is opened first. The remote checkout is marked as a
+# git safe.directory, then the remote repo is set to
 # receive.denyCurrentBranch=updateInstead before the push, so a
 # fast-forward updates the branch that is checked out there.
 # Usage:
@@ -59,6 +60,10 @@ ssh "${SSH_OPTIONS[@]}" -O exit "${REMOTE_HOST}" >/dev/null 2>&1 || true
 
 echo "Opening a fresh connection to ${REMOTE_HOST} port ${PORT}"
 ssh "${SSH_OPTIONS[@]}" -fN "${REMOTE_HOST}"
+
+echo "Marking ${REMOTE_ROOT} as a safe directory on ${REMOTE_HOST}"
+ssh "${SSH_OPTIONS[@]}" "${REMOTE_HOST}" \
+  "git config --global --get-all safe.directory 2>/dev/null | grep -Fxq '${REMOTE_ROOT}' || git config --global --add safe.directory '${REMOTE_ROOT}'"
 
 echo "Setting receive.denyCurrentBranch=updateInstead in ${REMOTE_ROOT}"
 ssh "${SSH_OPTIONS[@]}" "${REMOTE_HOST}" \
