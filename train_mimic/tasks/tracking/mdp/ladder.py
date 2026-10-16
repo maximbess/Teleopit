@@ -357,6 +357,13 @@ class LadderClimbCommand(CommandTerm):
         self._climb_paid = torch.zeros(
             (self.num_envs, 4), dtype=torch.float32, device=self.device
         )
+        self._leg_cross_paid = torch.zeros(
+            self.num_envs, dtype=torch.float32, device=self.device
+        )
+        self._leg_cross_step = -1
+        self._leg_cross_rate = torch.zeros(
+            self.num_envs, dtype=torch.float32, device=self.device
+        )
         self._approach_paid = torch.zeros(
             (self.num_envs, 4), dtype=torch.float32, device=self.device
         )
@@ -841,6 +848,8 @@ class LadderClimbCommand(CommandTerm):
         self._climb_distance[env_ids] = 0.0
         self._climb_lateral[env_ids] = 0.0
         self._climb_paid[env_ids] = 0.0
+        self._leg_cross_paid[env_ids] = 0.0
+        self._leg_cross_step = -1
         self._approach_paid[env_ids] = 0.0
         self._approach_peak[env_ids] = 0.0
         self._climb_valid[env_ids] = False
@@ -1304,6 +1313,27 @@ class LadderClimbCommand(CommandTerm):
     def _next_rung(self, baseline: torch.Tensor) -> torch.Tensor:
         return torch.clamp(baseline + 1, min=0, max=self.num_rungs - 1)
 
+    def foot_span_plane(
+        self,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Face spanned by the foot baseline rung and the landing rung.
+
+        Returns the baseline center, the rung axis, the climb axis, and a
+        mask that is true when those two rungs do not define a plane. The
+        axes are orthonormal. On this ladder every rung is parallel, so any
+        pair gives the same face; the indices follow the current attempt.
+        """
+
+        data = self._env.sim.data
+        centers = data.site_xpos[:, self._rung_site_ids]
+        matrices = _as_rotation_matrix(data.site_xmat[:, self._rung_site_ids])
+        start = self.baseline_foot_rung.amin(dim=1, keepdim=True)
+        landing = self._next_rung(start)
+        origin = _gather_rung_centers(centers, start).squeeze(1)
+        rung_axis = _gather_rung_centers(matrices[..., :, 2], start).squeeze(1)
+        landing_center = _gather_rung_centers(centers, landing).squeeze(1)
+        return ladder_face_axes(origin, landing_center, rung_axis)
+
     def _nearest_rung(
         self,
         points_w: torch.Tensor,
@@ -1481,6 +1511,11 @@ ASCENT_CAP = 1.0
 # it. Applied once, to the net drop from the highest point, on the terminal
 # step. Banked ascent is not included.
 REFUND_FRACTION = 0.5
+# Any projected crossing, wherever it sits on the bones. The manager
+# multiplies by dt with weight 1, so this is the reward rate. The episode
+# sum stops at LEG_CROSS_TOTAL, which is 2.4 s of crossing.
+LEG_CROSS_RATE = -0.5
+LEG_CROSS_TOTAL = -1.2
 # Thigh and shin bones, left then right. Each leg is hip roll -> knee -> ankle.
 LEG_LINK_NAMES = (
     "left_hip_roll_link",
@@ -1490,10 +1525,6 @@ LEG_LINK_NAMES = (
     "right_knee_link",
     "right_ankle_roll_link",
 )
-# Minimum of the four segment pairs in the ladder reset pose. It is the
-# distance between the hip-roll origins; the knees and ankles sit slightly
-# wider, so spreading the feet does not increase this value.
-LEG_DISTANCE_OPT_M = 0.232904
 
 
 def _gather_rung_centers(centers: torch.Tensor, indices: torch.Tensor) -> torch.Tensor:
@@ -1662,86 +1693,91 @@ def ladder_hold(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     return command.reward_terms()["hold"] / env.step_dt
 
 
-def segment_segment_distance(
+def ladder_face_axes(
+    origin: torch.Tensor,
+    landing: torch.Tensor,
+    rung_axis: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Orthonormal axes of the plane through two rung centers.
+
+    ``rung_axis`` is the rung direction. The climb axis is the component of
+    ``landing - origin`` perpendicular to it. The mask is true when the two
+    centers do not span a plane.
+    """
+
+    lateral = rung_axis / torch.linalg.vector_norm(
+        rung_axis, dim=-1, keepdim=True
+    ).clamp_min(1.0e-8)
+    climb = landing - origin
+    climb = climb - lateral * (climb * lateral).sum(dim=-1, keepdim=True)
+    length = torch.linalg.vector_norm(climb, dim=-1, keepdim=True)
+    degenerate = length.squeeze(-1) < 1.0e-6
+    climb = climb / length.clamp_min(1.0e-8)
+    return origin, lateral, climb, degenerate
+
+
+def _segments_intersect_2d(
     origin: torch.Tensor,
     end: torch.Tensor,
     other_origin: torch.Tensor,
     other_end: torch.Tensor,
 ) -> torch.Tensor:
-    """Shortest distance between two batches of 3D segments.
+    """Whether two projected segments intersect, including at an endpoint.
 
-    Each argument has shape ``(..., 3)``. The result has the batch shape.
+    Parallel projections do not count. A crossing near either end counts the
+    same as a crossing in the middle.
     """
 
     direction = end - origin
-    other_direction = other_end - other_origin
+    other = other_end - other_origin
     offset = origin - other_origin
-    a = (direction * direction).sum(dim=-1)
-    b = (direction * other_direction).sum(dim=-1)
-    c = (other_direction * other_direction).sum(dim=-1)
-    d = (direction * offset).sum(dim=-1)
-    e = (other_direction * offset).sum(dim=-1)
-    denom = a * c - b * b
-    eps = 1.0e-8
-
-    parallel = denom < eps
-    s_num = torch.where(parallel, torch.zeros_like(a), b * e - c * d)
-    s_den = torch.where(parallel, torch.ones_like(a), denom)
-    t_num = torch.where(parallel, e, a * e - b * d)
-    t_den = torch.where(parallel, c, denom)
-
-    before = s_num < 0
-    s_num = torch.where(before, torch.zeros_like(s_num), s_num)
-    t_num = torch.where(before, e, t_num)
-    t_den = torch.where(before, c, t_den)
-    after = s_num > s_den
-    s_num = torch.where(after, s_den, s_num)
-    t_num = torch.where(after, e + b, t_num)
-    t_den = torch.where(after, c, t_den)
-
-    below = t_num < 0
-    t_num = torch.where(below, torch.zeros_like(t_num), t_num)
-    s_num = torch.where(below, (-d).clamp(min=0.0), s_num)
-    s_den = torch.where(below, a, s_den)
-    s_num = torch.where(below & (s_num > a), a, s_num)
-    above = t_num > t_den
-    t_num = torch.where(above, t_den, t_num)
-    along = -d + b
-    s_num = torch.where(above, along.clamp(min=0.0), s_num)
-    s_den = torch.where(above, a, s_den)
-    s_num = torch.where(above & (s_num > a), a, s_num)
-
-    s_scale = s_num / s_den.clamp_min(eps)
-    t_scale = t_num / t_den.clamp_min(eps)
-    s_scale = torch.where(s_num.abs() < eps, torch.zeros_like(s_scale), s_scale)
-    t_scale = torch.where(t_num.abs() < eps, torch.zeros_like(t_scale), t_scale)
-    closest = (
-        offset
-        + direction * s_scale.unsqueeze(-1)
-        - other_direction * t_scale.unsqueeze(-1)
+    denom = direction[..., 0] * other[..., 1] - direction[..., 1] * other[..., 0]
+    safe = torch.where(denom.abs() < 1.0e-8, torch.ones_like(denom), denom)
+    s_param = (other[..., 0] * offset[..., 1] - other[..., 1] * offset[..., 0]) / safe
+    t_param = (
+        direction[..., 0] * offset[..., 1] - direction[..., 1] * offset[..., 0]
+    ) / safe
+    return (
+        (denom.abs() >= 1.0e-8)
+        & (s_param >= 0.0)
+        & (s_param <= 1.0)
+        & (t_param >= 0.0)
+        & (t_param <= 1.0)
     )
-    return torch.linalg.vector_norm(closest, dim=-1)
 
 
-def leg_segment_clearance(link_pos: torch.Tensor) -> torch.Tensor:
-    """Minimum distance between the two legs' thigh and shin segments.
+def projected_legs_cross(
+    link_pos: torch.Tensor,
+    origin: torch.Tensor,
+    lateral: torch.Tensor,
+    climb: torch.Tensor,
+) -> torch.Tensor:
+    """Whether any thigh or shin segment crosses the other leg on the ladder face.
 
     ``link_pos`` has shape ``(E, 6, 3)``: hip, knee, ankle on the left, then
-    the same three on the right. A scissor drives the minimum to 0. In the
-    ladder reset pose it is the hip gap, so a wider step stays there.
+    the same three on the right. Coordinates out of the ladder face are
+    dropped, so ankles may pass close in depth without a cost.
     """
 
-    left_thigh = (link_pos[:, 0], link_pos[:, 1])
-    left_shin = (link_pos[:, 1], link_pos[:, 2])
-    right_thigh = (link_pos[:, 3], link_pos[:, 4])
-    right_shin = (link_pos[:, 4], link_pos[:, 5])
-    pairs = (
-        segment_segment_distance(*left_thigh, *right_thigh),
-        segment_segment_distance(*left_thigh, *right_shin),
-        segment_segment_distance(*left_shin, *right_thigh),
-        segment_segment_distance(*left_shin, *right_shin),
+    delta = link_pos - origin.unsqueeze(1)
+    projected = torch.stack(
+        (
+            (delta * lateral.unsqueeze(1)).sum(dim=-1),
+            (delta * climb.unsqueeze(1)).sum(dim=-1),
+        ),
+        dim=-1,
     )
-    return torch.stack(pairs, dim=0).amin(dim=0)
+    left_thigh = (projected[:, 0], projected[:, 1])
+    left_shin = (projected[:, 1], projected[:, 2])
+    right_thigh = (projected[:, 3], projected[:, 4])
+    right_shin = (projected[:, 4], projected[:, 5])
+    pairs = (
+        _segments_intersect_2d(*left_thigh, *right_thigh),
+        _segments_intersect_2d(*left_thigh, *right_shin),
+        _segments_intersect_2d(*left_shin, *right_thigh),
+        _segments_intersect_2d(*left_shin, *right_shin),
+    )
+    return torch.stack(pairs, dim=0).any(dim=0)
 
 
 def _leg_link_positions(env: ManagerBasedRlEnv) -> torch.Tensor:
@@ -1754,17 +1790,36 @@ def _leg_link_positions(env: ManagerBasedRlEnv) -> torch.Tensor:
     return positions[:, link_ids]
 
 
-def leg_distance(env: ManagerBasedRlEnv) -> torch.Tensor:
-    """Squared gap of the leg clearance from the ladder reset stance.
+def leg_cross(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Constant rate while the projected legs cross. The episode sum stops at -1.2.
 
-    The manager scales by ``dt``. Clearance is the shortest of the four
-    thigh/shin segment pairs. It equals ``LEG_DISTANCE_OPT_M`` at the reset
-    pose and falls toward 0 when the legs scissor. The reward weight turns
-    this positive error into a cost.
+    The manager scales by ``dt`` and the weight is 1, so this returns
+    ``LEG_CROSS_RATE`` per second for any intersection. The integral of that
+    rate stops at ``LEG_CROSS_TOTAL``. A later call in the same step returns
+    the same rate and does not charge twice.
     """
 
-    clearance = leg_segment_clearance(_leg_link_positions(env))
-    return torch.square(clearance - LEG_DISTANCE_OPT_M)
+    command = _ladder_command(env, command_name)
+    step_id = int(getattr(env, "common_step_counter", -1))
+    if command._leg_cross_step == step_id:
+        return command._leg_cross_rate
+
+    origin, lateral, climb, degenerate = command.foot_span_plane()
+    crossing = projected_legs_cross(
+        _leg_link_positions(env), origin, lateral, climb
+    )
+    crossing = crossing & ~degenerate
+    rate = torch.where(
+        crossing,
+        torch.full_like(command._leg_cross_paid, LEG_CROSS_RATE),
+        torch.zeros_like(command._leg_cross_paid),
+    )
+    dt = float(env.step_dt)
+    step_cost = torch.maximum(rate * dt, LEG_CROSS_TOTAL - command._leg_cross_paid)
+    command._leg_cross_paid = command._leg_cross_paid + step_cost
+    command._leg_cross_step = step_id
+    command._leg_cross_rate = step_cost / dt
+    return command._leg_cross_rate
 
 
 def ladder_alive(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:

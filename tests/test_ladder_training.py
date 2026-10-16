@@ -39,7 +39,8 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     ALIVE_WINDOW_S,
     FLIGHT_GRACE_STEPS,
     FLIGHT_RATE,
-    LEG_DISTANCE_OPT_M,
+    LEG_CROSS_RATE,
+    LEG_CROSS_TOTAL,
     LEG_LINK_NAMES,
     FOOT_HAND_RUNG_GAP,
     FOOT_LOAD_CAP,
@@ -61,9 +62,9 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     ladder_ascent,
     ladder_climb,
     ladder_flight,
-    leg_distance,
-    leg_segment_clearance,
-    segment_segment_distance,
+    ladder_face_axes,
+    leg_cross,
+    projected_legs_cross,
     ladder_hold,
     ladder_hold_completed,
     ladder_critic_privileged,
@@ -178,7 +179,7 @@ def test_ladder_task_is_one_repeated_hold() -> None:
         "ladder_hold_completed",
         "ladder_flight",
         "ladder_alive",
-        "leg_distance",
+        "leg_cross",
         "action_rate_l2",
     }
     assert cfg.rewards["ladder_climb"].func is ladder_climb
@@ -190,8 +191,11 @@ def test_ladder_task_is_one_repeated_hold() -> None:
     assert cfg.rewards["ladder_flight"].func is ladder_flight
     assert cfg.rewards["ladder_alive"].func is ladder_alive
     assert cfg.rewards["ladder_alive"].weight == 1.0
-    assert cfg.rewards["leg_distance"].func is leg_distance
-    assert cfg.rewards["leg_distance"].weight == -5.0
+    assert cfg.rewards["leg_cross"].func is leg_cross
+    assert cfg.rewards["leg_cross"].weight == 1.0
+    assert LEG_CROSS_RATE == -0.5
+    assert LEG_CROSS_TOTAL == -1.2
+    assert cfg.rewards["leg_cross"].params == {"command_name": "ladder"}
     assert cfg.rewards["action_rate_l2"].func is action_rate_l2
     assert cfg.rewards["action_rate_l2"].weight == -0.002
     assert cfg.rewards["ladder_hold_completed"].weight == 1.0
@@ -237,7 +241,7 @@ def test_ladder_task_is_one_repeated_hold() -> None:
         "ladder_hold_completed",
         "ladder_flight",
         "ladder_alive",
-        "leg_distance",
+        "leg_cross",
         "action_rate_l2",
     }
 
@@ -714,79 +718,106 @@ def test_alive_pays_for_two_seconds_off_the_ground() -> None:
     assert alive(10) == pytest.approx(0.0)
 
 
-def test_leg_distance_is_zero_on_the_reset_stance_and_peaks_on_a_scissor() -> None:
-    reset = torch.tensor(
+def _ladder_face() -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    origin = torch.zeros(1, 3)
+    rung_axis = torch.tensor([[0.0, 1.0, 0.0]])
+    landing = torch.tensor([[0.0, 0.0, 1.0]])
+    origin, lateral, climb, degenerate = ladder_face_axes(origin, landing, rung_axis)
+    assert not bool(degenerate.item())
+    return origin, lateral, climb
+
+
+def test_leg_cross_charges_a_held_scissor_and_ignores_a_close_step() -> None:
+    origin, lateral, climb = _ladder_face()
+    # Thighs cross at their midpoints on the ladder face. Shins stay apart.
+    crossed = torch.tensor(
         [
             [
-                [0.03031904, 0.11645200, 0.65432144],
-                [0.33497390, 0.11962464, 0.62438806],
-                [0.44903379, 0.11983901, 0.32802257],
-                [0.03031904, -0.11645200, 0.65432144],
-                [0.33497390, -0.11962464, 0.62438806],
-                [0.44903379, -0.11983901, 0.32802257],
+                [0.0, 0.2, 1.0],
+                [0.0, -0.2, 0.0],
+                [0.0, -0.2, -1.0],
+                [0.0, -0.2, 1.0],
+                [0.0, 0.2, 0.0],
+                [0.0, 0.2, -1.0],
             ]
         ]
     )
-    assert leg_segment_clearance(reset).item() == pytest.approx(LEG_DISTANCE_OPT_M, abs=1.0e-5)
-    assert leg_distance(_leg_env(reset)).item() == pytest.approx(0.0, abs=1.0e-8)
+    assert bool(projected_legs_cross(crossed, origin, lateral, climb).item())
+    # The same scissor, pushed out from the ladder, still crosses on the face.
+    pushed = crossed.clone()
+    pushed[..., 0] += 0.4
+    assert bool(projected_legs_cross(pushed, origin, lateral, climb).item())
 
-    crossed = reset.clone()
-    crossed[:, 1:, 1] *= -1
-    crossed[:, 0, 1] = reset[:, 0, 1]
-    crossed[:, 3, 1] = reset[:, 3, 1]
-    assert leg_segment_clearance(crossed).item() == pytest.approx(0.0, abs=1.0e-4)
-    assert leg_distance(_leg_env(crossed)).item() == pytest.approx(LEG_DISTANCE_OPT_M**2)
-
-    apart = torch.tensor(
+    ordered = torch.tensor(
         [
             [
-                [0.0, 0.0, 0.0],
-                [1.0, 0.0, 0.0],
-                [1.0, 0.0, -1.0],
-                [3.0, 1.0, 0.0],
-                [4.0, 1.0, 0.0],
-                [4.0, 1.0, -1.0],
+                [0.0, 0.2, 1.0],
+                [0.05, 0.2, 0.0],
+                [0.05, 0.2, -1.0],
+                [0.0, -0.2, 1.0],
+                [0.0, -0.2, 0.0],
+                [0.0, -0.2, -1.0],
             ]
         ]
     )
-    # Closest points are the facing ends of the two thighs.
-    assert segment_segment_distance(
-        apart[:, 0], apart[:, 1], apart[:, 3], apart[:, 4]
-    ).item() == pytest.approx(5.0**0.5)
-    assert leg_segment_clearance(apart).item() == pytest.approx(5.0**0.5)
-    parallel = segment_segment_distance(
-        torch.tensor([[0.0, 0.0, 0.0]]),
-        torch.tensor([[1.0, 0.0, 0.0]]),
-        torch.tensor([[0.0, 1.0, 0.0]]),
-        torch.tensor([[1.0, 1.0, 0.0]]),
-    )
-    assert parallel.item() == pytest.approx(1.0)
-    junction = segment_segment_distance(
-        torch.tensor([[0.0, 0.0, 0.0]]),
-        torch.tensor([[2.0, 0.0, 0.0]]),
-        torch.tensor([[1.0, 1.0, 0.0]]),
-        torch.tensor([[1.0, 2.0, 0.0]]),
-    )
-    assert junction.item() == pytest.approx(1.0)
+    # Ankles are 5 cm apart in depth and still on their own sides.
+    assert not bool(projected_legs_cross(ordered, origin, lateral, climb).item())
+    parallel = ordered.clone()
+    parallel[..., 0] = 0.0
+    assert not bool(projected_legs_cross(parallel, origin, lateral, climb).item())
 
-    skew = torch.zeros(1, 6, 3)
-    skew[:, 1] = torch.tensor([0.0, 1.0, 0.0])
-    skew[:, 2] = torch.tensor([0.0, 1.0, -1.0])
-    skew[:, 3] = torch.tensor([0.04, 0.5, -0.5])
-    skew[:, 4] = torch.tensor([0.04, 0.5, 0.5])
-    skew[:, 5] = torch.tensor([0.04, 0.5, 1.5])
-    assert leg_segment_clearance(skew).item() == pytest.approx(0.04)
-
-
-def _leg_env(link_pos: torch.Tensor) -> SimpleNamespace:
-    robot = SimpleNamespace(
-        find_bodies=lambda _names, preserve_order=False: (
-            list(range(6)),
-            list(LEG_LINK_NAMES),
-        ),
-        data=SimpleNamespace(body_link_pos_w=link_pos),
+    # A cross near the end of both bones costs the same as one in the middle.
+    near_end = torch.tensor(
+        [
+            [
+                [0.0, 0.2, 1.0],
+                [0.0, -0.02, 0.0],
+                [0.0, -0.02, -1.0],
+                [0.0, -0.2, 0.1],
+                [0.0, 0.02, 0.0],
+                [0.0, 0.02, -1.0],
+            ]
+        ]
     )
-    return SimpleNamespace(scene={"robot": robot})
+    assert bool(projected_legs_cross(near_end, origin, lateral, climb).item())
+
+    command = SimpleNamespace(
+        foot_span_plane=lambda: (origin, lateral, climb, torch.tensor([False])),
+        _leg_cross_paid=torch.zeros(1),
+        _leg_cross_step=-1,
+        _leg_cross_rate=torch.zeros(1),
+    )
+    env = SimpleNamespace(
+        step_dt=1.0,
+        common_step_counter=0,
+        scene={
+            "robot": SimpleNamespace(
+                find_bodies=lambda _names, preserve_order=False: (
+                    list(range(6)),
+                    list(LEG_LINK_NAMES),
+                ),
+                data=SimpleNamespace(body_link_pos_w=crossed),
+            )
+        },
+        command_manager=SimpleNamespace(get_term=lambda _name: command),
+    )
+    assert leg_cross(env, "ladder").item() == pytest.approx(LEG_CROSS_RATE)
+    assert leg_cross(env, "ladder").item() == pytest.approx(LEG_CROSS_RATE)
+    assert command._leg_cross_paid.item() == pytest.approx(LEG_CROSS_RATE)
+
+    env.common_step_counter = 1
+    assert leg_cross(env, "ladder").item() == pytest.approx(LEG_CROSS_RATE)
+    env.common_step_counter = 2
+    # 1.0 of the 1.2 budget is spent, so this second-long step only takes 0.2.
+    assert leg_cross(env, "ladder").item() == pytest.approx(-0.2)
+    assert command._leg_cross_paid.item() == pytest.approx(LEG_CROSS_TOTAL)
+    env.common_step_counter = 3
+    assert leg_cross(env, "ladder").item() == pytest.approx(0.0)
+
+    env.common_step_counter = 4
+    command.foot_span_plane = lambda: (origin, lateral, climb, torch.tensor([True]))
+    command._leg_cross_paid.zero_()
+    assert leg_cross(env, "ladder").item() == pytest.approx(0.0)
 
 
 def test_flight_penalty_waits_through_the_grace_and_ignores_a_two_hand_reach() -> None:
@@ -1490,8 +1521,29 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
         ),
         dtype=torch.float32,
     ).unsqueeze(0)
-    assert leg_segment_clearance(reset_links).item() == pytest.approx(
-        LEG_DISTANCE_OPT_M, abs=1.0e-5
+    foot_rung_site = mujoco.mj_name2id(
+        model,
+        mujoco.mjtObj.mjOBJ_SITE,
+        "left_ladder_rung_04_grip",
+    )
+    next_foot_site = mujoco.mj_name2id(
+        model,
+        mujoco.mjtObj.mjOBJ_SITE,
+        "left_ladder_rung_05_grip",
+    )
+    rung_axis = torch.tensor(
+        data.site_xmat[foot_rung_site].reshape(3, 3)[:, 2], dtype=torch.float32
+    ).view(1, 3)
+    face_origin, face_lateral, face_climb, face_degenerate = ladder_face_axes(
+        torch.tensor(data.site_xpos[foot_rung_site], dtype=torch.float32).view(1, 3),
+        torch.tensor(data.site_xpos[next_foot_site], dtype=torch.float32).view(1, 3),
+        rung_axis,
+    )
+    assert not bool(face_degenerate.item())
+    assert not bool(
+        projected_legs_cross(
+            reset_links, face_origin, face_lateral, face_climb
+        ).item()
     )
 
     foot_rung_site = mujoco.mj_name2id(
