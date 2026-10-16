@@ -393,9 +393,6 @@ class LadderClimbCommand(CommandTerm):
         self._ascent_valid = torch.zeros(
             self.num_envs, dtype=torch.bool, device=self.device
         )
-        self._feet_off_steps = torch.zeros(
-            self.num_envs, dtype=torch.long, device=self.device
-        )
         self._reward_cache_step = -1
         self._reward_cache: dict[str, torch.Tensor] | None = None
         self._pending_start_pose_init = torch.zeros(
@@ -859,7 +856,6 @@ class LadderClimbCommand(CommandTerm):
         self._ascent_bank[env_ids] = 0.0
         self._ascent_peak[env_ids] = 0.0
         self._ascent_valid[env_ids] = False
-        self._feet_off_steps[env_ids] = 0
         self._reward_cache_step = -1
         self.baseline_hand_rung[env_ids] = self.cfg.start_rung
         self.baseline_foot_rung[env_ids] = self.cfg.initial_foot_rung
@@ -1085,7 +1081,7 @@ class LadderClimbCommand(CommandTerm):
         return torch.zeros(self._climb_valid.shape[0], dtype=torch.bool)
 
     def reward_terms(self) -> dict[str, torch.Tensor]:
-        """Agent-visible climb, ascent, hold, flight, and alive terms.
+        """Agent-visible climb, ascent, hold, and alive terms.
 
         Cached on ``common_step_counter`` so the reward terms share one sample.
         """
@@ -1187,18 +1183,6 @@ class LadderClimbCommand(CommandTerm):
         hold = HOLD_REWARD * hold_step.float() / dwell
         self._hold_count_prev.copy_(self.hold_count)
 
-        both_feet_off = (~self.foot_support).all(dim=-1)
-        self._feet_off_steps = torch.where(
-            both_feet_off,
-            self._feet_off_steps + 1,
-            torch.zeros_like(self._feet_off_steps),
-        )
-        flight = both_feet_off & (self._feet_off_steps > FLIGHT_GRACE_STEPS)
-        flight_rate = torch.where(
-            flight,
-            torch.full_like(climb, -FLIGHT_RATE),
-            torch.zeros_like(climb),
-        )
         height = self._torso_rungs_along_rail()
         # The opening sample is the origin. u is the torso rise above it,
         # floored at 0 and capped at 1. A loaded foot ratchets the bank up
@@ -1253,7 +1237,6 @@ class LadderClimbCommand(CommandTerm):
             "climb": climb,
             "ascent": ascent,
             "hold": hold,
-            "flight": flight_rate,
             "alive": alive,
         }
         self._reward_cache_step = step_id
@@ -1482,8 +1465,6 @@ FOOT_SOLE_END_OFFSETS = (
     (0.092, 0.0, 0.0),
 )
 HOLD_REWARD = 0.5
-FLIGHT_RATE = 1.0
-FLIGHT_GRACE_STEPS = 4
 # Off the ground. The manager multiplies by dt. The rate is 1 per second
 # until the episode has lasted 2 s, then 0. The ground-contact step pays 0.
 ALIVE_RATE = 1.0
@@ -1512,10 +1493,9 @@ ASCENT_CAP = 1.0
 # step. Banked ascent is not included.
 REFUND_FRACTION = 0.5
 # Any projected crossing, wherever it sits on the bones. The manager
-# multiplies by dt with weight 1. A total of 0 leaves no budget, so the
-# rate is computed and then charged as nothing.
+# multiplies by dt with weight 1. The episode integral stops at -1.2.
 LEG_CROSS_RATE = -0.5
-LEG_CROSS_TOTAL = 0.0
+LEG_CROSS_TOTAL = -1.2
 # Thigh and shin bones, left then right. Each leg is hip roll -> knee -> ankle.
 LEG_LINK_NAMES = (
     "left_hip_roll_link",
@@ -1794,9 +1774,8 @@ def leg_cross(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     """Constant rate while the projected legs cross, within the episode budget.
 
     The manager scales by ``dt`` and the weight is 1. The integral stops at
-    ``LEG_CROSS_TOTAL``. At 0 the crossing is detected and the charge is 0.
-    A later call in the same step returns the same rate and does not charge
-    twice.
+    ``LEG_CROSS_TOTAL`` (-1.2). A later call in the same step returns the
+    same rate and does not charge twice.
     """
 
     command = _ladder_command(env, command_name)
@@ -1831,17 +1810,6 @@ def ladder_alive(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
 
     command = _ladder_command(env, command_name)
     return command.reward_terms()["alive"]
-
-
-def ladder_flight(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
-    """Both feet off the ladder. The manager scales by ``dt``.
-
-    The first 4 steps (0.08 s) are free, then the rate is −1 per second.
-    One foot swinging, with the hands open or closed, costs nothing.
-    """
-
-    command = _ladder_command(env, command_name)
-    return command.reward_terms()["flight"]
 
 
 def ladder_hold_completed(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:

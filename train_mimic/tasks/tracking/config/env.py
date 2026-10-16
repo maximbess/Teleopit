@@ -828,11 +828,6 @@ def make_g1_ladder_rl_env_cfg(
             weight=1.0,
             params={"command_name": "ladder"},
         ),
-        "ladder_flight": RewardTermCfg(
-            func=mdp.ladder_flight,
-            weight=1.0,
-            params={"command_name": "ladder"},
-        ),
         # 1 per second while the episode has lasted at most 2 s and this step
         # is not the ground contact. A full window is +2. After 2 s the rate
         # is zero, so a long weld collects nothing more from this term.
@@ -841,9 +836,9 @@ def make_g1_ladder_rl_env_cfg(
             weight=1.0,
             params={"command_name": "ladder"},
         ),
-        # Any thigh or shin crossing on the ladder face would cost 0.5 per
-        # second, but the episode budget is 0, so the charge is 0. Ankles
-        # may pass close in depth without counting as a cross.
+        # Any thigh or shin crossing on the ladder face costs 0.5 per
+        # second, and the episode stops at -1.2. Ankles may pass close in
+        # depth without counting as a cross.
         "leg_cross": RewardTermCfg(
             func=mdp.leg_cross,
             weight=1.0,

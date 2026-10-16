@@ -37,8 +37,6 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     CLIMB_DISTANCE_PER_M,
     ALIVE_RATE,
     ALIVE_WINDOW_S,
-    FLIGHT_GRACE_STEPS,
-    FLIGHT_RATE,
     LEG_CROSS_RATE,
     LEG_CROSS_TOTAL,
     LEG_LINK_NAMES,
@@ -61,7 +59,6 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     ladder_alive,
     ladder_ascent,
     ladder_climb,
-    ladder_flight,
     ladder_face_axes,
     leg_cross,
     projected_legs_cross,
@@ -177,7 +174,6 @@ def test_ladder_task_is_one_repeated_hold() -> None:
         "ladder_ascent",
         "ladder_hold",
         "ladder_hold_completed",
-        "ladder_flight",
         "ladder_alive",
         "leg_cross",
         "action_rate_l2",
@@ -188,13 +184,12 @@ def test_ladder_task_is_one_repeated_hold() -> None:
     assert cfg.rewards["ladder_ascent"].weight == 1.0
     assert cfg.rewards["ladder_hold"].func is ladder_hold
     assert cfg.rewards["ladder_hold_completed"].func is ladder_hold_completed
-    assert cfg.rewards["ladder_flight"].func is ladder_flight
     assert cfg.rewards["ladder_alive"].func is ladder_alive
     assert cfg.rewards["ladder_alive"].weight == 1.0
     assert cfg.rewards["leg_cross"].func is leg_cross
     assert cfg.rewards["leg_cross"].weight == 1.0
     assert LEG_CROSS_RATE == -0.5
-    assert LEG_CROSS_TOTAL == 0.0
+    assert LEG_CROSS_TOTAL == pytest.approx(-1.2)
     assert cfg.rewards["leg_cross"].params == {"command_name": "ladder"}
     assert cfg.rewards["action_rate_l2"].func is action_rate_l2
     assert cfg.rewards["action_rate_l2"].weight == -0.002
@@ -239,7 +234,6 @@ def test_ladder_task_is_one_repeated_hold() -> None:
         "ladder_ascent",
         "ladder_hold",
         "ladder_hold_completed",
-        "ladder_flight",
         "ladder_alive",
         "leg_cross",
         "action_rate_l2",
@@ -436,7 +430,6 @@ def _bind_reward_state(command: _QuietLadder) -> None:
     command._ascent_valid = torch.zeros(1, dtype=torch.bool)
     command._torso_rungs = torch.zeros(1)
     command._torso_rungs_along_rail = lambda: command._torso_rungs  # type: ignore[method-assign]
-    command._feet_off_steps = torch.zeros(1, dtype=torch.long)
     command._reward_cache_step = -1
     command._reward_cache = None
     command._env.step_dt = 0.02
@@ -802,50 +795,26 @@ def test_leg_cross_charges_a_held_scissor_and_ignores_a_close_step() -> None:
         command_manager=SimpleNamespace(get_term=lambda _name: command),
     )
     assert bool(projected_legs_cross(crossed, origin, lateral, climb).item())
-    assert leg_cross(env, "ladder").item() == pytest.approx(0.0)
-    assert leg_cross(env, "ladder").item() == pytest.approx(0.0)
-    assert command._leg_cross_paid.item() == pytest.approx(LEG_CROSS_TOTAL)
+    assert leg_cross(env, "ladder").item() == pytest.approx(LEG_CROSS_RATE)
+    assert leg_cross(env, "ladder").item() == pytest.approx(LEG_CROSS_RATE)
+    assert command._leg_cross_paid.item() == pytest.approx(LEG_CROSS_RATE)
 
     env.common_step_counter = 1
+    assert leg_cross(env, "ladder").item() == pytest.approx(LEG_CROSS_RATE)
+    assert command._leg_cross_paid.item() == pytest.approx(2.0 * LEG_CROSS_RATE)
+
+    env.common_step_counter = 2
+    assert leg_cross(env, "ladder").item() == pytest.approx(-0.2)
+    assert command._leg_cross_paid.item() == pytest.approx(LEG_CROSS_TOTAL)
+
+    env.common_step_counter = 3
     assert leg_cross(env, "ladder").item() == pytest.approx(0.0)
-    assert command._leg_cross_paid.item() == pytest.approx(0.0)
+    assert command._leg_cross_paid.item() == pytest.approx(LEG_CROSS_TOTAL)
 
     env.common_step_counter = 4
     command.foot_span_plane = lambda: (origin, lateral, climb, torch.tensor([True]))
     command._leg_cross_paid.zero_()
     assert leg_cross(env, "ladder").item() == pytest.approx(0.0)
-
-
-def test_flight_penalty_waits_through_the_grace_and_ignores_a_two_hand_reach() -> None:
-    command = _quiet_ladder()
-    _bind_reward_state(command)
-    command._limb_features = lambda: (torch.zeros(1, 4), torch.zeros(1, 4))  # type: ignore[method-assign]
-    env = _reward_env(command)
-    command._contact[:] = False
-    command.attached[:] = True
-
-    for step in range(FLIGHT_GRACE_STEPS):
-        env.common_step_counter = step
-        assert ladder_flight(env, "ladder").item() == 0.0
-
-    env.common_step_counter = FLIGHT_GRACE_STEPS
-    assert FLIGHT_RATE == pytest.approx(1.0)
-    assert ladder_flight(env, "ladder").item() == pytest.approx(-FLIGHT_RATE)
-
-    env.common_step_counter = FLIGHT_GRACE_STEPS + 1
-    command._contact[:] = True
-    command.foot_rung[:] = 1
-    command.attached[:] = False
-    assert ladder_flight(env, "ladder").item() == 0.0
-
-    env.common_step_counter = FLIGHT_GRACE_STEPS + 2
-    command._contact[:, 0] = False
-    command.attached[:, 1] = True
-    assert ladder_flight(env, "ladder").item() == 0.0
-
-    env.common_step_counter = FLIGHT_GRACE_STEPS + 3
-    command.attached[:] = False
-    assert ladder_flight(env, "ladder").item() == 0.0
 
 
 def test_ascent_floors_at_zero_and_a_loaded_foot_keeps_its_height() -> None:

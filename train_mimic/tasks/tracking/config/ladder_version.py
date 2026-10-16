@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 
-LADDER_CODE_VERSION = "cap-13"
+LADDER_CODE_VERSION = "cap-14"
 LADDER_CODE_VERSION_NOTES = (
     "Climb pays 0.5 per meter of approach until the limb is on the next "
     "rung. A foot's approach is the rung-to-rung gap of the sole point "
@@ -23,8 +23,7 @@ LADDER_CODE_VERSION_NOTES = (
     "to 0.35, so the foot rate rises from 0.10 to 0.45 per second. The "
     "share is the upward force divided by mass times "
     "the simulator gravity. Each limb caps at +3. The episode ends on the 20 s timeout "
-    "or when the robot touches the ground. Flight charges 1 per second "
-    "only when both feet are off. Staying off the ground pays 1 per second "
+    "or when the robot touches the ground. Staying off the ground pays 1 per second "
     "until the episode has lasted 2 seconds, and the ground-contact step "
     "pays nothing. Gravity is one third of 9.81. The hand collision capsule "
     "and its marker share radius 0.085. The start pose sets those spheres on "
@@ -35,7 +34,7 @@ LADDER_CODE_VERSION_NOTES = (
     "0.40 rad/s of torso and pelvis angular speed. Leaving a support claws "
     "the 0.5 hold potential back. Completion pays each limb the unpaid part "
     "of its +3 contact cap and then clears the cap. A projected leg "
-    "crossing would cost 0.5 per second, and that budget is 0."
+    "crossing costs 0.5 per second, and the episode stops at -1.2."
 )
 
 
