@@ -1512,10 +1512,10 @@ ASCENT_CAP = 1.0
 # step. Banked ascent is not included.
 REFUND_FRACTION = 0.5
 # Any projected crossing, wherever it sits on the bones. The manager
-# multiplies by dt with weight 1, so this is the reward rate. The episode
-# sum stops at LEG_CROSS_TOTAL, which is 2.4 s of crossing.
+# multiplies by dt with weight 1. A total of 0 leaves no budget, so the
+# rate is computed and then charged as nothing.
 LEG_CROSS_RATE = -0.5
-LEG_CROSS_TOTAL = -1.2
+LEG_CROSS_TOTAL = 0.0
 # Thigh and shin bones, left then right. Each leg is hip roll -> knee -> ankle.
 LEG_LINK_NAMES = (
     "left_hip_roll_link",
@@ -1791,12 +1791,12 @@ def _leg_link_positions(env: ManagerBasedRlEnv) -> torch.Tensor:
 
 
 def leg_cross(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
-    """Constant rate while the projected legs cross. The episode sum stops at -1.2.
+    """Constant rate while the projected legs cross, within the episode budget.
 
-    The manager scales by ``dt`` and the weight is 1, so this returns
-    ``LEG_CROSS_RATE`` per second for any intersection. The integral of that
-    rate stops at ``LEG_CROSS_TOTAL``. A later call in the same step returns
-    the same rate and does not charge twice.
+    The manager scales by ``dt`` and the weight is 1. The integral stops at
+    ``LEG_CROSS_TOTAL``. At 0 the crossing is detected and the charge is 0.
+    A later call in the same step returns the same rate and does not charge
+    twice.
     """
 
     command = _ladder_command(env, command_name)

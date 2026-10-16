@@ -194,7 +194,7 @@ def test_ladder_task_is_one_repeated_hold() -> None:
     assert cfg.rewards["leg_cross"].func is leg_cross
     assert cfg.rewards["leg_cross"].weight == 1.0
     assert LEG_CROSS_RATE == -0.5
-    assert LEG_CROSS_TOTAL == -1.2
+    assert LEG_CROSS_TOTAL == 0.0
     assert cfg.rewards["leg_cross"].params == {"command_name": "ladder"}
     assert cfg.rewards["action_rate_l2"].func is action_rate_l2
     assert cfg.rewards["action_rate_l2"].weight == -0.002
@@ -801,18 +801,14 @@ def test_leg_cross_charges_a_held_scissor_and_ignores_a_close_step() -> None:
         },
         command_manager=SimpleNamespace(get_term=lambda _name: command),
     )
-    assert leg_cross(env, "ladder").item() == pytest.approx(LEG_CROSS_RATE)
-    assert leg_cross(env, "ladder").item() == pytest.approx(LEG_CROSS_RATE)
-    assert command._leg_cross_paid.item() == pytest.approx(LEG_CROSS_RATE)
+    assert bool(projected_legs_cross(crossed, origin, lateral, climb).item())
+    assert leg_cross(env, "ladder").item() == pytest.approx(0.0)
+    assert leg_cross(env, "ladder").item() == pytest.approx(0.0)
+    assert command._leg_cross_paid.item() == pytest.approx(LEG_CROSS_TOTAL)
 
     env.common_step_counter = 1
-    assert leg_cross(env, "ladder").item() == pytest.approx(LEG_CROSS_RATE)
-    env.common_step_counter = 2
-    # 1.0 of the 1.2 budget is spent, so this second-long step only takes 0.2.
-    assert leg_cross(env, "ladder").item() == pytest.approx(-0.2)
-    assert command._leg_cross_paid.item() == pytest.approx(LEG_CROSS_TOTAL)
-    env.common_step_counter = 3
     assert leg_cross(env, "ladder").item() == pytest.approx(0.0)
+    assert command._leg_cross_paid.item() == pytest.approx(0.0)
 
     env.common_step_counter = 4
     command.foot_span_plane = lambda: (origin, lateral, climb, torch.tensor([True]))

@@ -841,9 +841,9 @@ def make_g1_ladder_rl_env_cfg(
             weight=1.0,
             params={"command_name": "ladder"},
         ),
-        # Any thigh or shin crossing on the ladder face costs 0.5 per second
-        # for as long as it lasts. The episode sum stops at -1.2, which is
-        # 2.4 s of crossing. Ankles may pass close in depth without cost.
+        # Any thigh or shin crossing on the ladder face would cost 0.5 per
+        # second, but the episode budget is 0, so the charge is 0. Ankles
+        # may pass close in depth without counting as a cross.
         "leg_cross": RewardTermCfg(
             func=mdp.leg_cross,
             weight=1.0,
