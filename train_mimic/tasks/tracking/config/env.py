@@ -83,8 +83,8 @@ _LADDER_BOX_MARGIN = 0.0
 # Climb-face geoms advertise bit 0 and listen to nothing. See ROBOT_CONTYPE.
 _LADDER_CONTYPE = 1
 _LADDER_CONAFFINITY = 0
-# MuJoCo's default is (0, 0, -9.81). This run uses that.
-_LADDER_GRAVITY = (0.0, 0.0, -9.81)
+# MuJoCo's default is (0, 0, -9.81). This run uses one third of that.
+_LADDER_GRAVITY = (0.0, 0.0, -9.81 / 3.0)
 # Radius of ``left_hand_collision`` / ``right_hand_collision`` and of the
 # grip-site markers. The farthest fingertip is 0.085 m from the grip site.
 _HAND_COLLISION_RADIUS = 0.085
