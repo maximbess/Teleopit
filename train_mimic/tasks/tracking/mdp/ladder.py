@@ -389,7 +389,6 @@ class LadderClimbCommand(CommandTerm):
             self.num_envs, dtype=torch.float32, device=self.device
         )
         self._robot_mass = self._robot_mass_kg()
-        self._robot_weight_n = self._robot_mass * GRAVITY
         self._ascent_valid = torch.zeros(
             self.num_envs, dtype=torch.bool, device=self.device
         )
@@ -487,8 +486,10 @@ class LadderClimbCommand(CommandTerm):
 
         The contact sensor reports the force on the foot. With the contact
         frame rotated into the world, a foot standing on a tread has a
-        positive ``z`` component. This threshold banks ascent. The step
-        reward uses ``foot_load_fraction`` instead.
+        positive ``z`` component. Body weight is mass times the simulator
+        gravity, so the same share meets the threshold when gravity changes.
+        This threshold banks ascent. The step reward uses
+        ``foot_load_fraction`` instead.
         """
 
         force = self._foot_contact_sensor.data.force
@@ -497,7 +498,8 @@ class LadderClimbCommand(CommandTerm):
                 (self.num_envs, 2), dtype=torch.bool, device=self.device
             )
         upward = force[:, self._foot_contact_indices, 2]
-        return upward >= FOOT_WEIGHT_FRACTION * self._robot_weight_n
+        weight = self._robot_mass * self._gravity_magnitude()
+        return upward >= FOOT_WEIGHT_FRACTION * weight
 
     def foot_load_fraction(self) -> torch.Tensor:
         """Share of body weight on each foot, clamped to ``[0, 0.35]``.
@@ -1469,8 +1471,8 @@ HOLD_REWARD = 0.5
 # until the episode has lasted 2 s, then 0. The ground-contact step pays 0.
 ALIVE_RATE = 1.0
 ALIVE_WINDOW_S = 2.0
-GRAVITY = 9.81
-# Share of body weight a foot must carry before it banks ascent.
+# Share of body weight a foot must carry before it banks ascent. Weight is
+# mass times the live simulator gravity.
 FOOT_WEIGHT_FRACTION = 0.20
 # Flat rate for a foot standing on the next tread, paid on top of the load
 # term so a light contact is worth taking before the foot bears weight.
@@ -1643,9 +1645,10 @@ def ladder_ascent(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
 
     The origin is the torso coordinate on the first sample after a reset.
     ``u = clamp(height - origin, 0, 1)``, in rung pitches. While a foot is
-    on a tread and carries 20% of the robot's weight, the bank ratchets up
-    to ``u`` and is kept in full. Each step pays the change above that bank,
-    so a drop gives the unbanked part back and a bob nets zero. On the last
+    on a tread and carries 20% of body weight at the simulator gravity, the
+    bank ratchets up to ``u`` and is kept in full. Each step pays the change
+    above that bank, so a drop gives the unbanked part back and a bob nets
+    zero. On the last
     step, ``1 - REFUND_FRACTION`` of the net unbanked drop is returned, once.
     ``reward_terms`` stores that amount, and this divides by ``dt``.
     """
