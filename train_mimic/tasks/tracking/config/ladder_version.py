@@ -8,16 +8,15 @@ from __future__ import annotations
 
 import os
 
-LADDER_CODE_VERSION = "cap-15"
+LADDER_CODE_VERSION = "cap-14"
 LADDER_CODE_VERSION_NOTES = (
     "Climb pays 0.5 per meter of approach until the limb is on the next "
     "rung. A foot's approach is the rung-to-rung gap of the sole point "
     "furthest behind the standing height, 43 mm above the next rung center. "
     "Each limb's approach stops at 0. Ascent pays the change in "
     "clamp(torso - reset height, 0, 1). A foot on a tread that carries 20% "
-    "of body weight at the simulator gravity banks that height, and the bank "
-    "is kept. On the last step, half of the net unbanked drop in ascent and "
-    "in each limb's "
+    "of the robot weight banks that height, and the bank is kept. On the "
+    "last step, half of the net unbanked drop in ascent and in each limb's "
     "approach is given back. A hand pays 0.25 per second while welded to "
     "the next rung. A foot on the next tread pays 0.10 per second for the "
     "contact, plus 1 per second times its share of body weight, clamped "

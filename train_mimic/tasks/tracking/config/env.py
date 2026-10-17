@@ -84,7 +84,7 @@ _LADDER_BOX_MARGIN = 0.0
 _LADDER_CONTYPE = 1
 _LADDER_CONAFFINITY = 0
 # MuJoCo's default is (0, 0, -9.81). This run uses 0.35 of that.
-_LADDER_GRAVITY = (0.0, 0.0, -9.81 / 3)
+_LADDER_GRAVITY = (0.0, 0.0, -9.81 * 0.35)
 # Radius of ``left_hand_collision`` / ``right_hand_collision`` and of the
 # grip-site markers. The farthest fingertip is 0.085 m from the grip site.
 _HAND_COLLISION_RADIUS = 0.085
@@ -811,9 +811,8 @@ def make_g1_ladder_rl_env_cfg(
             params={"command_name": "ladder"},
         ),
         # The change in clamp(torso height above the reset sample, 0, 1).
-        # A foot carrying 20% of body weight at the simulator gravity banks
-        # its height. On the last step, half of the net unbanked drop is
-        # kept. One rung above the reset height is +1.
+        # A loaded foot banks its height. On the last step, half of the net
+        # unbanked drop is kept. One rung above the reset height is +1.
         "ladder_ascent": RewardTermCfg(
             func=mdp.ladder_ascent,
             weight=1.0,
