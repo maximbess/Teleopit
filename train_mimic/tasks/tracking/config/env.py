@@ -83,8 +83,8 @@ _LADDER_BOX_MARGIN = 0.0
 # Climb-face geoms advertise bit 0 and listen to nothing. See ROBOT_CONTYPE.
 _LADDER_CONTYPE = 1
 _LADDER_CONAFFINITY = 0
-# MuJoCo's default is (0, 0, -9.81). This run uses one third of that.
-_LADDER_GRAVITY = (0.0, 0.0, -9.81 / 3.0)
+# MuJoCo's default is (0, 0, -9.81). This run uses one half of that.
+_LADDER_GRAVITY = (0.0, 0.0, -9.81 * 0.5)
 # Radius of ``left_hand_collision`` / ``right_hand_collision`` and of the
 # grip-site markers. The farthest fingertip is 0.085 m from the grip site.
 _HAND_COLLISION_RADIUS = 0.085
@@ -797,9 +797,10 @@ def make_g1_ladder_rl_env_cfg(
         # 0.5 per meter of approach, so one 0.20 m rung is +0.10. A foot's
         # gap is the sole point furthest behind the next rung. Each limb
         # stops at 0.
-        # A hand then pays 0.25 per second while it is welded to
-        # the next rung. A foot on the next tread pays 0.10 per second for
-        # the contact, plus 1 per second times its share of body weight.
+        # A latched hand then pays 0.25 per second on the next rung. An
+        # unlatched hand in that zone pays the same rate times grip progress.
+        # A foot on the next tread pays 0.10 per second for the contact,
+        # plus 1 per second times its share of body weight.
         # That share stops at 0.35 and uses the simulator gravity. Each limb
         # caps at +3. A completed hold pays whatever is left of that cap,
         # then the next rung starts a new one.
@@ -841,6 +842,13 @@ def make_g1_ladder_rl_env_cfg(
         # depth without counting as a cross.
         "leg_cross": RewardTermCfg(
             func=mdp.leg_cross,
+            weight=1.0,
+            params={"command_name": "ladder"},
+        ),
+        # Two or more limbs off the climb cost 1 per second. The episode sum
+        # stops at 1, so a long fall costs the same as one second.
+        "ladder_flight": RewardTermCfg(
+            func=mdp.ladder_flight,
             weight=1.0,
             params={"command_name": "ladder"},
         ),

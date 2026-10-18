@@ -44,21 +44,26 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     FOOT_LOAD_CAP,
     FOOT_PRESSURE_RATE,
     FOOT_STEP_RATE,
+    FOOT_WEIGHT_FRACTION,
     FOOT_SOLE_END_OFFSETS,
     FOOT_TREAD_ABOVE_CENTER_M,
     HOLD_REWARD,
     REFUND_FRACTION,
     RUNG_WINDOW_COUNT,
     EpisodeSumRewardManager,
+    foot_bears_load,
     foot_on_tread,
     foot_step_load,
     foot_tread_features,
     install_episode_sum_reward_logs,
     LadderClimbCommand,
     LadderGripActionCfg,
+    FLIGHT_RATE,
+    FLIGHT_TOTAL,
     ladder_alive,
     ladder_ascent,
     ladder_climb,
+    ladder_flight,
     ladder_face_axes,
     leg_cross,
     projected_legs_cross,
@@ -111,7 +116,11 @@ class _QuietLadder(LadderClimbCommand):
     def _attach(self, env_ids, hand_id, rung_indices) -> None:
         self.attached[env_ids, hand_id] = True
         self.grip_strength[env_ids, hand_id] = 1.0
+        self.grip_progress[env_ids, hand_id] = 1.0
         self.held_rung[env_ids, hand_id] = rung_indices
+
+    def _hands_in_next_rung_zone(self) -> torch.Tensor:
+        return torch.zeros_like(self.attached)
 
     def foot_bears_weight(self) -> torch.Tensor:
         return self._bearing
@@ -147,6 +156,7 @@ def _quiet_ladder(*, dwell: int = 3, successes: int = 2) -> _QuietLadder:
     command._pelvis_spin = torch.zeros(1, 3)
     command.attached = torch.ones(1, 2, dtype=torch.bool)
     command.grip_strength = torch.ones(1, 2)
+    command.grip_progress = torch.ones(1, 2)
     command.held_rung = torch.tensor([[4, 4]])
     command.foot_rung = torch.tensor([[1, 1]])
     command.baseline_hand_rung = torch.tensor([[4, 4]])
@@ -176,6 +186,7 @@ def test_ladder_task_is_one_repeated_hold() -> None:
         "ladder_hold_completed",
         "ladder_alive",
         "leg_cross",
+        "ladder_flight",
         "action_rate_l2",
     }
     assert cfg.rewards["ladder_climb"].func is ladder_climb
@@ -191,6 +202,11 @@ def test_ladder_task_is_one_repeated_hold() -> None:
     assert LEG_CROSS_RATE == -0.5
     assert LEG_CROSS_TOTAL == pytest.approx(-1.2)
     assert cfg.rewards["leg_cross"].params == {"command_name": "ladder"}
+    assert cfg.rewards["ladder_flight"].func is ladder_flight
+    assert cfg.rewards["ladder_flight"].weight == 1.0
+    assert FLIGHT_RATE == -1.0
+    assert FLIGHT_TOTAL == pytest.approx(-1.0)
+    assert cfg.rewards["ladder_flight"].params == {"command_name": "ladder"}
     assert cfg.rewards["action_rate_l2"].func is action_rate_l2
     assert cfg.rewards["action_rate_l2"].weight == -0.002
     assert cfg.rewards["ladder_hold_completed"].weight == 1.0
@@ -236,6 +252,7 @@ def test_ladder_task_is_one_repeated_hold() -> None:
         "ladder_hold_completed",
         "ladder_alive",
         "leg_cross",
+        "ladder_flight",
         "action_rate_l2",
     }
 
@@ -516,6 +533,28 @@ def test_approach_floors_at_zero_and_keeps_half_when_the_episode_ends() -> None:
     )
 
 
+def test_foot_bears_load_follows_the_share_of_live_weight() -> None:
+    mass = 30.0
+    full_g = 9.81
+    light_g = full_g / 3.0
+    share = FOOT_WEIGHT_FRACTION
+    full_weight = mass * full_g
+    light_weight = mass * light_g
+    full = foot_bears_load(
+        torch.tensor([[full_weight * share, full_weight * share - 1.0e-3]]),
+        torch.tensor(full_weight),
+    )
+    light = foot_bears_load(
+        torch.tensor([[light_weight * share, light_weight * (share - 0.01)]]),
+        torch.tensor(light_weight),
+    )
+
+    assert full[0, 0].item()
+    assert light[0, 0].item()
+    assert not full[0, 1].item()
+    assert not light[0, 1].item()
+
+
 def test_foot_step_load_follows_the_share_of_live_weight() -> None:
     mass = 30.0
     full_g = 9.81
@@ -579,9 +618,15 @@ def test_climb_pays_a_contact_once_and_ignores_a_reach() -> None:
         paid + CLIMB_CONTACT_RATE * env.step_dt
     )
 
-    # A hand on the next rung that is not welded is only a reach.
+    # An unwelded hand outside the next-rung zone pays nothing. Inside that
+    # zone the same hand pays the contact rate times its grip progress.
     command.attached[:] = False
+    command.grip_progress[:] = 0.5
     assert climb() == 0.0
+    command._hands_in_next_rung_zone = lambda: torch.tensor([[True, False]])  # type: ignore[method-assign]
+    assert climb() == pytest.approx(0.5 * CLIMB_CONTACT_RATE)
+    command._hands_in_next_rung_zone = lambda: torch.zeros_like(command.attached)  # type: ignore[method-assign]
+    command.grip_progress.zero_()
 
     # The cap is +3. A step can pay at most one rate slice, so the last
     # half-slice pays and the next step pays nothing.
@@ -987,6 +1032,8 @@ def _zero_ladder_metrics(command: _QuietLadder) -> None:
             "hold_progress",
             "successes",
             "supports_one_rung_higher",
+            "next_rung_hands",
+            "next_rung_feet",
             "stabilization_torso_speed",
             "stabilization_torso_angular_speed",
             "stabilization_pelvis_angular_speed",
@@ -1076,12 +1123,24 @@ def test_ladder_metrics_sum_the_episode_instead_of_the_last_step() -> None:
     command._update_metrics()
     assert command.metrics["attached_hands"].item() == pytest.approx(0.08)
     assert command.metrics["supported_feet"].item() == pytest.approx(0.08)
+    assert command.metrics["next_rung_hands"].item() == pytest.approx(0.0)
+    assert command.metrics["next_rung_feet"].item() == pytest.approx(0.0)
+
+    command.held_rung[:, 0] = 5
+    command.foot_rung[:, 0] = 2
+    command._update_metrics()
+    assert command.metrics["next_rung_hands"].item() == pytest.approx(0.02)
+    assert command.metrics["next_rung_feet"].item() == pytest.approx(0.02)
+    command.held_rung[:, 0] = 4
+    command.foot_rung[:, 0] = 1
 
     command.attached[:] = False
     command.foot_rung[:] = -1
     command._update_metrics()
-    assert command.metrics["attached_hands"].item() == pytest.approx(0.08)
-    assert command.metrics["supported_feet"].item() == pytest.approx(0.08)
+    assert command.metrics["attached_hands"].item() == pytest.approx(0.12)
+    assert command.metrics["supported_feet"].item() == pytest.approx(0.12)
+    assert command.metrics["next_rung_hands"].item() == pytest.approx(0.02)
+    assert command.metrics["next_rung_feet"].item() == pytest.approx(0.02)
 
     command.just_completed[:] = True
     command._update_metrics()
@@ -1162,16 +1221,15 @@ def test_checkpoint_without_curriculum_state_loads(
     assert runner.load("model.pt") == {"ok": 1}
 
 
-def test_grip_request_attaches_only_near_a_rung_and_releases_immediately() -> None:
+def _grip_command() -> tuple[LadderClimbCommand, torch.Tensor]:
     command = object.__new__(LadderClimbCommand)
     command.cfg = SimpleNamespace(attach_distance=0.10, max_attach_speed=0.35)
-    command._env = SimpleNamespace(device="cpu")
     command.finished = torch.tensor([False])
     command.attached = torch.zeros(1, 2, dtype=torch.bool)
     command.grip_strength = torch.zeros(1, 2)
-    command.grip_request = torch.zeros(1, 2, dtype=torch.bool)
+    command.grip_progress = torch.zeros(1, 2)
+    command.grip_request = torch.zeros(1, 2)
     command.held_rung = torch.full((1, 2), -1)
-    command._hand_vel_w = torch.zeros(1, 2, 3)
     command._hand_site_ids = torch.tensor([0, 1])
     command._anchor_mocap_ids = torch.tensor([0, 1])
     command._weld_ids = torch.tensor([0, 1])
@@ -1194,31 +1252,73 @@ def test_grip_request_attaches_only_near_a_rung_and_releases_immediately() -> No
         sim=SimpleNamespace(data=data),
         step_dt=0.02,
     )
+    return command, site_xpos
 
-    command.apply_grip_requests(torch.tensor([[1.0, 1.0]]) > 0.0)
+
+def test_grip_progress_closes_after_one_second_inside_the_zone() -> None:
+    command, site_xpos = _grip_command()
+
+    command.apply_grip_requests(torch.tensor([[1.0, 1.0]]))
+    assert command.attached.tolist() == [[False, False]]
+    assert command.grip_progress[0, 0].item() == pytest.approx(0.02)
+    assert command.grip_progress[0, 1].item() == 0.0
+
+    site_xpos[0, 0] = torch.tensor([5.0, 0.0, 0.0])
+    command.apply_grip_requests(torch.tensor([[1.0, 1.0]]))
+    assert command.grip_progress[0, 0].item() == 0.0
+
+    site_xpos[0, 0] = torch.tensor([0.0, 0.0, 1.0])
+    for _ in range(49):
+        command.apply_grip_requests(torch.tensor([[1.0, 0.0]]))
+    assert command.attached.tolist() == [[False, False]]
+    command.apply_grip_requests(torch.tensor([[1.0, 0.0]]))
     assert command.attached.tolist() == [[True, False]]
     assert command.held_rung.tolist() == [[1, -1]]
-    assert data.eq_active[0, 0].item() == 1.0
+    assert command.grip_progress[0, 0].item() == pytest.approx(1.0)
+    assert command._env.sim.data.eq_active[0, 0].item() == 1.0
 
-    command._hand_vel_w[0, 1] = torch.tensor([1.0, 0.0, 0.0])
-    site_xpos[0, 1] = torch.tensor([0.0, 0.0, 1.0])
-    command.apply_grip_requests(torch.tensor([[1.0, 1.0]]) > 0.0)
+    for _ in range(49):
+        command.apply_grip_requests(torch.tensor([[-1.0, 0.0]]))
     assert command.attached.tolist() == [[True, False]]
-
-    command.apply_grip_requests(torch.tensor([[-1.0, 1.0]]) > 0.0)
+    command.apply_grip_requests(torch.tensor([[-1.0, 0.0]]))
     assert command.attached.tolist() == [[False, False]]
     assert command.held_rung.tolist() == [[-1, -1]]
-    assert data.eq_active[0, 0].item() == 0.0
+    assert command.grip_progress[0, 0].item() == 0.0
+    assert command._env.sim.data.eq_active[0, 0].item() == 0.0
 
 
-def test_ladder_command_is_hand_attachment_without_a_stage_index() -> None:
+def test_ladder_command_reports_the_latch_and_the_progress() -> None:
     command = object.__new__(LadderClimbCommand)
     command.attached = torch.tensor([[1.0, 0.0]])
+    command.grip_progress = torch.tensor([[1.0, 0.4]])
 
     observation = command.command
 
-    assert observation.shape == (1, 2)
-    assert observation[0].tolist() == pytest.approx([1.0, 0.0])
+    assert observation.shape == (1, 4)
+    assert observation[0].tolist() == pytest.approx([1.0, 0.0, 1.0, 0.4])
+
+
+def test_flight_stops_at_one_and_ignores_a_single_reach() -> None:
+    command = _quiet_ladder()
+    command._flight_paid = torch.zeros(1)
+    command._flight_step = -1
+    command._flight_rate = torch.zeros(1)
+    command.feet_on_flight_rungs = lambda: torch.ones(1, 2, dtype=torch.bool)  # type: ignore[method-assign]
+    env = SimpleNamespace(
+        step_dt=0.02,
+        common_step_counter=0,
+        command_manager=SimpleNamespace(get_term=lambda _name: command),
+    )
+
+    command.attached[:, 0] = False
+    assert ladder_flight(env, "ladder").item() == 0.0
+
+    command.attached[:] = False
+    env.common_step_counter = 1
+    assert ladder_flight(env, "ladder").item() == pytest.approx(FLIGHT_RATE)
+    command._flight_paid[:] = FLIGHT_TOTAL
+    env.common_step_counter = 2
+    assert ladder_flight(env, "ladder").item() == 0.0
 
 
 def test_overshoot_is_not_exactly_one_rung() -> None:

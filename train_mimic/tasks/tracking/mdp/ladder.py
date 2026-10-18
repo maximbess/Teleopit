@@ -316,8 +316,11 @@ class LadderClimbCommand(CommandTerm):
         self.grip_strength = torch.zeros(
             (self.num_envs, 2), dtype=torch.float32, device=self.device
         )
+        self.grip_progress = torch.zeros(
+            (self.num_envs, 2), dtype=torch.float32, device=self.device
+        )
         self.grip_request = torch.zeros(
-            (self.num_envs, 2), dtype=torch.bool, device=self.device
+            (self.num_envs, 2), dtype=torch.float32, device=self.device
         )
         self.held_rung = torch.full(
             (self.num_envs, 2), -1, dtype=torch.long, device=self.device
@@ -364,6 +367,13 @@ class LadderClimbCommand(CommandTerm):
         self._leg_cross_rate = torch.zeros(
             self.num_envs, dtype=torch.float32, device=self.device
         )
+        self._flight_paid = torch.zeros(
+            self.num_envs, dtype=torch.float32, device=self.device
+        )
+        self._flight_step = -1
+        self._flight_rate = torch.zeros(
+            self.num_envs, dtype=torch.float32, device=self.device
+        )
         self._approach_paid = torch.zeros(
             (self.num_envs, 4), dtype=torch.float32, device=self.device
         )
@@ -389,7 +399,6 @@ class LadderClimbCommand(CommandTerm):
             self.num_envs, dtype=torch.float32, device=self.device
         )
         self._robot_mass = self._robot_mass_kg()
-        self._robot_weight_n = self._robot_mass * GRAVITY
         self._ascent_valid = torch.zeros(
             self.num_envs, dtype=torch.bool, device=self.device
         )
@@ -422,6 +431,8 @@ class LadderClimbCommand(CommandTerm):
         self.metrics["supports_one_rung_higher"] = torch.zeros(
             self.num_envs, device=self.device
         )
+        self.metrics["next_rung_hands"] = torch.zeros(self.num_envs, device=self.device)
+        self.metrics["next_rung_feet"] = torch.zeros(self.num_envs, device=self.device)
         for metric_name in (
             "stabilization_torso_speed",
             "stabilization_torso_angular_speed",
@@ -434,9 +445,13 @@ class LadderClimbCommand(CommandTerm):
 
     @property
     def command(self) -> torch.Tensor:
-        """Whether each hand is attached. There is no phase or stage index."""
+        """Latched hands, then grip progress. There is no phase index.
 
-        return self.attached.float()
+        The first two values are the weld. The last two are the ramp that
+        closes the weld at 1 and opens it at 0.
+        """
+
+        return torch.cat((self.attached.float(), self.grip_progress), dim=-1)
 
     @property
     def num_rungs(self) -> int:
@@ -487,8 +502,10 @@ class LadderClimbCommand(CommandTerm):
 
         The contact sensor reports the force on the foot. With the contact
         frame rotated into the world, a foot standing on a tread has a
-        positive ``z`` component. This threshold banks ascent. The step
-        reward uses ``foot_load_fraction`` instead.
+        positive ``z`` component. Body weight is mass times the simulator
+        gravity, so the same stance crosses this line when gravity changes.
+        This threshold banks ascent. The step reward uses
+        ``foot_load_fraction`` instead.
         """
 
         force = self._foot_contact_sensor.data.force
@@ -497,7 +514,11 @@ class LadderClimbCommand(CommandTerm):
                 (self.num_envs, 2), dtype=torch.bool, device=self.device
             )
         upward = force[:, self._foot_contact_indices, 2]
-        return upward >= FOOT_WEIGHT_FRACTION * self._robot_weight_n
+        weight = self._robot_mass * self._gravity_magnitude()
+        return foot_bears_load(
+            upward,
+            torch.as_tensor(weight, device=upward.device, dtype=upward.dtype),
+        )
 
     def foot_load_fraction(self) -> torch.Tensor:
         """Share of body weight on each foot, clamped to ``[0, 0.35]``.
@@ -812,6 +833,9 @@ class LadderClimbCommand(CommandTerm):
         pelvis_ang = torch.linalg.vector_norm(self.pelvis_ang_vel_w, dim=-1)
         self.metrics["attached_hands"] += self.attached.sum(dim=1).float() * dt
         self.metrics["supported_feet"] += self.foot_support.sum(dim=1).float() * dt
+        on_next = self._limbs_on_next_rung()
+        self.metrics["next_rung_hands"] += on_next[:, :2].sum(dim=1).float() * dt
+        self.metrics["next_rung_feet"] += on_next[:, 2:].sum(dim=1).float() * dt
         self.metrics["hold_progress"] += (
             torch.clamp(
                 self.hold_count.float() / float(self.cfg.stabilization_dwell_steps),
@@ -833,7 +857,8 @@ class LadderClimbCommand(CommandTerm):
             return
         self.attached[env_ids] = False
         self.grip_strength[env_ids] = 0.0
-        self.grip_request[env_ids] = False
+        self.grip_progress[env_ids] = 0.0
+        self.grip_request[env_ids] = 0.0
         self.held_rung[env_ids] = -1
         self.initialized[env_ids] = False
         self.finished[env_ids] = False
@@ -847,6 +872,8 @@ class LadderClimbCommand(CommandTerm):
         self._climb_paid[env_ids] = 0.0
         self._leg_cross_paid[env_ids] = 0.0
         self._leg_cross_step = -1
+        self._flight_paid[env_ids] = 0.0
+        self._flight_step = -1
         self._approach_paid[env_ids] = 0.0
         self._approach_peak[env_ids] = 0.0
         self._climb_valid[env_ids] = False
@@ -1094,9 +1121,10 @@ class LadderClimbCommand(CommandTerm):
         # last centimeters. A limb's approach account stops at 0, so moving
         # far away only gives back what that limb earned. Contact accrues
         # separately and stops at +3 per limb, including during the hold.
-        # A welded hand on the next rung pays 0.25 per second. A foot on the
-        # next tread pays 0.10 per second for the contact, plus 1 per second
-        # times its share of body weight. That share stops at 0.35.
+        # A latched hand on the next rung pays 0.25 per second. An unlatched
+        # hand in that rung's zone pays the same rate times grip progress.
+        # A foot on the next tread pays 0.10 per second for the contact, plus
+        # 1 per second times its share of body weight. That share stops at 0.35.
         # Completion pays each planted limb the unpaid part of its cap.
         dt = float(self._env.step_dt)
         ending = self._episode_ending()
@@ -1105,13 +1133,17 @@ class LadderClimbCommand(CommandTerm):
         on_next = self._limbs_on_next_rung()
         bearing = self.foot_bears_weight()
         load = self.foot_load_fraction().clamp(0.0, FOOT_LOAD_CAP)
+        hand_scale = self._hand_contact_scale()
         contact_rate = torch.cat(
             (
-                torch.full_like(load[:, :2], CLIMB_CONTACT_RATE),
+                torch.full_like(load[:, :2], CLIMB_CONTACT_RATE) * hand_scale,
                 FOOT_STEP_RATE + FOOT_PRESSURE_RATE * load,
             ),
             dim=1,
         )
+        # Feet still require the next tread. A hand earns while its scale is
+        # positive, which is the latch on that rung or progress inside its zone.
+        contact_open = torch.cat((hand_scale > 0.0, on_next[:, 2:]), dim=1)
         episode_fresh = ~self._climb_valid
         hold_fresh = episode_fresh | self.just_completed
         # Approach is the gap closed since the reset sample, or since the last
@@ -1144,7 +1176,7 @@ class LadderClimbCommand(CommandTerm):
         room = (CLIMB_CONTACT_CAP - self._climb_paid).clamp(min=0.0)
         contact = torch.minimum(room, contact_rate * dt)
         contact = torch.where(
-            on_next & ~hold_fresh.unsqueeze(1),
+            contact_open & ~hold_fresh.unsqueeze(1),
             contact,
             torch.zeros_like(contact),
         )
@@ -1242,25 +1274,90 @@ class LadderClimbCommand(CommandTerm):
         self._reward_cache_step = step_id
         return self._reward_cache
 
-    def apply_grip_requests(self, request: torch.Tensor) -> None:
-        """Attach a hand that asks for a nearby rung, and release when it stops."""
+    def _hand_contact_scale(self) -> torch.Tensor:
+        """Full contact when the latch holds the next rung, else progress there.
 
-        request = request.to(device=self.device, dtype=torch.bool)
+        An open hand away from its next rung pays nothing. Progress is already
+        0 outside every latch zone, and this also refuses the rung the hand
+        is already standing on.
+        """
+
+        on_next = self.attached & (self.held_rung == self.baseline_hand_rung + 1)
+        partial = self._hands_in_next_rung_zone() & ~self.attached
+        progress = self.grip_progress
+        return torch.where(
+            on_next,
+            torch.ones_like(progress),
+            torch.where(partial, progress, torch.zeros_like(progress)),
+        )
+
+    def _hands_in_next_rung_zone(self) -> torch.Tensor:
+        """Whether each open reach is inside the next rung's latch radius."""
+
+        distances = self._axis_distances(self.hand_pos_w)
+        nxt = self._next_rung(self.baseline_hand_rung)
+        chosen = distances.gather(2, nxt.unsqueeze(-1)).squeeze(-1)
+        return chosen <= float(self.cfg.attach_distance)
+
+    def feet_on_flight_rungs(self) -> torch.Tensor:
+        """Feet touching the top face of their baseline rung or the next one."""
+
+        data = self._env.sim.data
+        centers = data.site_xpos[:, self._rung_site_ids]
+        baseline = self.baseline_foot_rung
+        landing = self._next_rung(baseline)
+        return self.foot_contact & (
+            self._feet_on_rung_face(centers, baseline)
+            | self._feet_on_rung_face(centers, landing)
+        )
+
+    def _feet_on_rung_face(
+        self,
+        centers: torch.Tensor,
+        rung_indices: torch.Tensor,
+    ) -> torch.Tensor:
+        chosen = _gather_rung_centers(centers, rung_indices)
+        half_span = self._rung_half_lengths[rung_indices]
+        return foot_on_tread(self.foot_pos_w, chosen, half_span)
+
+    def apply_grip_requests(self, request: torch.Tensor) -> None:
+        """Advance grip progress. A command of ±1 covers the ramp in one second.
+
+        Progress stays 0 while an open hand is outside the latch radius, so
+        leaving that radius before the weld closes drops the ramp. The weld
+        closes when progress reaches 1 and opens when it reaches 0.
+        """
+
+        request = request.to(device=self.device, dtype=torch.float32).clamp(-1.0, 1.0)
         self.grip_request = request
+        step = float(self._env.step_dt) / GRIP_TRAVEL_S
         for hand_id in (0, 1):
-            release_ids = torch.where(self.attached[:, hand_id] & ~request[:, hand_id])[0]
-            self._release(release_ids, hand_id)
-            pending = request[:, hand_id] & ~self.attached[:, hand_id] & ~self.finished
-            if not torch.any(pending):
-                continue
             indices, distances = self._nearest_rung(self.hand_pos_w[:, hand_id])
-            speeds = torch.linalg.vector_norm(self._hand_vel_w[:, hand_id], dim=-1)
-            ready = (
-                pending
-                & (distances <= self.cfg.attach_distance)
-                & (speeds <= self.cfg.max_attach_speed)
+            in_zone = distances <= float(self.cfg.attach_distance)
+            latched = self.attached[:, hand_id]
+            progress = self.grip_progress[:, hand_id] + request[:, hand_id] * step
+            progress = progress.clamp(0.0, 1.0)
+            progress = torch.where(
+                latched | in_zone,
+                progress,
+                torch.zeros_like(progress),
             )
-            env_ids = torch.where(ready)[0]
+            progress = torch.where(
+                progress >= 1.0 - 1.0e-4,
+                torch.ones_like(progress),
+                progress,
+            )
+            self.grip_progress[:, hand_id] = progress
+            self.grip_strength[:, hand_id] = progress
+            # A full second of -1 lands on 0, aside from float dust.
+            self._release(torch.where(latched & (progress <= 1.0e-4))[0], hand_id)
+            close = (
+                ~self.attached[:, hand_id]
+                & (self.grip_progress[:, hand_id] >= 1.0)
+                & in_zone
+                & ~self.finished
+            )
+            env_ids = torch.where(close)[0]
             self._attach(env_ids, hand_id, indices[env_ids])
 
     def _attach(
@@ -1282,6 +1379,7 @@ class LadderClimbCommand(CommandTerm):
         data.eq_active[env_ids, weld_id] = True
         self.attached[env_ids, hand_id] = True
         self.grip_strength[env_ids, hand_id] = 1.0
+        self.grip_progress[env_ids, hand_id] = 1.0
         self.held_rung[env_ids, hand_id] = rung_indices
 
     def _release(self, env_ids: torch.Tensor, hand_id: int) -> None:
@@ -1291,6 +1389,7 @@ class LadderClimbCommand(CommandTerm):
         self._env.sim.data.eq_active[env_ids, weld_id] = False
         self.attached[env_ids, hand_id] = False
         self.grip_strength[env_ids, hand_id] = 0.0
+        self.grip_progress[env_ids, hand_id] = 0.0
         self.held_rung[env_ids, hand_id] = -1
 
     def _next_rung(self, baseline: torch.Tensor) -> torch.Tensor:
@@ -1317,21 +1416,30 @@ class LadderClimbCommand(CommandTerm):
         landing_center = _gather_rung_centers(centers, landing).squeeze(1)
         return ladder_face_axes(origin, landing_center, rung_axis)
 
+    def _axis_distances(self, points_w: torch.Tensor) -> torch.Tensor:
+        """Distance from each point to each rung axis.
+
+        ``points_w`` has shape ``(E, P, 3)``. The result has shape ``(E, P, R)``.
+        """
+
+        data = self._env.sim.data
+        centers = data.site_xpos[:, self._rung_site_ids]
+        matrices = _as_rotation_matrix(data.site_xmat[:, self._rung_site_ids])
+        axes = matrices[..., :, 2]
+        half_spans = self._rung_half_lengths.view(1, 1, -1)
+        delta = points_w.unsqueeze(2) - centers.unsqueeze(1)
+        offset = (delta * axes.unsqueeze(1)).sum(dim=-1)
+        offset = torch.maximum(torch.minimum(offset, half_spans), -half_spans)
+        closest = centers.unsqueeze(1) + offset.unsqueeze(-1) * axes.unsqueeze(1)
+        return torch.linalg.vector_norm(points_w.unsqueeze(2) - closest, dim=-1)
+
     def _nearest_rung(
         self,
         points_w: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Return the closest rung index and distance for each environment."""
 
-        data = self._env.sim.data
-        centers = data.site_xpos[:, self._rung_site_ids]
-        matrices = _as_rotation_matrix(data.site_xmat[:, self._rung_site_ids])
-        axes = matrices[..., :, 2]
-        half_spans = self._rung_half_lengths.view(1, -1)
-        offset = torch.sum((points_w.unsqueeze(1) - centers) * axes, dim=-1)
-        offset = torch.maximum(torch.minimum(offset, half_spans), -half_spans)
-        closest = centers + offset.unsqueeze(-1) * axes
-        distances = torch.linalg.vector_norm(points_w.unsqueeze(1) - closest, dim=-1)
+        distances = self._axis_distances(points_w.unsqueeze(1)).squeeze(1)
         indices = torch.argmin(distances, dim=-1)
         chosen = distances.gather(1, indices[:, None]).squeeze(1)
         return indices, chosen
@@ -1396,17 +1504,20 @@ class LadderClimbCommandCfg(CommandTermCfg):
 
 @dataclass(kw_only=True)
 class LadderGripActionCfg(ActionTermCfg):
-    """Two grip requests, one for each hand, appended after the joint targets."""
+    """Two grip rates, one for each hand, appended after the joint targets.
+
+    A command of +1 closes an open hand in one second. A command of -1 opens
+    a latched hand in one second.
+    """
 
     command_name: str = "ladder"
-    threshold: float = 0.0
 
     def build(self, env: ManagerBasedRlEnv) -> LadderGripAction:
         return LadderGripAction(self, env)
 
 
 class LadderGripAction(ActionTerm):
-    """Forward each hand's grip request to the ladder command."""
+    """Forward each hand's grip rate to the ladder command."""
 
     cfg: LadderGripActionCfg
 
@@ -1430,7 +1541,7 @@ class LadderGripAction(ActionTerm):
             LadderClimbCommand,
             self._env.command_manager.get_term(self.cfg.command_name),
         )
-        command.apply_grip_requests(self._raw_actions > self.cfg.threshold)
+        command.apply_grip_requests(self._raw_actions)
 
     def reset(self, env_ids: torch.Tensor | slice | None = None) -> None:
         self._raw_actions[env_ids] = 0.0
@@ -1441,12 +1552,15 @@ def _ladder_command(env: ManagerBasedRlEnv, command_name: str) -> LadderClimbCom
 
 
 # PPO sees these values after the reward manager multiplies by the 0.02 s step.
-# One 0.20 m rung of approach is +0.10. A full second welded to the next
-# rung is +0.25. A foot on the next tread pays 0.10 per second for the
+# One 0.20 m rung of approach is +0.10. A full second latched to the next
+# rung is +0.25. An unlatched hand in that zone pays the same rate times its
+# grip progress. A foot on the next tread pays 0.10 per second for the
 # contact, plus 1 per second times its share of body weight. The share
 # stops at 0.35, so a fully loaded foot pays 0.45 per second. Each limb
 # stops at +3, and a completed hold pays whatever is left of that cap. Ascent
 # pays the change in min(torso rise, 1) on the step the torso moves.
+# A saturated grip command covers 0 to 1 in this many seconds.
+GRIP_TRAVEL_S = 1.0
 CLIMB_DISTANCE_PER_M = 0.5
 LATERAL_COEFF = 0.5
 RUNG_HEIGHT_BAND_M = 0.08
@@ -1469,8 +1583,8 @@ HOLD_REWARD = 0.5
 # until the episode has lasted 2 s, then 0. The ground-contact step pays 0.
 ALIVE_RATE = 1.0
 ALIVE_WINDOW_S = 2.0
-GRAVITY = 9.81
-# Share of body weight a foot must carry before it banks ascent.
+# Share of body weight a foot must carry before it banks ascent. Weight is
+# mass times the live simulator gravity.
 FOOT_WEIGHT_FRACTION = 0.20
 # Flat rate for a foot standing on the next tread, paid on top of the load
 # term so a light contact is worth taking before the foot bears weight.
@@ -1496,6 +1610,10 @@ REFUND_FRACTION = 0.5
 # multiplies by dt with weight 1. The episode integral stops at -1.2.
 LEG_CROSS_RATE = -0.5
 LEG_CROSS_TOTAL = -1.2
+# Two or more limbs off the climb. The manager multiplies by dt. The episode
+# integral stops at -1, so a long fall costs the same as one second.
+FLIGHT_RATE = -1.0
+FLIGHT_TOTAL = -1.0
 # Thigh and shin bones, left then right. Each leg is hip roll -> knee -> ankle.
 LEG_LINK_NAMES = (
     "left_hip_roll_link",
@@ -1540,6 +1658,17 @@ def limb_axis_features(
     ell = torch.where(at_height, LATERAL_COEFF * lateral, torch.zeros_like(lateral))
     distance = torch.where(on_target, torch.zeros_like(remaining), remaining)
     return distance, ell
+
+
+def foot_bears_load(upward_n: torch.Tensor, body_weight_n: torch.Tensor) -> torch.Tensor:
+    """Whether each upward force is at least 20% of body weight.
+
+    ``body_weight_n`` is mass times the live gravity magnitude. A stance that
+    carries the same share of the robot crosses this line when gravity
+    changes, because the contact force scales with gravity too.
+    """
+
+    return upward_n >= FOOT_WEIGHT_FRACTION * body_weight_n
 
 
 def foot_step_load(upward_n: torch.Tensor, body_weight_n: torch.Tensor) -> torch.Tensor:
@@ -1617,9 +1746,11 @@ def ladder_climb(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     coming back re-earns that same gap. On the last step of the episode,
     ``1 - REFUND_FRACTION`` of the net approach given back since that limb's
     best point is returned, once.
-    On top of that, a hand pays ``0.25`` per second while it is welded to
-    the next rung. A foot on the next tread pays ``0.10`` per second for
-    the contact, plus ``1`` per second times the share of body weight on
+    On top of that, a latched hand pays ``0.25`` per second while it is welded
+    to the next rung. An unlatched hand inside that rung's latch zone pays
+    the same rate times its grip progress. A foot on the next tread pays
+    ``0.10`` per second for the contact, plus ``1`` per second times the
+    share of body weight on
     that foot. The share is the upward contact force divided by body mass
     times the simulator gravity, clamped to ``[0, 0.35]``, so the foot rate
     rises from ``0.10`` to ``0.45`` per second as the foot takes weight.
@@ -1799,6 +1930,36 @@ def leg_cross(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     command._leg_cross_step = step_id
     command._leg_cross_rate = step_cost / dt
     return command._leg_cross_rate
+
+
+def ladder_flight(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Rate while two or more limbs are off the climb, within the episode budget.
+
+    A hand is on while its latch is on. A foot is on while it touches the top
+    face of its baseline rung or the next one. One hand reaching, or one foot
+    stepping, pays nothing. The manager scales by ``dt`` and the weight is 1.
+    The integral stops at ``FLIGHT_TOTAL`` (-1).
+    """
+
+    command = _ladder_command(env, command_name)
+    step_id = int(getattr(env, "common_step_counter", -1))
+    if command._flight_step == step_id:
+        return command._flight_rate
+
+    hands_off = (~command.attached).sum(dim=-1)
+    feet_off = (~command.feet_on_flight_rungs()).sum(dim=-1)
+    flying = hands_off + feet_off >= 2
+    rate = torch.where(
+        flying,
+        torch.full_like(command._flight_paid, FLIGHT_RATE),
+        torch.zeros_like(command._flight_paid),
+    )
+    dt = float(env.step_dt)
+    step_cost = torch.maximum(rate * dt, FLIGHT_TOTAL - command._flight_paid)
+    command._flight_paid = command._flight_paid + step_cost
+    command._flight_step = step_id
+    command._flight_rate = step_cost / dt
+    return command._flight_rate
 
 
 def ladder_alive(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
