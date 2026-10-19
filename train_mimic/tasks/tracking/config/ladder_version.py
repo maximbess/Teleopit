@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 
-LADDER_CODE_VERSION = "cap-23"
+LADDER_CODE_VERSION = "cap-25"
 LADDER_CODE_VERSION_NOTES = (
     "The climb return is logged as four limb terms: left arm, right arm, "
     "left leg, and right leg. A rung is three phases. lead_hand chooses "
@@ -17,9 +17,13 @@ LADDER_CODE_VERSION_NOTES = (
     "costs 0.1 per second. Every other hand pays (progress - 1) * 0.3 per second. "
     "The hold runs only in the legs phase, and a finished hold starts the "
     "next rung at the lead hand. "
-    "Climb pays 0.5 per meter of approach until the limb is on the next "
-    "rung. A foot's approach is the rung-to-rung gap of the sole point "
-    "furthest behind the standing height, 43 mm above the next rung center. "
+    "Climb pays 0.5 per meter of approach along the plane through the two "
+    "lowest rungs, up to the far top edge of the next rung. That edge is the "
+    "far top corner of the rung box, read from the rung geom. Passing the "
+    "edge adds nothing. Distance out of that plane costs 0.5 per meter from "
+    "the attached pose, which is the zero. A foot's approach is the rung-to-rung gap of the sole "
+    "point furthest behind the standing height, 43 mm above the next rung "
+    "center. "
     "Each limb's approach stops at 0. On the "
     "last step, half of the net unbanked drop in each limb's "
     "approach is given back. Grip progress stays 0 outside the 0.14 m latch "

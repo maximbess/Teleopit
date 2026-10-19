@@ -80,6 +80,8 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     ladder_flight,
     latch_pressure,
     ladder_face_axes,
+    hand_approach_distance,
+    rung_far_top_edge,
     episode_reward_caption,
     grip_latch_caption,
     grip_marker_rgba,
@@ -93,7 +95,6 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     ladder_ungrip_right,
     UNGRIP_RATE,
     ladder_critic_privileged,
-    limb_axis_features,
 )
 from train_mimic.tasks.tracking.rl import LadderOnPolicyRunner
 from train_mimic.tasks.tracking.rl.runner import (
@@ -554,31 +555,212 @@ def test_foot_approach_uses_the_sole_point_furthest_down_the_rail() -> None:
     assert short.item() == pytest.approx(FOOT_TREAD_ABOVE_CENTER_M)
 
 
-def test_limb_axis_distance_falls_until_the_limb_is_on_the_rung() -> None:
-    base = torch.tensor([[0.0, 0.0, 0.0]])
-    nxt = torch.tensor([[0.105, 0.0, 0.280]])
-    on_rung = torch.tensor([False])
+def test_rung_far_top_edge_follows_the_box_geom() -> None:
+    center = torch.tensor([[[1.0, 2.0, 3.0]]])
+    rotation = torch.eye(3).view(1, 1, 3, 3)
+    half = torch.tensor([[0.055, 0.35, 0.035]])
 
-    at_base, lateral = limb_axis_features(base, base, nxt, on_rung)
-    assert at_base.item() == pytest.approx(0.299040, abs=1e-4)
-    assert lateral.item() == 0.0
+    edge = rung_far_top_edge(center, rotation, half)
+    assert edge.shape == (1, 1, 3)
+    assert edge[0, 0].tolist() == pytest.approx([1.055, 2.0, 3.035])
 
-    on_next = torch.tensor([True])
-    planted, _ = limb_axis_features(nxt, base, nxt, on_next)
-    assert planted.item() == 0.0
+    taller = half.clone()
+    taller[0, 2] = 0.10
+    raised = rung_far_top_edge(center, rotation, taller)
+    assert raised[0, 0].tolist() == pytest.approx([1.055, 2.0, 3.10])
 
-    hovering, _ = limb_axis_features(nxt, base, nxt, on_rung)
-    assert hovering.item() == pytest.approx(0.0)
+    # A rotated box carries the same local corner with it.
+    quarter_turn = torch.tensor(
+        [[[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]]]
+    )
+    turned = rung_far_top_edge(center, quarter_turn, half)
+    assert turned[0, 0].tolist() == pytest.approx([1.035, 2.0, 2.945])
 
-    axis = nxt - base
-    short = nxt - 0.03 * axis / torch.linalg.vector_norm(axis)
-    almost, _ = limb_axis_features(short, base, nxt, on_rung)
-    assert almost.item() == pytest.approx(0.03)
 
-    beside = nxt.clone()
-    beside[:, 1] = 0.10
-    _, side_cost = limb_axis_features(beside, base, nxt, on_rung)
-    assert side_cost.item() == pytest.approx(0.05)
+def _gaps_to_far_edge(
+    hand: torch.Tensor,
+    edge: torch.Tensor,
+    origin: torch.Tensor,
+    climb: torch.Tensor,
+    normal: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    plane = torch.abs(torch.dot(hand - origin, normal))
+    along = torch.dot(edge - origin, climb) - torch.dot(hand - origin, climb)
+    return plane, along.clamp(min=0.0)
+
+
+def _leaning_hand_ladder() -> tuple[_QuietLadder, dict[str, torch.Tensor]]:
+    """Two hands on a leaning face, each aimed at its own next rung box."""
+
+    command = _quiet_ladder()
+    pitch = torch.tensor([0.07, 0.0, 2.80 / 15.0])
+    climb = pitch / torch.linalg.vector_norm(pitch)
+    lateral = torch.tensor([0.0, 1.0, 0.0])
+    origin = torch.zeros(3)
+    normal = torch.cross(lateral, climb, dim=-1)
+    num_rungs = 6
+    command._rung_site_ids = torch.arange(num_rungs)
+    command._foot_site_ids = torch.tensor([num_rungs, num_rungs + 1])
+    command._foot_sole_offsets = torch.zeros(2, 3)
+    nsite = num_rungs + 2
+    site_xpos = torch.zeros(1, nsite, 3)
+    for index in range(num_rungs):
+        site_xpos[0, index] = pitch * index
+    command._env.sim = SimpleNamespace(
+        data=SimpleNamespace(
+            site_xpos=site_xpos,
+            site_xmat=torch.eye(3).reshape(1, 1, 3, 3).expand(1, nsite, 3, 3).contiguous(),
+        )
+    )
+    half = torch.tensor([[0.055, 0.35, 0.035]]).repeat(num_rungs, 1)
+    half[4, 2] = 0.02
+    half[5, 2] = 0.08
+    rotation = torch.eye(3).view(1, 1, 3, 3).expand(1, num_rungs, 3, 3).contiguous()
+    edges = rung_far_top_edge(site_xpos[:, :num_rungs], rotation, half)
+    command._rung_far_top_w = lambda: edges  # type: ignore[method-assign]
+    command.bottom_rung_plane = lambda: (  # type: ignore[method-assign]
+        origin.view(1, 3),
+        lateral.view(1, 3),
+        climb.view(1, 3),
+        torch.zeros(1, dtype=torch.bool),
+    )
+    command.baseline_hand_rung = torch.tensor([[3, 4]])
+    command.baseline_foot_rung = torch.tensor([[1, 1]])
+    command.foot_rung = torch.tensor([[2, 2]])
+    command._contact[:] = True
+    command.attached[:] = False
+    command._hands = torch.stack((site_xpos[0, 3], site_xpos[0, 4])).view(1, 2, 3)
+    return command, {
+        "origin": origin,
+        "climb": climb,
+        "normal": normal,
+        "pitch": pitch,
+        "edges": edges,
+    }
+
+
+def test_hand_features_use_each_next_rung_box_and_a_latch_leaves_the_gap() -> None:
+    command, face = _leaning_hand_ladder()
+    origin = face["origin"]
+    climb = face["climb"]
+    normal = face["normal"]
+    edges = face["edges"]
+
+    distance, lateral = command._limb_features()
+    left_plane, left_along = _gaps_to_far_edge(
+        command._hands[0, 0], edges[0, 4], origin, climb, normal
+    )
+    right_plane, right_along = _gaps_to_far_edge(
+        command._hands[0, 1], edges[0, 5], origin, climb, normal
+    )
+    assert distance[0, 0].item() == pytest.approx(left_along.item())
+    assert distance[0, 1].item() == pytest.approx(right_along.item())
+    # The right hand's next box is the taller one, so its climb target is farther.
+    assert right_along.item() > left_along.item()
+    assert left_plane.item() == pytest.approx(0.0, abs=1e-5)
+    assert right_plane.item() == pytest.approx(0.0, abs=1e-5)
+    assert lateral[0, :2].tolist() == pytest.approx([0.0, 0.0])
+    assert distance[0, 2:].tolist() == pytest.approx([0.0, 0.0])
+
+    # Sliding along the rung does not close either gap.
+    command._hands = command._hands + torch.tensor([0.0, 0.25, 0.0])
+    slid, _ = command._limb_features()
+    assert slid[0, :2].tolist() == pytest.approx(distance[0, :2].tolist())
+
+    # On the corner the climb is closed. The plane gap is what the penalty uses.
+    command.attached[:, 0] = True
+    command.held_rung[:, 0] = 4
+    command._hands[0, 0] = edges[0, 4]
+    latched, _ = command._limb_features()
+    on_corner = torch.abs(torch.dot(edges[0, 4] - origin, normal))
+    assert on_corner.item() > 0.0
+    assert latched[0, 0].item() == pytest.approx(0.0, abs=1e-5)
+    assert command._hand_plane_gap[0, 0].item() == pytest.approx(on_corner.item())
+
+
+def test_leaving_the_attached_pose_is_charged_per_meter() -> None:
+    command, face = _leaning_hand_ladder()
+    _bind_reward_state(command)
+    env = _reward_env(command)
+    command.attached[:] = False
+    command._bearing[:] = False
+    command._contact[:] = False
+    normal = face["normal"]
+
+    assert ladder_climb_left_arm(env, "ladder").item() == 0.0
+
+    env.common_step_counter = 1
+    command._hands[0, 0] = command._hands[0, 0] - normal * 0.12
+    assert ladder_climb_left_arm(env, "ladder").item() == pytest.approx(
+        -0.12 * CLIMB_DISTANCE_PER_M / env.step_dt
+    )
+
+    env.common_step_counter = 2
+    command._hands[0, 0] = command._hands[0, 0] + normal * 0.12
+    assert ladder_climb_left_arm(env, "ladder").item() == pytest.approx(
+        0.12 * CLIMB_DISTANCE_PER_M / env.step_dt
+    )
+
+
+def test_arm_climb_pays_the_plane_gap_and_stops_at_the_far_edge() -> None:
+    command, face = _leaning_hand_ladder()
+    _bind_reward_state(command)
+    env = _reward_env(command)
+    command.attached[:] = False
+    command._bearing[:] = False
+    command._contact[:] = False
+    origin = face["origin"]
+    climb = face["climb"]
+    normal = face["normal"]
+    edge = face["edges"][0, 4]
+    _, start_along = _gaps_to_far_edge(
+        command._hands[0, 0], edge, origin, climb, normal
+    )
+
+    assert ladder_climb_left_arm(env, "ladder").item() == 0.0
+    assert ladder_climb_right_arm(env, "ladder").item() == 0.0
+
+    # In the plane, at the far edge's climb coordinate. The climb pays once.
+    # The other hand leaves the plane, and its phase pays nothing.
+    env.common_step_counter = 1
+    command._hands[0, 0] = climb * torch.dot(edge - origin, climb)
+    command._hands[0, 1] = command._hands[0, 1] - normal * 0.10
+    assert ladder_climb_left_arm(env, "ladder").item() == pytest.approx(
+        start_along.item() * CLIMB_DISTANCE_PER_M / env.step_dt
+    )
+    assert ladder_climb_right_arm(env, "ladder").item() == 0.0
+
+    # Past the edge, still in the plane, adds nothing.
+    env.common_step_counter = 2
+    command._hands[0, 0] = command._hands[0, 0] + climb * 0.05
+    assert ladder_climb_left_arm(env, "ladder").item() == pytest.approx(0.0, abs=1e-5)
+
+    # Backing out of the plane gives that part back, once, at 0.5 per meter.
+    env.common_step_counter = 3
+    command._hands[0, 0] = command._hands[0, 0] - normal * 0.05
+    assert ladder_climb_left_arm(env, "ladder").item() == pytest.approx(
+        -0.05 * CLIMB_DISTANCE_PER_M / env.step_dt
+    )
+
+
+def test_hand_approach_is_the_plane_gap_plus_the_climb_to_the_far_edge() -> None:
+    origin = torch.zeros(1, 3)
+    climb = torch.tensor([[0.0, 0.0, 1.0]])
+    normal = torch.tensor([[1.0, 0.0, 0.0]])
+    edge = torch.tensor([[[0.0, 0.0, 1.0], [0.0, 0.0, 1.0]]])
+    clear = torch.zeros(1, dtype=torch.bool)
+    broken = torch.ones(1, dtype=torch.bool)
+
+    short = torch.tensor([[[0.20, 4.0, 0.40], [-0.10, -3.0, 1.20]]])
+    distance = hand_approach_distance(short, edge, origin, climb, normal, clear)
+    assert distance[0].tolist() == pytest.approx([0.80, 0.10])
+
+    on_edge = torch.tensor([[[0.0, 1.0, 1.0], [0.0, -1.0, 1.50]]])
+    arrived = hand_approach_distance(on_edge, edge, origin, climb, normal, clear)
+    assert arrived[0].tolist() == pytest.approx([0.0, 0.0])
+
+    lost = hand_approach_distance(short, edge, origin, climb, normal, broken)
+    assert lost[0].tolist() == pytest.approx([0.0, 0.0])
 
 
 def _bind_reward_state(command: _QuietLadder) -> None:
@@ -2180,6 +2362,19 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
     assert model.geom_type[rung_id] == mujoco.mjtGeom.mjGEOM_BOX
     assert model.geom_type[rail_id] == mujoco.mjtGeom.mjGEOM_CAPSULE
     assert model.geom_size[rung_id].tolist() == pytest.approx([0.055, 0.35, 0.035])
+    rung_center = torch.tensor(data.geom_xpos[rung_id], dtype=torch.float32).view(1, 1, 3)
+    rung_rotation = torch.tensor(
+        data.geom_xmat[rung_id].reshape(3, 3), dtype=torch.float32
+    ).view(1, 1, 3, 3)
+    rung_half = torch.tensor(model.geom_size[rung_id], dtype=torch.float32).view(1, 3)
+    far_top = rung_far_top_edge(rung_center, rung_rotation, rung_half)
+    assert far_top[0, 0].tolist() == pytest.approx(
+        [
+            data.geom_xpos[rung_id, 0] + model.geom_size[rung_id, 0],
+            data.geom_xpos[rung_id, 1],
+            data.geom_xpos[rung_id, 2] + model.geom_size[rung_id, 2],
+        ]
+    )
     assert model.geom_contype[rung_id] == 1
     assert model.geom_conaffinity[rung_id] == 0
     assert model.geom_condim[rung_id] == 4

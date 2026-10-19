@@ -341,6 +341,29 @@ class LadderClimbCommand(CommandTerm):
             dtype=torch.float32,
             device=self.device,
         )
+        box_type = int(mujoco.mjtGeom.mjGEOM_BOX)
+        rung_geom_ids: list[int] = []
+        rung_box_half: list[list[float]] = []
+        for name in cfg.rung_site_names:
+            if not name.endswith("_grip"):
+                raise ValueError(
+                    f"Rung site {name!r} must be named after its box geom plus '_grip'"
+                )
+            geom_name = name[: -len("_grip")]
+            geom_id = self._required_id(mujoco.mjtObj.mjOBJ_GEOM, geom_name)
+            if int(model.geom_type[geom_id]) != box_type:
+                raise ValueError(f'Rung geom {geom_name!r} must have type="box"')
+            half = model.geom_size[geom_id]
+            if float(half[0]) <= 0.0 or float(half[2]) <= 0.0:
+                raise ValueError(f"Rung geom {geom_name!r} has no cross-section")
+            rung_geom_ids.append(geom_id)
+            rung_box_half.append([float(half[0]), float(half[1]), float(half[2])])
+        self._rung_geom_ids = torch.tensor(
+            rung_geom_ids, dtype=torch.long, device=self.device
+        )
+        self._rung_box_half = torch.tensor(
+            rung_box_half, dtype=torch.float32, device=self.device
+        )
         rail_geom_ids = [
             self._required_id(mujoco.mjtObj.mjOBJ_GEOM, name)
             for name in SIDE_RAIL_NAMES
@@ -992,6 +1015,8 @@ class LadderClimbCommand(CommandTerm):
         self._flight_step = -1
         self._approach_paid[env_ids] = 0.0
         self._approach_peak[env_ids] = 0.0
+        if hasattr(self, "_plane_baseline"):
+            self._plane_baseline[env_ids] = 0.0
         self._climb_valid[env_ids] = False
         self._hold_count_prev[env_ids] = 0
         self._detach_progress_prev[env_ids] = 0.0
@@ -1258,12 +1283,17 @@ class LadderClimbCommand(CommandTerm):
         foot_next = torch.clamp(
             self.baseline_foot_rung + 1, min=0, max=self.num_rungs - 1
         )
-        hand_distance, hand_lateral = limb_axis_features(
-            self.hand_pos_w,
-            _gather_rung_centers(centers, self.baseline_hand_rung),
-            _gather_rung_centers(centers, hand_next),
-            on_target[:, :2],
+        origin, plane_lateral, climb, degenerate = self.bottom_rung_plane()
+        normal = torch.cross(plane_lateral, climb, dim=-1)
+        edge = _gather_rung_centers(self._rung_far_top_w(), hand_next)
+        plane_gap, along = hand_approach_gaps(
+            self.hand_pos_w, edge, origin, climb, normal, degenerate
         )
+        # The climb to the edge stays in the approach account. The plane gap is
+        # penalized on its own, so leaving the ladder is not floored away.
+        self._hand_plane_gap = plane_gap
+        hand_distance = along
+        hand_lateral = torch.zeros_like(hand_distance)
         next_foot_center = _gather_rung_centers(centers, foot_next)
         foot_distance, foot_lateral = foot_tread_features(
             self.foot_sole_points_w,
@@ -1322,9 +1352,12 @@ class LadderClimbCommand(CommandTerm):
         if self._reward_cache is not None and self._reward_cache_step == step_id:
             return self._reward_cache
 
-        # Distance falls until the limb is on the next rung, including the
-        # last centimeters. A limb's approach account stops at 0, so moving
-        # far away only gives back what that limb earned. Contact accrues
+        # A hand's approach distance is how far it still is along the rail from
+        # the far top edge of the next rung. Leaving the ladder plane is
+        # penalized separately, at 0.5 per meter from the attached pose.
+        # A foot's distance falls until the sole reaches the next tread.
+        # A limb's approach account stops at 0, so moving far away only gives
+        # back what that limb earned. Contact accrues
         # separately and stops at +3 per limb, including during the hold.
         # A latched hand on the next rung pays 0.25 per second. An unlatched
         # hand in that rung's zone pays the same rate times grip progress.
@@ -1397,9 +1430,30 @@ class LadderClimbCommand(CommandTerm):
         active = self._active_limbs()
         approach = torch.where(active, approach, torch.zeros_like(approach))
         contact = torch.where(active, contact, torch.zeros_like(contact))
+        # -0.5 per meter out of the ladder plane, measured from the pose at
+        # the reset or the last completed hold. Attached to the ladder, that
+        # pose is the zero. Moving out pays the meters. Moving back returns them.
+        plane_gap = getattr(self, "_hand_plane_gap", None)
+        plane_penalty = torch.zeros_like(distance)
+        if isinstance(plane_gap, torch.Tensor):
+            if (
+                not hasattr(self, "_plane_baseline")
+                or self._plane_baseline.shape != plane_gap.shape
+            ):
+                self._plane_baseline = plane_gap.detach().clone()
+            opened = plane_gap - self._plane_baseline
+            plane_penalty[:, :2] = torch.where(
+                hold_fresh.unsqueeze(1),
+                torch.zeros_like(opened),
+                -CLIMB_DISTANCE_PER_M * opened,
+            )
+            self._plane_baseline.copy_(plane_gap)
+        plane_penalty = torch.where(
+            active, plane_penalty, torch.zeros_like(plane_penalty)
+        )
         # One column per limb: left arm, right arm, left leg, right leg.
         # The reward manager reads each column on its own.
-        climb = approach + contact
+        climb = approach + contact + plane_penalty
         self._climb_distance.copy_(
             torch.where(hold_fresh.unsqueeze(1), distance, self._climb_distance)
         )
@@ -1639,6 +1693,18 @@ class LadderClimbCommand(CommandTerm):
         origin = centers[:, 0]
         rung_axis = matrices[:, 0, :, 2]
         return ladder_face_axes(origin, centers[:, 1], rung_axis)
+
+    def _rung_far_top_w(self) -> torch.Tensor:
+        """World midpoint of each rung box's far top edge, shape ``(E, R, 3)``.
+
+        The half-extents come from the rung geom, so a rebuilt ladder moves
+        this edge. Local +x is the far side and local +z is the top.
+        """
+
+        data = self._env.sim.data
+        centers = data.geom_xpos[:, self._rung_geom_ids]
+        rotation = _as_rotation_matrix(data.geom_xmat[:, self._rung_geom_ids])
+        return rung_far_top_edge(centers, rotation, self._rung_box_half)
 
     def rail_endpoints(self) -> tuple[torch.Tensor, torch.Tensor]:
         """World endpoints of the climbing-face side rails.
@@ -2107,18 +2173,16 @@ def _ladder_command(env: ManagerBasedRlEnv, command_name: str) -> LadderClimbCom
 
 
 # PPO sees these values after the reward manager multiplies by the 0.02 s step.
-# One 0.20 m rung of approach is +0.10. A full second latched to the next
-# rung is +0.25. An unlatched hand in that zone pays the same rate times its
-# grip progress. A foot on the next tread pays 0.10 per second for the
-# contact, plus 1 per second times its share of body weight. The share
-# stops at 0.35, so a fully loaded foot pays 0.45 per second. Each limb
-# stops at +3, and a completed hold pays whatever is left of that cap. Ascent
-# pays the change in min(torso rise, 1) on the step the torso moves.
+# Approach pays 0.5 per meter. A full second latched to the next rung is
+# +0.25. An unlatched hand in that zone pays the same rate times its grip
+# progress. A foot on the next tread pays 0.10 per second for the contact,
+# plus 1 per second times its share of body weight. The share stops at 0.35,
+# so a fully loaded foot pays 0.45 per second. Each limb stops at +3, and a
+# completed hold pays whatever is left of that cap. Ascent pays the change in
+# min(torso rise, 1) on the step the torso moves.
 # A saturated grip command covers 0 to 1 in this many seconds.
 GRIP_TRAVEL_S = 1.0
 CLIMB_DISTANCE_PER_M = 0.5
-LATERAL_COEFF = 0.5
-RUNG_HEIGHT_BAND_M = 0.08
 # The planted ankle site sits about 8 mm above the tread, 0.043 m above the
 # rung center. The box half-height is 0.035 m, so the underside is below the
 # center and this band only covers the top face.
@@ -2213,34 +2277,72 @@ def _gather_rung_centers(centers: torch.Tensor, indices: torch.Tensor) -> torch.
     return torch.gather(centers, 1, safe.unsqueeze(-1).expand(-1, -1, 3))
 
 
-def limb_axis_features(
-    limb: torch.Tensor,
-    base_center: torch.Tensor,
-    next_center: torch.Tensor,
-    on_target: torch.Tensor,
-) -> tuple[torch.Tensor, torch.Tensor]:
-    """Remaining distance ``d`` and lateral cost ``ell`` for each limb.
+def rung_far_top_edge(
+    center: torch.Tensor,
+    rotation: torch.Tensor,
+    half_sizes: torch.Tensor,
+) -> torch.Tensor:
+    """Midpoint of the far top edge of each rung box.
 
-    ``d`` is the remaining distance along the baseline-rung to next-rung
-    axis, and it keeps falling until the limb is on that next rung, where
-    ``d = 0``. ``ell = 0.5 * lateral`` when the limb is within 0.08 m of the
-    next rung height, and 0 when it is above that band.
+    ``center`` has shape ``(E, R, 3)`` and ``rotation`` has shape
+    ``(E, R, 3, 3)``, with the geom's local axes as columns. ``half_sizes``
+    has shape ``(R, 3)`` and is the box half-extent stored on the rung geom.
+    Local +x is the far side and local +z is the top, matching the ladder
+    spec. The result has shape ``(E, R, 3)``.
     """
 
-    axis = next_center - base_center
-    length = torch.linalg.vector_norm(axis, dim=-1, keepdim=True)
-    direction = axis / length.clamp_min(1.0e-8)
-    degenerate = length.squeeze(-1) < 1.0e-6
-    remaining = ((next_center - limb) * direction).sum(dim=-1)
-    remaining = torch.where(degenerate, torch.zeros_like(remaining), remaining.clamp_min(0.0))
-    offset = limb - base_center
-    along_base = (offset * direction).sum(dim=-1, keepdim=True)
-    lateral = torch.linalg.vector_norm(offset - along_base * direction, dim=-1)
-    lateral = torch.where(degenerate, torch.zeros_like(lateral), lateral)
-    at_height = (limb[..., 2] - next_center[..., 2]).abs() <= RUNG_HEIGHT_BAND_M
-    ell = torch.where(at_height, LATERAL_COEFF * lateral, torch.zeros_like(lateral))
-    distance = torch.where(on_target, torch.zeros_like(remaining), remaining)
-    return distance, ell
+    local = torch.stack(
+        (
+            half_sizes[..., 0],
+            torch.zeros_like(half_sizes[..., 0]),
+            half_sizes[..., 2],
+        ),
+        dim=-1,
+    )
+    offset = (rotation * local.view(1, -1, 1, 3)).sum(dim=-1)
+    return center + offset
+
+
+def hand_approach_gaps(
+    hand: torch.Tensor,
+    edge: torch.Tensor,
+    origin: torch.Tensor,
+    climb: torch.Tensor,
+    normal: torch.Tensor,
+    degenerate: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return ``(plane, along)`` for each hand.
+
+    ``hand`` and ``edge`` have shape ``(E, H, 3)``. ``origin``, ``climb``,
+    and ``normal`` have shape ``(E, 3)``. ``degenerate`` has shape ``(E,)``.
+    ``plane`` is the absolute distance out of the ladder plane. ``along`` is
+    the climb left to reach the far top edge, and it stops at 0 once the hand
+    passes that edge. A degenerate plane gives 0 for both.
+    """
+
+    delta = hand - origin.unsqueeze(1)
+    plane = (delta * normal.unsqueeze(1)).sum(dim=-1).abs()
+    ahead = ((edge - origin.unsqueeze(1)) * climb.unsqueeze(1)).sum(dim=-1)
+    here = (delta * climb.unsqueeze(1)).sum(dim=-1)
+    along = (ahead - here).clamp(min=0.0)
+    cleared = torch.zeros_like(plane)
+    plane = torch.where(degenerate.unsqueeze(1), cleared, plane)
+    along = torch.where(degenerate.unsqueeze(1), cleared, along)
+    return plane, along
+
+
+def hand_approach_distance(
+    hand: torch.Tensor,
+    edge: torch.Tensor,
+    origin: torch.Tensor,
+    climb: torch.Tensor,
+    normal: torch.Tensor,
+    degenerate: torch.Tensor,
+) -> torch.Tensor:
+    """Plane gap plus the climb left to reach the far top edge."""
+
+    plane, along = hand_approach_gaps(hand, edge, origin, climb, normal, degenerate)
+    return plane + along
 
 
 def foot_bears_load(upward_n: torch.Tensor, body_weight_n: torch.Tensor) -> torch.Tensor:
@@ -2359,14 +2461,20 @@ def ladder_climb(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
 
     Approach toward the next rung, plus contact time on that rung.
 
-    A hand's distance is the remaining gap along the rail. A foot's distance
-    is the rung-to-rung gap of the sole point furthest behind the standing
-    height on the next tread. Both keep paying until that limb is on the
-    next rung, including the last centimeters.
-    ``0.5`` per meter makes one 0.20 m rung ``+0.10``. The account is the gap
-    closed since the reset sample, or since the last completed hold, and it
-    stops at 0. Moving far away gives back only what that limb earned, and
-    coming back re-earns that same gap. On the last step of the episode,
+    A hand's approach distance is how far the grip site still is along the
+    plane through the two lowest rungs, up to the far top edge of the next
+    rung. That edge is the far top corner of the rung box, read from the rung
+    geom. Passing the edge adds nothing. The distance out of that plane is a
+    separate penalty, ``-0.5`` per meter from the pose sampled at the reset
+    or the last completed hold. Attached to the ladder, that sample is zero.
+    Moving out pays the meters, and moving back returns them. A foot's
+    distance is the rung-to-rung gap of the sole point furthest behind the
+    standing height on the next tread, and it keeps paying until the foot is
+    on that tread.
+    ``0.5`` per meter. The account is the gap closed since the reset sample,
+    or since the last completed hold, and it stops at 0. Moving far away
+    gives back only what that limb earned, and coming back re-earns that same
+    gap. On the last step of the episode,
     ``1 - REFUND_FRACTION`` of the net approach given back since that limb's
     best point is returned, once.
     On top of that, a latched hand pays ``0.25`` per second while it is welded
