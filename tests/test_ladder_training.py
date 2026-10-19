@@ -80,6 +80,7 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     ladder_flight,
     latch_pressure,
     ladder_face_axes,
+    episode_reward_caption,
     grip_latch_caption,
     grip_marker_rgba,
     leg_cross,
@@ -204,6 +205,13 @@ def test_grip_latch_caption_names_the_hand_and_its_progress() -> None:
     assert grip_latch_caption("Right", True, 1.0) == "Right 100% latched"
 
 
+def test_episode_reward_caption_shows_the_running_total() -> None:
+    assert episode_reward_caption(1.5) == "**Episode total:** 1.500"
+    assert episode_reward_caption(1.5, 0.25) == (
+        "**Episode total:** 1.500\n\n**Last episode:** 0.250"
+    )
+
+
 def test_viser_hand_latch_panel_follows_each_hand() -> None:
     class _Folder:
         def __enter__(self):
@@ -214,7 +222,7 @@ def test_viser_hand_latch_panel_follows_each_hand() -> None:
 
     class _Gui:
         def add_folder(self, name: str) -> _Folder:
-            assert name == "Hand latch"
+            assert name in {"Hand latch", "Reward"}
             return _Folder()
 
         def add_markdown(self, text: str) -> SimpleNamespace:
@@ -236,6 +244,46 @@ def test_viser_hand_latch_panel_follows_each_hand() -> None:
     assert command._grip_gui_bars[1].value == pytest.approx(100.0)
     assert command._grip_gui_bars[1].color == (220, 50, 50)
     assert command._grip_gui_captions[1].content == "Right 100% latched"
+
+
+def test_viser_reward_tracker_sums_the_episode() -> None:
+    class _Folder:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args) -> bool:
+            return False
+
+    class _Gui:
+        def add_folder(self, name: str) -> _Folder:
+            return _Folder()
+
+        def add_markdown(self, text: str) -> SimpleNamespace:
+            return SimpleNamespace(content=text)
+
+        def add_progress_bar(self, value: float) -> SimpleNamespace:
+            return SimpleNamespace(value=value, color=None)
+
+    command = _quiet_ladder()
+    command.cfg.hand_site_names = ("left_grip_site", "right_grip_site")
+    command.create_gui("ladder", SimpleNamespace(gui=_Gui()), lambda: 0)
+    command._env.reward_manager = SimpleNamespace(
+        _episode_sums={
+            "detach_left": torch.tensor([1.25]),
+            "ladder_alive": torch.tensor([0.5]),
+        }
+    )
+    command._update_reward_total_gui()
+    assert command._reward_total_caption.content == "**Episode total:** 1.750"
+
+    command._env.reward_manager._episode_sums = {
+        "detach_left": torch.tensor([0.0]),
+        "ladder_alive": torch.tensor([0.0]),
+    }
+    command._update_reward_total_gui()
+    assert command._reward_total_caption.content == (
+        "**Episode total:** 0.000\n\n**Last episode:** 1.750"
+    )
 
 
 def test_grip_marker_is_red_when_latched_and_blue_when_open() -> None:
@@ -1216,9 +1264,23 @@ def test_detach_pays_the_climbing_hand_for_letting_go() -> None:
     )
     assert ladder_detach_left(env, "ladder").item() == 0.0
     command.grip_progress[:, 0] = 1.0
-    assert ladder_detach_left(env, "ladder").item() == pytest.approx(-DETACH_POTENTIAL / dt)
+    command.held_rung[:, 0] = command.baseline_hand_rung[:, 0]
+    command.attached[:, 0] = True
+    assert ladder_detach_left(env, "ladder").item() == 0.0
+    command._detach_commanded[:, 0] = True
     command.grip_progress[:, 0] = 0.0
     assert ladder_detach_left(env, "ladder").item() == 0.0
+    command.just_completed[:] = True
+    command.grip_progress[:, 0] = 1.0
+    command.held_rung[:, 0] = command.baseline_hand_rung[:, 0]
+    command.attached[:, 0] = True
+    assert ladder_detach_left(env, "ladder").item() == 0.0
+    command.just_completed[:] = False
+    command._detach_commanded[:, 0] = True
+    command.grip_progress[:, 0] = 0.0
+    assert ladder_detach_left(env, "ladder").item() == pytest.approx(
+        (DETACH_POTENTIAL + DETACH_COMPLETE) / dt
+    )
 
 
 def test_detach_ignores_a_forced_release_and_a_next_rung_weld() -> None:

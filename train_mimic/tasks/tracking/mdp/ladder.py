@@ -38,6 +38,15 @@ def grip_latch_caption(side: str, latched: bool, progress: float) -> str:
     return f"{side} {clamped * 100:.0f}% {state}"
 
 
+def episode_reward_caption(total: float, last: float | None = None) -> str:
+    """Viser readout for the running episode return."""
+
+    text = f"**Episode total:** {float(total):.3f}"
+    if last is None:
+        return text
+    return f"{text}\n\n**Last episode:** {float(last):.3f}"
+
+
 def _as_rotation_matrix(value: torch.Tensor) -> torch.Tensor:
     """Accept MJWarp site matrices stored as either ``(..., 9)`` or ``(..., 3, 3)``."""
 
@@ -313,6 +322,10 @@ class LadderClimbCommand(CommandTerm):
         self._grip_gui_bars: list[object] = []
         self._grip_gui_captions: list[object] = []
         self._grip_gui_env = None
+        self._reward_total_caption = None
+        self._reward_total_shown = 0.0
+        self._reward_last_episode: float | None = None
+        self._reward_total_env = -1
         self._foot_site_ids = torch.tensor(
             foot_site_ids, dtype=torch.long, device=self.device
         )
@@ -480,6 +493,9 @@ class LadderClimbCommand(CommandTerm):
             (self.num_envs, 2), dtype=torch.bool, device=self.device
         )
         self._detach_commanded = torch.zeros(
+            (self.num_envs, 2), dtype=torch.bool, device=self.device
+        )
+        self._detach_done = torch.zeros(
             (self.num_envs, 2), dtype=torch.bool, device=self.device
         )
         self._robot_mass = self._robot_mass_kg()
@@ -983,6 +999,7 @@ class LadderClimbCommand(CommandTerm):
         self._detach_held_prev[env_ids] = -1
         self._detach_forced[env_ids] = False
         self._detach_commanded[env_ids] = False
+        self._detach_done[env_ids] = False
         self.climb_phase[env_ids] = CLIMB_PHASE_FIRST
         self._reward_phase[env_ids] = CLIMB_PHASE_FIRST
         self._reward_cache_step = -1
@@ -1670,7 +1687,7 @@ class LadderClimbCommand(CommandTerm):
 
         self._grip_marker_latched = self.attached.detach().cpu().numpy()
         self._grip_marker_progress = self.grip_progress.detach().cpu().numpy()
-        self._update_grip_progress_gui()
+        self._update_viser_gui()
         if hasattr(visualizer, "server"):
             self._install_viser_grip_markers(visualizer)
             return
@@ -1726,7 +1743,7 @@ class LadderClimbCommand(CommandTerm):
             and getattr(visualizer, "debug_visualization_enabled", True)
         )
         handle = self._grip_marker_handle
-        self._update_grip_progress_gui()
+        self._update_viser_gui()
         if not enabled:
             if handle is not None:
                 handle.visible = False
@@ -1863,7 +1880,7 @@ class LadderClimbCommand(CommandTerm):
         on_change=None,
         request_action=None,
     ) -> None:
-        """Latch progress for each hand in the viser controls panel."""
+        """Latch progress and episode return in the viser controls panel."""
 
         del name, on_change, request_action
         self._grip_gui_env = get_env_idx
@@ -1875,16 +1892,30 @@ class LadderClimbCommand(CommandTerm):
                     server.gui.add_markdown(grip_latch_caption(side, False, 0.0))
                 )
                 self._grip_gui_bars.append(server.gui.add_progress_bar(0.0))
+        with server.gui.add_folder("Reward"):
+            self._reward_total_caption = server.gui.add_markdown(
+                episode_reward_caption(0.0)
+            )
+        self._reward_total_shown = 0.0
+        self._reward_last_episode = None
+        self._reward_total_env = -1
+
+    def _update_viser_gui(self) -> None:
+        self._update_grip_progress_gui()
+        self._update_reward_total_gui()
+
+    def _gui_env_idx(self) -> int:
+        env_idx = 0
+        if self._grip_gui_env is not None:
+            env_idx = int(self._grip_gui_env())
+        last_env = int(self.grip_progress.shape[0]) - 1
+        return min(max(env_idx, 0), last_env)
 
     def _update_grip_progress_gui(self) -> None:
         bars = self._grip_gui_bars
         if not bars:
             return
-        env_idx = 0
-        if self._grip_gui_env is not None:
-            env_idx = int(self._grip_gui_env())
-        last_env = int(self.grip_progress.shape[0]) - 1
-        env_idx = min(max(env_idx, 0), last_env)
+        env_idx = self._gui_env_idx()
         for hand_id, bar in enumerate(bars):
             progress = float(self.grip_progress[env_idx, hand_id].item())
             latched = bool(self.attached[env_idx, hand_id].item())
@@ -1894,6 +1925,32 @@ class LadderClimbCommand(CommandTerm):
             self._grip_gui_captions[hand_id].content = grip_latch_caption(
                 self._hand_side_labels()[hand_id], latched, clamped
             )
+
+    def _episode_reward_total(self, env_idx: int) -> float:
+        manager = getattr(self._env, "reward_manager", None)
+        sums = getattr(manager, "_episode_sums", None)
+        if not sums:
+            return 0.0
+        total = 0.0
+        for value in sums.values():
+            total += float(value[env_idx].item())
+        return total
+
+    def _update_reward_total_gui(self) -> None:
+        handle = self._reward_total_caption
+        if handle is None:
+            return
+        env_idx = self._gui_env_idx()
+        total = self._episode_reward_total(env_idx)
+        if env_idx != self._reward_total_env:
+            self._reward_total_env = env_idx
+        elif (
+            total + 1.0e-6 < self._reward_total_shown
+            and self._reward_total_shown > 1.0e-6
+        ):
+            self._reward_last_episode = self._reward_total_shown
+        self._reward_total_shown = total
+        handle.content = episode_reward_caption(total, self._reward_last_episode)
 
     def _set_grip_labels_visible(self, visible: bool) -> None:
         for handle in self._grip_label_handles.values():
@@ -2087,9 +2144,10 @@ UNGRIP_RATE = 0.3
 # Climbing-hand detach potential, only while that hand still holds the
 # baseline rung. The potential is (1 - progress) times this scale, so a
 # commanded full release is +1 and closing gives it back. A commanded
-# release that reaches progress 0 also pays DETACH_COMPLETE once. A weld
-# that breaks without that commanded open pays 0, including the 0.5. The
-# manager multiplies by dt. Latch load on a closed weld is latch_pressure.
+# release that reaches progress 0 also pays DETACH_COMPLETE. Both the +1
+# and the +0.5 pay once per rung; a later open on that same rung is 0. A
+# weld that breaks without that commanded open pays 0, including the 0.5.
+# The manager multiplies by dt. Latch load on a closed weld is latch_pressure.
 DETACH_POTENTIAL = 1.0
 DETACH_COMPLETE = 0.5
 # Off the ground. The manager multiplies by dt. The rate is 1 per second
@@ -2355,10 +2413,11 @@ def _hand_detach(env: ManagerBasedRlEnv, command_name: str, hand: int) -> torch.
 
     Opening pays the rise. Closing pays it back. The first sample after this
     hand becomes the one climbing pays 0. A commanded grip that reaches
-    progress 0 also pays ``+0.5``. A weld that breaks without that commanded
-    open pays 0, including the ``+0.5``. A hand that is not climbing, or is
-    already on the next rung, pays 0. The manager multiplies by ``dt``, so
-    this returns the step amount divided by ``dt``.
+    progress 0 also pays ``+0.5``. That full open, and the ``+0.5``, each pay
+    once per rung. A later open on the same rung pays 0. A weld that breaks
+    without that commanded open pays 0, including the ``+0.5``. A hand that
+    is not climbing, or is already on the next rung, pays 0. The manager
+    multiplies by ``dt``, so this returns the step amount divided by ``dt``.
     """
 
     command = _ladder_command(env, command_name)
@@ -2384,13 +2443,23 @@ def _hand_detach(env: ManagerBasedRlEnv, command_name: str, hand: int) -> torch.
             dtype=torch.bool,
             device=command.grip_progress.device,
         )
+    if not hasattr(command, "_detach_done"):
+        command._detach_done = torch.zeros(
+            command.grip_progress.shape,
+            dtype=torch.bool,
+            device=command.grip_progress.device,
+        )
+    fresh = command.just_completed
+    if fresh.any():
+        command._detach_done[fresh] = False
     prev = command._detach_progress_prev[:, hand]
     tracked = command._detach_tracked[:, hand]
     on_base = command._detach_held_prev[:, hand] == command.baseline_hand_rung[:, hand]
     forced = command._detach_forced[:, hand]
     commanded = command._detach_commanded[:, hand]
+    done = command._detach_done[:, hand]
     active = command._climbing_hand() == hand
-    eligible = active & tracked & on_base & ~forced
+    eligible = active & tracked & on_base & ~forced & ~done & ~fresh
     opened = DETACH_POTENTIAL * (prev - progress)
     hit_zero = (prev > 1.0e-4) & (progress <= 1.0e-4)
     opened = torch.where(hit_zero & ~commanded, torch.zeros_like(opened), opened)
@@ -2402,6 +2471,7 @@ def _hand_detach(env: ManagerBasedRlEnv, command_name: str, hand: int) -> torch.
     command._detach_tracked[:, hand] = active
     command._detach_forced[:, hand] = False
     command._detach_commanded[:, hand] = False
+    command._detach_done[:, hand] = done | complete
     return step / float(env.step_dt)
 
 

@@ -836,9 +836,10 @@ def make_g1_ladder_rl_env_cfg(
         # The climbing hand earns the rise in (1 - grip progress) while it
         # still holds the baseline rung, so a commanded full release is +1
         # and closing gives that back. A commanded open to progress 0 also
-        # pays +0.5 once. A weld that breaks without that commanded open
-        # pays 0, including the 0.5. Latch load is latch_pressure.
-        # Every other hand pays (progress - 1) * 0.3 per second.
+        # pays +0.5. The +1 and the +0.5 each pay once per rung. A weld that
+        # breaks without that commanded open pays 0, including the 0.5.
+        # Latch load is latch_pressure. Every other hand pays
+        # (progress - 1) * 0.3 per second.
         "detach_left": RewardTermCfg(
             func=mdp.ladder_detach_left,
             weight=1.0,
