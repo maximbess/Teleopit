@@ -862,6 +862,14 @@ def make_g1_ladder_rl_env_cfg(
             weight=1.0,
             params={"command_name": "ladder"},
         ),
+        # The step a hand phase ends pays +4. The lead hand latching the
+        # next rung is one phase. The trailing hand is the other. Both on
+        # the same step pays +8. A finished hold pays 0 from this term.
+        "ladder_hand_phase": RewardTermCfg(
+            func=mdp.ladder_hand_phase,
+            weight=1.0,
+            params={"command_name": "ladder"},
+        ),
         # The hold potential and the completion impulse run only in the
         # legs phase.
         "ladder_hold": RewardTermCfg(

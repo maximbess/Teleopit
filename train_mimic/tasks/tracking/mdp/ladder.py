@@ -2202,6 +2202,9 @@ HOLD_REWARD = 0.5
 CLIMB_PHASE_FIRST = 0
 CLIMB_PHASE_SECOND = 1
 CLIMB_PHASE_LEGS = 2
+# Impulse when a hand phase ends. The manager multiplies by dt. Both hands
+# finishing on one step pays this twice.
+HAND_PHASE_REWARD = 4.0
 # Per hand that is not the one climbing. Progress 1 pays 0. Progress 0
 # pays -0.3 per second. The manager multiplies by dt.
 UNGRIP_RATE = 0.3
@@ -2893,6 +2896,26 @@ def ladder_alive(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
 
     command = _ladder_command(env, command_name)
     return command.reward_terms()["alive"]
+
+
+def ladder_hand_phase(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Impulse when a hand phase finishes. The manager scales by ``dt``.
+
+    The lead hand latching the next rung pays ``+4``. The trailing hand
+    doing the same pays ``+4``. Both on one step pays ``+8``: the phase
+    walks from the lead hand through the other hand into the legs before
+    this is read. A finished hold returns to the lead hand and pays 0.
+    """
+
+    command = _ladder_command(env, command_name)
+    started = command._reward_phase
+    ended = command.climb_phase
+    first_done = (started == CLIMB_PHASE_FIRST) & (ended != CLIMB_PHASE_FIRST)
+    second_done = (ended == CLIMB_PHASE_LEGS) & (
+        (started == CLIMB_PHASE_FIRST) | (started == CLIMB_PHASE_SECOND)
+    )
+    count = first_done.float() + second_done.float()
+    return count * HAND_PHASE_REWARD / env.step_dt
 
 
 def ladder_hold_completed(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:

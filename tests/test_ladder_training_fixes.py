@@ -45,6 +45,7 @@ def test_deadline_is_terminal_and_has_no_failure_reward() -> None:
         "detach_right",
         "ungrip_left",
         "ungrip_right",
+        "ladder_hand_phase",
         "ladder_hold",
         "ladder_hold_completed",
         "ladder_alive",

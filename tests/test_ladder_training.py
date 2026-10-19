@@ -89,6 +89,8 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     projected_legs_cross,
     projected_legs_cross_rails,
     side_cross,
+    HAND_PHASE_REWARD,
+    ladder_hand_phase,
     ladder_hold,
     ladder_hold_completed,
     ladder_ungrip_left,
@@ -311,6 +313,7 @@ def test_ladder_task_is_one_repeated_hold() -> None:
         "detach_right",
         "ungrip_left",
         "ungrip_right",
+        "ladder_hand_phase",
         "ladder_hold",
         "ladder_hold_completed",
         "ladder_alive",
@@ -340,6 +343,9 @@ def test_ladder_task_is_one_repeated_hold() -> None:
     assert cfg.rewards["ungrip_left"].weight == 1.0
     assert cfg.rewards["ungrip_right"].weight == 1.0
     assert UNGRIP_RATE == pytest.approx(0.3)
+    assert cfg.rewards["ladder_hand_phase"].func is ladder_hand_phase
+    assert cfg.rewards["ladder_hand_phase"].weight == 1.0
+    assert HAND_PHASE_REWARD == pytest.approx(4.0)
     assert cfg.rewards["ladder_hold"].func is ladder_hold
     assert cfg.rewards["ladder_hold_completed"].func is ladder_hold_completed
     assert cfg.rewards["ladder_alive"].func is ladder_alive
@@ -475,6 +481,35 @@ def test_a_fast_planted_window_waits_for_a_quiet_second() -> None:
     assert command.hold_count.item() == 0
     assert command.successes.item() == 1
     assert command.baseline_hand_rung.tolist() == [[5, 5]]
+
+
+def test_finishing_a_hand_phase_pays_four() -> None:
+    command = _quiet_ladder()
+    env = _reward_env(command)
+    command.attached[:] = True
+    command.baseline_hand_rung[:] = 4
+
+    def _finish(phase: int, held: tuple[int, int]) -> float:
+        command.just_completed[:] = False
+        command.held_rung[:] = torch.tensor([list(held)])
+        _set_climb_phase(command, phase)
+        command._reward_phase.copy_(command.climb_phase)
+        command._advance_climb_phase()
+        return ladder_hand_phase(env, "ladder").item()
+
+    assert _finish(CLIMB_PHASE_FIRST, (5, 4)) == pytest.approx(HAND_PHASE_REWARD / 0.02)
+    assert command.climb_phase.item() == CLIMB_PHASE_SECOND
+    assert _finish(CLIMB_PHASE_SECOND, (5, 5)) == pytest.approx(HAND_PHASE_REWARD / 0.02)
+    assert command.climb_phase.item() == CLIMB_PHASE_LEGS
+    assert _finish(CLIMB_PHASE_FIRST, (5, 5)) == pytest.approx(2.0 * HAND_PHASE_REWARD / 0.02)
+    assert command.climb_phase.item() == CLIMB_PHASE_LEGS
+
+    _set_climb_phase(command, CLIMB_PHASE_LEGS)
+    command.just_completed[:] = True
+    command._reward_phase.copy_(command.climb_phase)
+    command._advance_climb_phase()
+    assert command.climb_phase.item() == CLIMB_PHASE_FIRST
+    assert ladder_hand_phase(env, "ladder").item() == 0.0
 
 
 def test_success_pays_only_after_the_full_hold() -> None:
