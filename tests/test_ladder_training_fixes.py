@@ -37,12 +37,18 @@ def test_deadline_is_terminal_and_has_no_failure_reward() -> None:
     assert manager.time_outs.tolist() == [False, False, False]
     assert cfg.terminations["time_out"].time_out is False
     assert set(cfg.rewards) == {
-        "ladder_climb",
-        "ladder_ascent",
+        "ladder_climb_left_arm",
+        "ladder_climb_right_arm",
+        "ladder_climb_left_leg",
+        "ladder_climb_right_leg",
+        "ungrip_left",
+        "ungrip_right",
         "ladder_hold",
         "ladder_hold_completed",
         "ladder_alive",
         "leg_cross",
+        "side_cross",
+        "latch_pressure",
         "ladder_flight",
         "action_rate_l2",
     }

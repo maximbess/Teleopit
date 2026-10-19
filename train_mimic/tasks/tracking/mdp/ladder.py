@@ -285,6 +285,26 @@ class LadderClimbCommand(CommandTerm):
             dtype=torch.float32,
             device=self.device,
         )
+        rail_geom_ids = [
+            self._required_id(mujoco.mjtObj.mjOBJ_GEOM, name)
+            for name in SIDE_RAIL_NAMES
+        ]
+        rail_half_lengths: list[float] = []
+        for name, geom_id in zip(SIDE_RAIL_NAMES, rail_geom_ids):
+            if int(model.geom_type[geom_id]) != capsule_type:
+                raise ValueError(f'Ladder rail {name!r} must have type="capsule"')
+            half_length = float(model.geom_size[geom_id, 1])
+            if half_length <= 0.0:
+                raise ValueError(f"Ladder rail {name!r} has zero capsule length")
+            rail_half_lengths.append(half_length)
+        self._rail_geom_ids = torch.tensor(
+            rail_geom_ids, dtype=torch.long, device=self.device
+        )
+        self._rail_half_lengths = torch.tensor(
+            rail_half_lengths,
+            dtype=torch.float32,
+            device=self.device,
+        )
         self._foot_sole_offsets = torch.tensor(
             FOOT_SOLE_END_OFFSETS,
             dtype=torch.float32,
@@ -351,6 +371,14 @@ class LadderClimbCommand(CommandTerm):
         self.successes = torch.zeros(
             self.num_envs, dtype=torch.long, device=self.device
         )
+        # 0 left hand, 1 right hand, 2 legs. Rewards read ``_reward_phase``,
+        # which stays put until the next command update.
+        self.climb_phase = torch.zeros(
+            self.num_envs, dtype=torch.long, device=self.device
+        )
+        self._reward_phase = torch.zeros(
+            self.num_envs, dtype=torch.long, device=self.device
+        )
         self._climb_distance = torch.zeros(
             (self.num_envs, 4), dtype=torch.float32, device=self.device
         )
@@ -365,6 +393,16 @@ class LadderClimbCommand(CommandTerm):
         )
         self._leg_cross_step = -1
         self._leg_cross_rate = torch.zeros(
+            self.num_envs, dtype=torch.float32, device=self.device
+        )
+        self._side_cross_paid = torch.zeros(
+            self.num_envs, dtype=torch.float32, device=self.device
+        )
+        self._side_cross_step = -1
+        self._side_cross_rate = torch.zeros(
+            self.num_envs, dtype=torch.float32, device=self.device
+        )
+        self._latch_pressure = torch.zeros(
             self.num_envs, dtype=torch.float32, device=self.device
         )
         self._flight_paid = torch.zeros(
@@ -386,22 +424,7 @@ class LadderClimbCommand(CommandTerm):
         self._hold_count_prev = torch.zeros(
             self.num_envs, dtype=torch.long, device=self.device
         )
-        self._ascent_prev = torch.zeros(
-            self.num_envs, dtype=torch.float32, device=self.device
-        )
-        self._ascent_paid = torch.zeros(
-            self.num_envs, dtype=torch.float32, device=self.device
-        )
-        self._ascent_bank = torch.zeros(
-            self.num_envs, dtype=torch.float32, device=self.device
-        )
-        self._ascent_peak = torch.zeros(
-            self.num_envs, dtype=torch.float32, device=self.device
-        )
         self._robot_mass = self._robot_mass_kg()
-        self._ascent_valid = torch.zeros(
-            self.num_envs, dtype=torch.bool, device=self.device
-        )
         self._reward_cache_step = -1
         self._reward_cache: dict[str, torch.Tensor] | None = None
         self._pending_start_pose_init = torch.zeros(
@@ -433,6 +456,12 @@ class LadderClimbCommand(CommandTerm):
         )
         self.metrics["next_rung_hands"] = torch.zeros(self.num_envs, device=self.device)
         self.metrics["next_rung_feet"] = torch.zeros(self.num_envs, device=self.device)
+        self.metrics["left_hand_reached"] = torch.zeros(self.num_envs, device=self.device)
+        self.metrics["right_hand_reached"] = torch.zeros(
+            self.num_envs, device=self.device
+        )
+        for phase_name in ("left_hand_phase", "right_hand_phase", "legs_phase"):
+            self.metrics[phase_name] = torch.zeros(self.num_envs, device=self.device)
         for metric_name in (
             "stabilization_torso_speed",
             "stabilization_torso_angular_speed",
@@ -504,8 +533,7 @@ class LadderClimbCommand(CommandTerm):
         frame rotated into the world, a foot standing on a tread has a
         positive ``z`` component. Body weight is mass times the simulator
         gravity, so the same stance crosses this line when gravity changes.
-        This threshold banks ascent. The step reward uses
-        ``foot_load_fraction`` instead.
+        The step reward uses ``foot_load_fraction`` instead.
         """
 
         force = self._foot_contact_sensor.data.force
@@ -844,6 +872,17 @@ class LadderClimbCommand(CommandTerm):
             * dt
         )
         self.metrics["successes"] += self.just_completed.float()
+        latched = self.attached & (self.held_rung == self.baseline_hand_rung + 1)
+        phase = self._reward_phase
+        self.metrics["left_hand_reached"] += (
+            (phase == CLIMB_PHASE_LEFT) & latched[:, 0]
+        ).float()
+        self.metrics["right_hand_reached"] += (
+            (phase == CLIMB_PHASE_RIGHT) & latched[:, 1]
+        ).float()
+        self.metrics["left_hand_phase"] += (phase == CLIMB_PHASE_LEFT).float() * dt
+        self.metrics["right_hand_phase"] += (phase == CLIMB_PHASE_RIGHT).float() * dt
+        self.metrics["legs_phase"] += (phase == CLIMB_PHASE_LEGS).float() * dt
         self.metrics["supports_one_rung_higher"] += (
             self.supports_one_rung_higher.float() * dt
         )
@@ -872,17 +911,17 @@ class LadderClimbCommand(CommandTerm):
         self._climb_paid[env_ids] = 0.0
         self._leg_cross_paid[env_ids] = 0.0
         self._leg_cross_step = -1
+        self._side_cross_paid[env_ids] = 0.0
+        self._side_cross_step = -1
+        self._latch_pressure[env_ids] = 0.0
         self._flight_paid[env_ids] = 0.0
         self._flight_step = -1
         self._approach_paid[env_ids] = 0.0
         self._approach_peak[env_ids] = 0.0
         self._climb_valid[env_ids] = False
         self._hold_count_prev[env_ids] = 0
-        self._ascent_prev[env_ids] = 0.0
-        self._ascent_paid[env_ids] = 0.0
-        self._ascent_bank[env_ids] = 0.0
-        self._ascent_peak[env_ids] = 0.0
-        self._ascent_valid[env_ids] = False
+        self.climb_phase[env_ids] = CLIMB_PHASE_LEFT
+        self._reward_phase[env_ids] = CLIMB_PHASE_LEFT
         self._reward_cache_step = -1
         self.baseline_hand_rung[env_ids] = self.cfg.start_rung
         self.baseline_foot_rung[env_ids] = self.cfg.initial_foot_rung
@@ -912,6 +951,8 @@ class LadderClimbCommand(CommandTerm):
         self._detect_foot_rungs()
         self._advance_hold()
         self._release_over_speed_welds()
+        self._reward_phase.copy_(self.climb_phase)
+        self._advance_climb_phase()
 
     def _refresh_velocities(self, reset_ids: torch.Tensor) -> None:
         hand_pos = self.hand_pos_w
@@ -947,6 +988,8 @@ class LadderClimbCommand(CommandTerm):
         self.foot_rung[env_ids] = self.cfg.initial_foot_rung
         self.baseline_hand_rung[env_ids] = self.cfg.start_rung
         self.baseline_foot_rung[env_ids] = self.cfg.initial_foot_rung
+        self.climb_phase[env_ids] = CLIMB_PHASE_LEFT
+        self._reward_phase[env_ids] = CLIMB_PHASE_LEFT
         self.initialized[env_ids] = True
         self.hold_count[env_ids] = 0
         self._clear_quiet_window(env_ids)
@@ -986,7 +1029,10 @@ class LadderClimbCommand(CommandTerm):
 
         self.just_completed.zero_()
         placed = (
-            self.initialized & ~self.finished & self.supports_one_rung_higher
+            self.initialized
+            & ~self.finished
+            & self.supports_one_rung_higher
+            & (self.climb_phase == CLIMB_PHASE_LEGS)
         )
         torso_speed = torch.linalg.vector_norm(self.torso_com_vel_w, dim=-1)
         torso_ang = torch.linalg.vector_norm(self.torso_ang_vel_w, dim=-1)
@@ -1013,14 +1059,72 @@ class LadderClimbCommand(CommandTerm):
             self.successes[complete] >= self.cfg.successes_per_rollout
         )
 
+    def _advance_climb_phase(self) -> None:
+        """Move a rung from the left hand, to the right hand, then to the legs.
+
+        The reward for this step still uses ``_reward_phase``. A finished
+        hold returns to the left hand for the next rung.
+        """
+
+        latched = self.attached & (self.held_rung == self.baseline_hand_rung + 1)
+        phase = self.climb_phase
+        phase = torch.where(
+            (phase == CLIMB_PHASE_LEFT) & latched[:, 0],
+            torch.full_like(phase, CLIMB_PHASE_RIGHT),
+            phase,
+        )
+        phase = torch.where(
+            (phase == CLIMB_PHASE_RIGHT) & latched[:, 1],
+            torch.full_like(phase, CLIMB_PHASE_LEGS),
+            phase,
+        )
+        self.climb_phase = torch.where(
+            self.just_completed, torch.zeros_like(phase), phase
+        )
+
+    def _active_limbs(self) -> torch.Tensor:
+        """Which climb columns pay during ``_reward_phase``. Shape ``(E, 4)``."""
+
+        phase = self._reward_phase
+        left = phase == CLIMB_PHASE_LEFT
+        right = phase == CLIMB_PHASE_RIGHT
+        legs = phase == CLIMB_PHASE_LEGS
+        return torch.stack((left, right, legs, legs), dim=1)
+
+    def _measured_latch_pressure(self) -> torch.Tensor:
+        """How hard the latched body is loading the weld, in trip units.
+
+        1 is the over-speed release. Joint speed and pelvis spin each have
+        their own trip, and the pressure is the larger of the two ratios.
+        An open grip has pressure 0: there is no weld to break.
+        """
+
+        joint_limit = max(float(self.cfg.weld_release_joint_speed), 1.0e-8)
+        pelvis_limit = max(
+            float(self.cfg.weld_release_speed_factor)
+            * float(self.cfg.max_stabilization_body_angular_speed),
+            1.0e-8,
+        )
+        joint_rms = torch.sqrt(
+            torch.mean(torch.square(self.robot.data.joint_vel), dim=1)
+        )
+        pelvis_ang = torch.linalg.vector_norm(self.pelvis_ang_vel_w, dim=-1)
+        pressure = torch.maximum(joint_rms / joint_limit, pelvis_ang / pelvis_limit)
+        return torch.where(
+            self.attached.any(dim=1), pressure, torch.zeros_like(pressure)
+        )
+
     def _release_over_speed_welds(self) -> None:
         """Open both grips when the body is spinning hard enough to blow the weld.
 
         The check runs after the physics step, so the next step is unwelded.
         Joint speed uses an absolute trip. Pelvis spin uses the quiet-window
         limit times the release factor, so a quiet hold keeps its grips.
+        Pressure is recorded before the release, so the step that breaks the
+        weld still counts.
         """
 
+        self._latch_pressure = self._measured_latch_pressure()
         factor = float(self.cfg.weld_release_speed_factor)
         joint_speed_rms = torch.sqrt(
             torch.mean(torch.square(self.robot.data.joint_vel), dim=1)
@@ -1108,9 +1212,10 @@ class LadderClimbCommand(CommandTerm):
         return torch.zeros(self._climb_valid.shape[0], dtype=torch.bool)
 
     def reward_terms(self) -> dict[str, torch.Tensor]:
-        """Agent-visible climb, ascent, hold, and alive terms.
+        """Agent-visible climb, hold, and alive terms.
 
         Cached on ``common_step_counter`` so the reward terms share one sample.
+        The climb phase selects one hand, then the other, then both legs.
         """
 
         step_id = int(getattr(self._env, "common_step_counter", -1))
@@ -1125,13 +1230,12 @@ class LadderClimbCommand(CommandTerm):
         # hand in that rung's zone pays the same rate times grip progress.
         # A foot on the next tread pays 0.10 per second for the contact, plus
         # 1 per second times its share of body weight. That share stops at 0.35.
-        # Completion pays each planted limb the unpaid part of its cap.
+        # Completion pays each active planted limb the unpaid part of its cap.
         dt = float(self._env.step_dt)
         ending = self._episode_ending()
         keep_share = 1.0 - REFUND_FRACTION
         distance, lateral = self._limb_features()
         on_next = self._limbs_on_next_rung()
-        bearing = self.foot_bears_weight()
         load = self.foot_load_fraction().clamp(0.0, FOOT_LOAD_CAP)
         hand_scale = self._hand_contact_scale()
         contact_rate = torch.cat(
@@ -1188,7 +1292,14 @@ class LadderClimbCommand(CommandTerm):
             room,
             contact,
         )
-        climb = approach.sum(dim=-1) + contact.sum(dim=-1)
+        # Left hand, then right hand, then both legs. Motion outside the
+        # active phase is marked paid so it does not arrive as a lump later.
+        active = self._active_limbs()
+        approach = torch.where(active, approach, torch.zeros_like(approach))
+        contact = torch.where(active, contact, torch.zeros_like(contact))
+        # One column per limb: left arm, right arm, left leg, right leg.
+        # The reward manager reads each column on its own.
+        climb = approach + contact
         self._climb_distance.copy_(
             torch.where(hold_fresh.unsqueeze(1), distance, self._climb_distance)
         )
@@ -1213,61 +1324,24 @@ class LadderClimbCommand(CommandTerm):
             self.hold_count - self._hold_count_prev,
         )
         hold = HOLD_REWARD * hold_step.float() / dwell
+        hold = torch.where(
+            self._reward_phase == CLIMB_PHASE_LEGS,
+            hold,
+            torch.zeros_like(hold),
+        )
         self._hold_count_prev.copy_(self.hold_count)
-
-        height = self._torso_rungs_along_rail()
-        # The opening sample is the origin. u is the torso rise above it,
-        # floored at 0 and capped at 1. A loaded foot ratchets the bank up
-        # to u, and that part is never given back. The rest refunds in full
-        # while the episode continues, so a bob nets zero. On the terminal
-        # step the kept share of the net drop is paid once.
-        fresh = ~self._ascent_valid
-        origin = torch.where(fresh, height, self._ascent_prev)
-        unlocked = (height - origin).clamp(0.0, ASCENT_CAP)
-        loaded = (self.foot_support & bearing).any(dim=-1)
-        new_bank = torch.where(
-            fresh,
-            torch.zeros_like(self._ascent_bank),
-            torch.where(
-                loaded,
-                torch.maximum(self._ascent_bank, unlocked),
-                self._ascent_bank,
-            ),
-        )
-        displayed = torch.maximum(new_bank, unlocked)
-        ascent = torch.where(
-            fresh,
-            torch.zeros_like(displayed),
-            displayed - self._ascent_paid,
-        )
-        new_peak = torch.where(
-            fresh,
-            torch.zeros_like(displayed),
-            torch.maximum(self._ascent_peak, displayed),
-        )
-        ascent_kept = keep_share * (new_peak - displayed)
-        ascent = ascent + torch.where(
-            ending & ~fresh, ascent_kept, torch.zeros_like(ascent_kept)
-        )
-        self._ascent_paid.copy_(
-            torch.where(fresh, torch.zeros_like(self._ascent_paid), displayed)
-        )
-        self._ascent_bank.copy_(new_bank)
-        self._ascent_peak.copy_(new_peak)
-        self._ascent_prev.copy_(origin)
-        self._ascent_valid[:] = True
+        climb_total = climb.sum(dim=-1)
         elapsed = self._env.episode_length_buf.to(
-            device=climb.device, dtype=climb.dtype
+            device=climb_total.device, dtype=climb_total.dtype
         ) * dt
-        on_ground = self._ground_contact(climb)
+        on_ground = self._ground_contact(climb_total)
         alive = torch.where(
             (elapsed <= ALIVE_WINDOW_S) & ~on_ground,
-            torch.full_like(climb, ALIVE_RATE),
-            torch.zeros_like(climb),
+            torch.full_like(climb_total, ALIVE_RATE),
+            torch.zeros_like(climb_total),
         )
         self._reward_cache = {
             "climb": climb,
-            "ascent": ascent,
             "hold": hold,
             "alive": alive,
         }
@@ -1415,6 +1489,47 @@ class LadderClimbCommand(CommandTerm):
         rung_axis = _gather_rung_centers(matrices[..., :, 2], start).squeeze(1)
         landing_center = _gather_rung_centers(centers, landing).squeeze(1)
         return ladder_face_axes(origin, landing_center, rung_axis)
+
+    def bottom_rung_plane(
+        self,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Face spanned by the two lowest rungs.
+
+        Returns the lowest center, the rung axis, the climb axis, and a mask
+        that is true when those two rungs do not define a plane. The rails of
+        the climbing face lie in this plane.
+        """
+
+        if self.num_rungs < 2:
+            origin = torch.zeros(self.num_envs, 3, device=self.device)
+            lateral = torch.zeros_like(origin)
+            lateral[:, 1] = 1.0
+            climb = torch.zeros_like(origin)
+            climb[:, 2] = 1.0
+            degenerate = torch.ones(
+                self.num_envs, dtype=torch.bool, device=self.device
+            )
+            return origin, lateral, climb, degenerate
+        data = self._env.sim.data
+        centers = data.site_xpos[:, self._rung_site_ids]
+        matrices = _as_rotation_matrix(data.site_xmat[:, self._rung_site_ids])
+        origin = centers[:, 0]
+        rung_axis = matrices[:, 0, :, 2]
+        return ladder_face_axes(origin, centers[:, 1], rung_axis)
+
+    def rail_endpoints(self) -> tuple[torch.Tensor, torch.Tensor]:
+        """World endpoints of the climbing-face side rails.
+
+        Each result has shape ``(num_envs, num_rails, 3)``. The capsule axis
+        is the geom's local z, and the stored size is the half-length.
+        """
+
+        data = self._env.sim.data
+        centers = data.geom_xpos[:, self._rail_geom_ids]
+        matrices = _as_rotation_matrix(data.geom_xmat[:, self._rail_geom_ids])
+        axes = matrices[..., :, 2]
+        half_lengths = self._rail_half_lengths.view(1, -1, 1)
+        return centers - axes * half_lengths, centers + axes * half_lengths
 
     def _axis_distances(self, points_w: torch.Tensor) -> torch.Tensor:
         """Distance from each point to each rung axis.
@@ -1579,12 +1694,18 @@ FOOT_SOLE_END_OFFSETS = (
     (0.092, 0.0, 0.0),
 )
 HOLD_REWARD = 0.5
+# A rung is three phases: left hand, right hand, then both legs.
+CLIMB_PHASE_LEFT = 0
+CLIMB_PHASE_RIGHT = 1
+CLIMB_PHASE_LEGS = 2
+# Per hand after that hand's phase has ended. Progress 1 pays 0. Progress 0
+# pays -0.3 per second. The manager multiplies by dt.
+UNGRIP_RATE = 0.3
 # Off the ground. The manager multiplies by dt. The rate is 1 per second
 # until the episode has lasted 2 s, then 0. The ground-contact step pays 0.
 ALIVE_RATE = 1.0
 ALIVE_WINDOW_S = 2.0
-# Share of body weight a foot must carry before it banks ascent. Weight is
-# mass times the live simulator gravity.
+# Share of body weight. Weight is mass times the live simulator gravity.
 FOOT_WEIGHT_FRACTION = 0.20
 # Flat rate for a foot standing on the next tread, paid on top of the load
 # term so a light contact is worth taking before the foot bears weight.
@@ -1600,16 +1721,23 @@ FOOT_LOAD_CAP = 0.35
 # Completion pays the unpaid remainder of this cap, then clears it.
 CLIMB_CONTACT_RATE = 0.25
 CLIMB_CONTACT_CAP = 3.0
-# One rung of torso height above the reset sample.
-ASCENT_CAP = 1.0
-# Share of an unbanked drop that is given back. 1 gives it all back, 0 keeps
-# it. Applied once, to the net drop from the highest point, on the terminal
-# step. Banked ascent is not included.
+# Share of an unbanked approach drop that is given back. 1 gives it all back,
+# 0 keeps it. Applied once, to the net drop from the highest point, on the
+# terminal step.
 REFUND_FRACTION = 0.5
 # Any projected crossing, wherever it sits on the bones. The manager
 # multiplies by dt with weight 1. The episode integral stops at -1.2.
 LEG_CROSS_RATE = -0.5
 LEG_CROSS_TOTAL = -1.2
+# A projected crossing of a leg and a climbing-face rail. Four times the
+# leg-cross rate and budget. The manager multiplies by dt with weight 1.
+SIDE_CROSS_RATE = 4.0 * LEG_CROSS_RATE
+SIDE_CROSS_TOTAL = 4.0 * LEG_CROSS_TOTAL
+# Latch load in trip units. Half the release speed is free, and the slope
+# there is zero. The rate is this coefficient times the squared excess, so
+# the trip itself (excess 0.5) costs 8 per second. The manager multiplies by dt.
+LATCH_PRESSURE_ONSET = 0.5
+LATCH_PRESSURE_RATE = -32.0
 # Two or more limbs off the climb. The manager multiplies by dt. The episode
 # integral stops at -1, so a long fall costs the same as one second.
 FLIGHT_RATE = -1.0
@@ -1622,6 +1750,12 @@ LEG_LINK_NAMES = (
     "right_hip_roll_link",
     "right_knee_link",
     "right_ankle_roll_link",
+)
+# Climbing-face stiles. The back face shares these lateral lines once
+# projected, so it does not add crossings.
+SIDE_RAIL_NAMES = (
+    "left_ladder_rail_01",
+    "left_ladder_rail_02",
 )
 
 
@@ -1733,8 +1867,48 @@ def foot_tread_features(
     return distance, torch.zeros_like(distance)
 
 
+def _ladder_climb_limb(
+    env: ManagerBasedRlEnv, command_name: str, limb: int
+) -> torch.Tensor:
+    """One column of the climb account, divided by ``dt``.
+
+    Columns are left arm, right arm, left leg, right leg. ``reward_terms``
+    is cached on the step counter, so reading every column updates the
+    account once.
+    """
+
+    command = _ladder_command(env, command_name)
+    return command.reward_terms()["climb"][:, limb] / env.step_dt
+
+
+def ladder_climb_left_arm(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Left-hand approach and contact. The four limb terms sum to ``ladder_climb``."""
+
+    return _ladder_climb_limb(env, command_name, 0)
+
+
+def ladder_climb_right_arm(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Right-hand approach and contact. The four limb terms sum to ``ladder_climb``."""
+
+    return _ladder_climb_limb(env, command_name, 1)
+
+
+def ladder_climb_left_leg(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Left-foot approach and contact. The four limb terms sum to ``ladder_climb``."""
+
+    return _ladder_climb_limb(env, command_name, 2)
+
+
+def ladder_climb_right_leg(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Right-foot approach and contact. The four limb terms sum to ``ladder_climb``."""
+
+    return _ladder_climb_limb(env, command_name, 3)
+
+
 def ladder_climb(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
-    """Approach toward the next rung, plus contact time on that rung.
+    """Sum of the four limb climb terms.
+
+    Approach toward the next rung, plus contact time on that rung.
 
     A hand's distance is the remaining gap along the rail. A foot's distance
     is the rung-to-rung gap of the sole point furthest behind the standing
@@ -1766,23 +1940,35 @@ def ladder_climb(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     """
 
     command = _ladder_command(env, command_name)
-    return command.reward_terms()["climb"] / env.step_dt
+    return command.reward_terms()["climb"].sum(dim=-1) / env.step_dt
 
 
-def ladder_ascent(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
-    """Torso height above the reset sample, capped at one rung.
+def _hand_ungrip(env: ManagerBasedRlEnv, command_name: str, hand: int) -> torch.Tensor:
+    """``(progress - 1) * 0.3`` per second after that hand's phase has ended.
 
-    The origin is the torso coordinate on the first sample after a reset.
-    ``u = clamp(height - origin, 0, 1)``, in rung pitches. While a foot is
-    on a tread and carries 20% of the robot's weight, the bank ratchets up
-    to ``u`` and is kept in full. Each step pays the change above that bank,
-    so a drop gives the unbanked part back and a bob nets zero. On the last
-    step, ``1 - REFUND_FRACTION`` of the net unbanked drop is returned, once.
-    ``reward_terms`` stores that amount, and this divides by ``dt``.
+    A closed weld pays 0. A fully open hand pays -0.3 per second. The left
+    hand starts once the right-hand phase begins. The right hand starts with
+    the legs. The manager multiplies by ``dt``.
     """
 
     command = _ladder_command(env, command_name)
-    return command.reward_terms()["ascent"] / env.step_dt
+    phase = command._reward_phase
+    started = CLIMB_PHASE_RIGHT if hand == 0 else CLIMB_PHASE_LEGS
+    active = phase >= started
+    rate = (command.grip_progress[:, hand] - 1.0) * UNGRIP_RATE
+    return torch.where(active, rate, torch.zeros_like(rate))
+
+
+def ladder_ungrip_left(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Left-hand ungrip cost. Zero during the left-hand phase."""
+
+    return _hand_ungrip(env, command_name, 0)
+
+
+def ladder_ungrip_right(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Right-hand ungrip cost. Zero until the legs phase."""
+
+    return _hand_ungrip(env, command_name, 1)
 
 
 def ladder_hold(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
@@ -1857,6 +2043,28 @@ def _segments_intersect_2d(
     )
 
 
+def _project_onto_face(
+    points: torch.Tensor,
+    origin: torch.Tensor,
+    lateral: torch.Tensor,
+    climb: torch.Tensor,
+) -> torch.Tensor:
+    """Drop the coordinate out of the ladder face.
+
+    ``points`` has shape ``(E, N, 3)``. The result is ``(E, N, 2)`` in
+    ``(lateral, climb)`` order.
+    """
+
+    delta = points - origin.unsqueeze(1)
+    return torch.stack(
+        (
+            (delta * lateral.unsqueeze(1)).sum(dim=-1),
+            (delta * climb.unsqueeze(1)).sum(dim=-1),
+        ),
+        dim=-1,
+    )
+
+
 def projected_legs_cross(
     link_pos: torch.Tensor,
     origin: torch.Tensor,
@@ -1870,14 +2078,7 @@ def projected_legs_cross(
     dropped, so ankles may pass close in depth without a cost.
     """
 
-    delta = link_pos - origin.unsqueeze(1)
-    projected = torch.stack(
-        (
-            (delta * lateral.unsqueeze(1)).sum(dim=-1),
-            (delta * climb.unsqueeze(1)).sum(dim=-1),
-        ),
-        dim=-1,
-    )
+    projected = _project_onto_face(link_pos, origin, lateral, climb)
     left_thigh = (projected[:, 0], projected[:, 1])
     left_shin = (projected[:, 1], projected[:, 2])
     right_thigh = (projected[:, 3], projected[:, 4])
@@ -1889,6 +2090,38 @@ def projected_legs_cross(
         _segments_intersect_2d(*left_shin, *right_shin),
     )
     return torch.stack(pairs, dim=0).any(dim=0)
+
+
+def projected_legs_cross_rails(
+    link_pos: torch.Tensor,
+    rail_start: torch.Tensor,
+    rail_end: torch.Tensor,
+    origin: torch.Tensor,
+    lateral: torch.Tensor,
+    climb: torch.Tensor,
+) -> torch.Tensor:
+    """Whether any thigh or shin crosses a side rail on the ladder face.
+
+    ``link_pos`` has shape ``(E, 6, 3)``. ``rail_start`` and ``rail_end`` have
+    shape ``(E, R, 3)``. A crossing near either end counts. Parallel
+    projections do not. Coordinates out of the face are dropped.
+    """
+
+    projected = _project_onto_face(link_pos, origin, lateral, climb)
+    rails = _project_onto_face(rail_start, origin, lateral, climb)
+    rail_tips = _project_onto_face(rail_end, origin, lateral, climb)
+    segments = (
+        (projected[:, 0], projected[:, 1]),
+        (projected[:, 1], projected[:, 2]),
+        (projected[:, 3], projected[:, 4]),
+        (projected[:, 4], projected[:, 5]),
+    )
+    hits = [
+        _segments_intersect_2d(start, end, rails[:, index], rail_tips[:, index])
+        for start, end in segments
+        for index in range(rail_start.shape[1])
+    ]
+    return torch.stack(hits, dim=0).any(dim=0)
 
 
 def _leg_link_positions(env: ManagerBasedRlEnv) -> torch.Tensor:
@@ -1930,6 +2163,59 @@ def leg_cross(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     command._leg_cross_step = step_id
     command._leg_cross_rate = step_cost / dt
     return command._leg_cross_rate
+
+
+def side_cross(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Constant rate while a projected leg crosses a side rail.
+
+    The plane is the one through the two lowest rungs. The manager scales by
+    ``dt`` and the weight is 1. The integral stops at ``SIDE_CROSS_TOTAL``
+    (-4.8), four times the leg-cross budget. A later call in the same step
+    returns the same rate and does not charge twice.
+    """
+
+    command = _ladder_command(env, command_name)
+    step_id = int(getattr(env, "common_step_counter", -1))
+    if command._side_cross_step == step_id:
+        return command._side_cross_rate
+
+    origin, lateral, climb, degenerate = command.bottom_rung_plane()
+    rail_start, rail_end = command.rail_endpoints()
+    crossing = projected_legs_cross_rails(
+        _leg_link_positions(env),
+        rail_start,
+        rail_end,
+        origin,
+        lateral,
+        climb,
+    )
+    crossing = crossing & ~degenerate
+    rate = torch.where(
+        crossing,
+        torch.full_like(command._side_cross_paid, SIDE_CROSS_RATE),
+        torch.zeros_like(command._side_cross_paid),
+    )
+    dt = float(env.step_dt)
+    step_cost = torch.maximum(rate * dt, SIDE_CROSS_TOTAL - command._side_cross_paid)
+    command._side_cross_paid = command._side_cross_paid + step_cost
+    command._side_cross_step = step_id
+    command._side_cross_rate = step_cost / dt
+    return command._side_cross_rate
+
+
+def latch_pressure(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Squared excess over half the speed that breaks a closed weld.
+
+    Pressure is measured in units of the over-speed trip and stored before
+    that trip opens the weld. At and below half the trip the rate is 0 and
+    the slope is 0. At the trip the excess is 0.5 and the rate is -8 per
+    second. An intentional grip release is not load. The manager scales by
+    ``dt`` and the weight is 1.
+    """
+
+    command = _ladder_command(env, command_name)
+    excess = (command._latch_pressure - LATCH_PRESSURE_ONSET).clamp(min=0.0)
+    return excess.square() * LATCH_PRESSURE_RATE
 
 
 def ladder_flight(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
@@ -1984,7 +2270,8 @@ def ladder_hold_completed(env: ManagerBasedRlEnv, command_name: str) -> torch.Te
     """
 
     command = _ladder_command(env, command_name)
-    return command.just_completed.float() / env.step_dt
+    done = command.just_completed & (command._reward_phase == CLIMB_PHASE_LEGS)
+    return done.float() / env.step_dt
 
 
 def ladder_success(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:

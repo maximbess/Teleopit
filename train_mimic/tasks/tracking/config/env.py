@@ -806,19 +806,42 @@ def make_g1_ladder_rl_env_cfg(
         # then the next rung starts a new one.
         # On the last
         # step, half of each limb's net approach drop is kept.
-        "ladder_climb": RewardTermCfg(
-            func=mdp.ladder_climb,
+        # Each limb is its own term. A rung pays the left hand, then the
+        # right hand, then both legs. The other columns are zero.
+        "ladder_climb_left_arm": RewardTermCfg(
+            func=mdp.ladder_climb_left_arm,
             weight=1.0,
             params={"command_name": "ladder"},
         ),
-        # The change in clamp(torso height above the reset sample, 0, 1).
-        # A loaded foot banks its height. On the last step, half of the net
-        # unbanked drop is kept. One rung above the reset height is +1.
-        "ladder_ascent": RewardTermCfg(
-            func=mdp.ladder_ascent,
+        "ladder_climb_right_arm": RewardTermCfg(
+            func=mdp.ladder_climb_right_arm,
             weight=1.0,
             params={"command_name": "ladder"},
         ),
+        "ladder_climb_left_leg": RewardTermCfg(
+            func=mdp.ladder_climb_left_leg,
+            weight=1.0,
+            params={"command_name": "ladder"},
+        ),
+        "ladder_climb_right_leg": RewardTermCfg(
+            func=mdp.ladder_climb_right_leg,
+            weight=1.0,
+            params={"command_name": "ladder"},
+        ),
+        # After a hand's phase, (progress - 1) * 0.3 per second. A closed
+        # weld is 0. A fully open hand is -0.3 per second.
+        "ungrip_left": RewardTermCfg(
+            func=mdp.ladder_ungrip_left,
+            weight=1.0,
+            params={"command_name": "ladder"},
+        ),
+        "ungrip_right": RewardTermCfg(
+            func=mdp.ladder_ungrip_right,
+            weight=1.0,
+            params={"command_name": "ladder"},
+        ),
+        # The hold potential and the completion impulse run only in the
+        # legs phase.
         "ladder_hold": RewardTermCfg(
             func=mdp.ladder_hold,
             weight=1.0,
@@ -842,6 +865,23 @@ def make_g1_ladder_rl_env_cfg(
         # depth without counting as a cross.
         "leg_cross": RewardTermCfg(
             func=mdp.leg_cross,
+            weight=1.0,
+            params={"command_name": "ladder"},
+        ),
+        # A thigh or shin crossing a climbing-face rail costs 2 per second,
+        # four times leg_cross, and the episode stops at -4.8. The plane is
+        # the one through the two lowest rungs.
+        "side_cross": RewardTermCfg(
+            func=mdp.side_cross,
+            weight=1.0,
+            params={"command_name": "ladder"},
+        ),
+        # Loading a closed weld past half the release speed. The cost is 32
+        # times the squared excess per second, so the trip itself is -8 per
+        # second and the slope is zero at the cap. Opening the grip on
+        # purpose does not pay.
+        "latch_pressure": RewardTermCfg(
+            func=mdp.latch_pressure,
             weight=1.0,
             params={"command_name": "ladder"},
         ),
