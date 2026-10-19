@@ -5,6 +5,7 @@ from types import MethodType
 from typing import TYPE_CHECKING, cast
 
 import mujoco
+import numpy as np
 import torch
 import torch.nn.functional as F
 from mjlab.managers import CommandTerm, CommandTermCfg
@@ -14,6 +15,19 @@ from mjlab.sensor import ContactSensor
 
 if TYPE_CHECKING:
     from mjlab.envs import ManagerBasedRlEnv
+
+
+def grip_marker_rgba(latched: bool, progress: float) -> tuple[float, float, float, float]:
+    """Red while the weld holds, blue while the hand is open.
+
+    Opacity follows grip progress from 10% at 0 to 100% at 1.
+    """
+
+    clamped = min(max(float(progress), 0.0), 1.0)
+    alpha = 0.10 + 0.90 * clamped
+    if latched:
+        return (1.0, 0.0, 0.0, alpha)
+    return (0.0, 0.0, 1.0, alpha)
 
 
 def _as_rotation_matrix(value: torch.Tensor) -> torch.Tensor:
@@ -152,6 +166,8 @@ class LadderClimbCommand(CommandTerm):
             )
         if cfg.successes_per_rollout <= 0:
             raise ValueError("successes_per_rollout must be > 0")
+        if cfg.lead_hand not in ("left", "right"):
+            raise ValueError("lead_hand must be 'left' or 'right'")
         if cfg.attach_distance <= 0.0:
             raise ValueError("attach_distance must be > 0")
         if cfg.max_attach_speed < 0.0:
@@ -270,6 +286,21 @@ class LadderClimbCommand(CommandTerm):
         self._hand_site_ids = torch.tensor(
             hand_site_ids, dtype=torch.long, device=self.device
         )
+        self._hand_marker_radius = float(model.site_size[hand_site_ids[0], 0])
+        self._hand_site_body_ids = np.asarray(
+            [int(model.site_bodyid[site_id]) for site_id in hand_site_ids],
+            dtype=np.int32,
+        )
+        self._hand_site_local_pos = np.asarray(
+            [model.site_pos[site_id] for site_id in hand_site_ids],
+            dtype=np.float64,
+        )
+        self._grip_marker_handle = None
+        self._grip_marker_count = 0
+        self._grip_marker_vertices: np.ndarray | None = None
+        self._grip_marker_faces: np.ndarray | None = None
+        self._grip_marker_latched: np.ndarray | None = None
+        self._grip_marker_progress: np.ndarray | None = None
         self._foot_site_ids = torch.tensor(
             foot_site_ids, dtype=torch.long, device=self.device
         )
@@ -371,8 +402,10 @@ class LadderClimbCommand(CommandTerm):
         self.successes = torch.zeros(
             self.num_envs, dtype=torch.long, device=self.device
         )
-        # 0 left hand, 1 right hand, 2 legs. Rewards read ``_reward_phase``,
-        # which stays put until the next command update.
+        # 0 first hand, 1 second hand, 2 legs. ``lead_hand`` chooses which
+        # hand is first. Rewards read ``_reward_phase``.
+        self._lead_hand = 0 if cfg.lead_hand == "left" else 1
+        self._trail_hand = 1 - self._lead_hand
         self.climb_phase = torch.zeros(
             self.num_envs, dtype=torch.long, device=self.device
         )
@@ -456,11 +489,11 @@ class LadderClimbCommand(CommandTerm):
         )
         self.metrics["next_rung_hands"] = torch.zeros(self.num_envs, device=self.device)
         self.metrics["next_rung_feet"] = torch.zeros(self.num_envs, device=self.device)
-        self.metrics["left_hand_reached"] = torch.zeros(self.num_envs, device=self.device)
-        self.metrics["right_hand_reached"] = torch.zeros(
+        self.metrics["first_hand_reached"] = torch.zeros(self.num_envs, device=self.device)
+        self.metrics["second_hand_reached"] = torch.zeros(
             self.num_envs, device=self.device
         )
-        for phase_name in ("left_hand_phase", "right_hand_phase", "legs_phase"):
+        for phase_name in ("first_hand_phase", "second_hand_phase", "legs_phase"):
             self.metrics[phase_name] = torch.zeros(self.num_envs, device=self.device)
         for metric_name in (
             "stabilization_torso_speed",
@@ -874,14 +907,14 @@ class LadderClimbCommand(CommandTerm):
         self.metrics["successes"] += self.just_completed.float()
         latched = self.attached & (self.held_rung == self.baseline_hand_rung + 1)
         phase = self._reward_phase
-        self.metrics["left_hand_reached"] += (
-            (phase == CLIMB_PHASE_LEFT) & latched[:, 0]
+        self.metrics["first_hand_reached"] += (
+            (phase == CLIMB_PHASE_FIRST) & latched[:, self._lead_hand]
         ).float()
-        self.metrics["right_hand_reached"] += (
-            (phase == CLIMB_PHASE_RIGHT) & latched[:, 1]
+        self.metrics["second_hand_reached"] += (
+            (phase == CLIMB_PHASE_SECOND) & latched[:, self._trail_hand]
         ).float()
-        self.metrics["left_hand_phase"] += (phase == CLIMB_PHASE_LEFT).float() * dt
-        self.metrics["right_hand_phase"] += (phase == CLIMB_PHASE_RIGHT).float() * dt
+        self.metrics["first_hand_phase"] += (phase == CLIMB_PHASE_FIRST).float() * dt
+        self.metrics["second_hand_phase"] += (phase == CLIMB_PHASE_SECOND).float() * dt
         self.metrics["legs_phase"] += (phase == CLIMB_PHASE_LEGS).float() * dt
         self.metrics["supports_one_rung_higher"] += (
             self.supports_one_rung_higher.float() * dt
@@ -920,8 +953,8 @@ class LadderClimbCommand(CommandTerm):
         self._approach_peak[env_ids] = 0.0
         self._climb_valid[env_ids] = False
         self._hold_count_prev[env_ids] = 0
-        self.climb_phase[env_ids] = CLIMB_PHASE_LEFT
-        self._reward_phase[env_ids] = CLIMB_PHASE_LEFT
+        self.climb_phase[env_ids] = CLIMB_PHASE_FIRST
+        self._reward_phase[env_ids] = CLIMB_PHASE_FIRST
         self._reward_cache_step = -1
         self.baseline_hand_rung[env_ids] = self.cfg.start_rung
         self.baseline_foot_rung[env_ids] = self.cfg.initial_foot_rung
@@ -988,8 +1021,8 @@ class LadderClimbCommand(CommandTerm):
         self.foot_rung[env_ids] = self.cfg.initial_foot_rung
         self.baseline_hand_rung[env_ids] = self.cfg.start_rung
         self.baseline_foot_rung[env_ids] = self.cfg.initial_foot_rung
-        self.climb_phase[env_ids] = CLIMB_PHASE_LEFT
-        self._reward_phase[env_ids] = CLIMB_PHASE_LEFT
+        self.climb_phase[env_ids] = CLIMB_PHASE_FIRST
+        self._reward_phase[env_ids] = CLIMB_PHASE_FIRST
         self.initialized[env_ids] = True
         self.hold_count[env_ids] = 0
         self._clear_quiet_window(env_ids)
@@ -1060,21 +1093,21 @@ class LadderClimbCommand(CommandTerm):
         )
 
     def _advance_climb_phase(self) -> None:
-        """Move a rung from the left hand, to the right hand, then to the legs.
+        """Move a rung from the lead hand, to the other hand, then to the legs.
 
         The reward for this step still uses ``_reward_phase``. A finished
-        hold returns to the left hand for the next rung.
+        hold returns to the lead hand for the next rung.
         """
 
         latched = self.attached & (self.held_rung == self.baseline_hand_rung + 1)
         phase = self.climb_phase
         phase = torch.where(
-            (phase == CLIMB_PHASE_LEFT) & latched[:, 0],
-            torch.full_like(phase, CLIMB_PHASE_RIGHT),
+            (phase == CLIMB_PHASE_FIRST) & latched[:, self._lead_hand],
+            torch.full_like(phase, CLIMB_PHASE_SECOND),
             phase,
         )
         phase = torch.where(
-            (phase == CLIMB_PHASE_RIGHT) & latched[:, 1],
+            (phase == CLIMB_PHASE_SECOND) & latched[:, self._trail_hand],
             torch.full_like(phase, CLIMB_PHASE_LEGS),
             phase,
         )
@@ -1082,13 +1115,33 @@ class LadderClimbCommand(CommandTerm):
             self.just_completed, torch.zeros_like(phase), phase
         )
 
+    def _climbing_hand(self) -> torch.Tensor:
+        """Hand index earning the climb, or -1 during the legs phase."""
+
+        phase = self._reward_phase
+        hand = torch.full_like(phase, -1)
+        hand = torch.where(
+            phase == CLIMB_PHASE_FIRST,
+            torch.full_like(phase, self._lead_hand),
+            hand,
+        )
+        return torch.where(
+            phase == CLIMB_PHASE_SECOND,
+            torch.full_like(phase, self._trail_hand),
+            hand,
+        )
+
     def _active_limbs(self) -> torch.Tensor:
         """Which climb columns pay during ``_reward_phase``. Shape ``(E, 4)``."""
 
         phase = self._reward_phase
-        left = phase == CLIMB_PHASE_LEFT
-        right = phase == CLIMB_PHASE_RIGHT
+        on_first = phase == CLIMB_PHASE_FIRST
+        on_second = phase == CLIMB_PHASE_SECOND
         legs = phase == CLIMB_PHASE_LEGS
+        if self._lead_hand == 0:
+            left, right = on_first, on_second
+        else:
+            left, right = on_second, on_first
         return torch.stack((left, right, legs, legs), dim=1)
 
     def _measured_latch_pressure(self) -> torch.Tensor:
@@ -1292,8 +1345,8 @@ class LadderClimbCommand(CommandTerm):
             room,
             contact,
         )
-        # Left hand, then right hand, then both legs. Motion outside the
-        # active phase is marked paid so it does not arrive as a lump later.
+        # The lead hand, then the other hand, then both legs. Motion outside
+        # the active phase is marked paid so it does not arrive as a lump later.
         active = self._active_limbs()
         approach = torch.where(active, approach, torch.zeros_like(approach))
         contact = torch.where(active, contact, torch.zeros_like(contact))
@@ -1559,6 +1612,166 @@ class LadderClimbCommand(CommandTerm):
         chosen = distances.gather(1, indices[:, None]).squeeze(1)
         return indices, chosen
 
+    def _debug_vis_impl(self, visualizer) -> None:
+        """Paint a sphere on each grip site from the latch and its progress."""
+
+        self._grip_marker_latched = self.attached.detach().cpu().numpy()
+        self._grip_marker_progress = self.grip_progress.detach().cpu().numpy()
+        if hasattr(visualizer, "server"):
+            self._install_viser_grip_markers(visualizer)
+            return
+
+        env_indices = list(visualizer.get_env_indices(self.num_envs))
+        radius = self._hand_marker_radius
+        for batch in env_indices:
+            for hand_id in (0, 1):
+                rgba = grip_marker_rgba(
+                    bool(self.attached[batch, hand_id].item()),
+                    float(self.grip_progress[batch, hand_id].item()),
+                )
+                visualizer.add_sphere(
+                    self.hand_pos_w[batch, hand_id].detach().cpu().numpy(),
+                    radius,
+                    rgba,
+                )
+
+    def _install_viser_grip_markers(self, visualizer) -> None:
+        """Redraw the spheres in the same update that places the robot.
+
+        The viewer subtracts the tracked body position from every mesh. Doing
+        that here, after the scene offset is chosen, keeps the spheres on the
+        hands. The viewer's own debug spheres share one opacity.
+        """
+
+        if getattr(visualizer, "_grip_marker_hook_installed", False):
+            return
+        original = visualizer._update_visualization_locked
+
+        def _update_visualization_locked(*args, **kwargs):
+            original(*args, **kwargs)
+            body_xpos = args[0] if args else kwargs["body_xpos"]
+            body_xmat = args[1] if len(args) > 1 else kwargs["body_xmat"]
+            scene_offset = args[5] if len(args) > 5 else kwargs["scene_offset"]
+            self._paint_viser_grip_markers(
+                visualizer, body_xpos, body_xmat, scene_offset
+            )
+
+        visualizer._update_visualization_locked = _update_visualization_locked
+        visualizer._grip_marker_hook_installed = True
+
+    def _paint_viser_grip_markers(
+        self,
+        visualizer,
+        body_xpos: np.ndarray,
+        body_xmat: np.ndarray,
+        scene_offset: np.ndarray,
+    ) -> None:
+        enabled = (
+            self.cfg.debug_vis
+            and self._debug_vis_enabled
+            and getattr(visualizer, "debug_visualization_enabled", True)
+        )
+        handle = self._grip_marker_handle
+        if not enabled:
+            if handle is not None:
+                handle.visible = False
+            return
+
+        env_indices = list(visualizer.get_env_indices(body_xpos.shape[0]))
+        if not env_indices:
+            if handle is not None:
+                handle.visible = False
+            return
+
+        latched = self._grip_marker_latched
+        progress = self._grip_marker_progress
+        if latched is None or progress is None:
+            return
+
+        offset = np.asarray(scene_offset, dtype=np.float64)
+        positions: list[np.ndarray] = []
+        colors: list[tuple[int, int, int]] = []
+        opacities: list[float] = []
+        for batch in env_indices:
+            for hand_id in (0, 1):
+                body_id = int(self._hand_site_body_ids[hand_id])
+                rotation = np.asarray(body_xmat[batch, body_id], dtype=np.float64)
+                if rotation.shape == (9,):
+                    rotation = rotation.reshape(3, 3)
+                center = (
+                    np.asarray(body_xpos[batch, body_id], dtype=np.float64)
+                    + rotation @ self._hand_site_local_pos[hand_id]
+                    + offset
+                )
+                rgba = grip_marker_rgba(
+                    bool(latched[batch, hand_id]),
+                    float(progress[batch, hand_id]),
+                )
+                positions.append(center.astype(np.float32))
+                colors.append(
+                    tuple(int(round(channel * 255.0)) for channel in rgba[:3])
+                )
+                opacities.append(rgba[3])
+        self._sync_viser_grip_markers(visualizer, positions, colors, opacities)
+        if self._grip_marker_handle is not None:
+            self._grip_marker_handle.visible = True
+
+    def _sync_viser_grip_markers(
+        self,
+        visualizer,
+        positions: list[np.ndarray],
+        colors: list[tuple[int, int, int]],
+        opacities: list[float],
+    ) -> None:
+        """One viser batch so each hand keeps its own color and opacity.
+
+        The viewer's debug spheres share a single opacity, and that value is
+        only applied when the batch is created.
+        """
+
+        count = len(positions)
+        pos = np.stack(positions).astype(np.float32)
+        cols = np.asarray(colors, dtype=np.uint8)
+        alphas = np.asarray(opacities, dtype=np.float32)
+        quats = np.tile(np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32), (count, 1))
+        scales = np.full((count, 3), self._hand_marker_radius, dtype=np.float32)
+        handle = self._grip_marker_handle
+        if handle is None or self._grip_marker_count != count:
+            if handle is not None:
+                handle.remove()
+            vertices, faces = self._grip_marker_mesh()
+            self._grip_marker_handle = visualizer.server.scene.add_batched_meshes_simple(
+                "/debug/grip_markers",
+                vertices,
+                faces,
+                batched_wxyzs=quats,
+                batched_positions=pos,
+                batched_scales=scales,
+                batched_colors=cols,
+                batched_opacities=alphas,
+                opacity=1.0,
+                side="double",
+                cast_shadow=False,
+                receive_shadow=False,
+                lod="off",
+            )
+            self._grip_marker_count = count
+            return
+        handle.batched_positions = pos
+        handle.batched_wxyzs = quats
+        handle.batched_scales = scales
+        handle.batched_colors = cols
+        handle.batched_opacities = alphas
+
+    def _grip_marker_mesh(self) -> tuple[np.ndarray, np.ndarray]:
+        if self._grip_marker_vertices is None or self._grip_marker_faces is None:
+            import trimesh
+
+            sphere = trimesh.creation.icosphere(subdivisions=2, radius=1.0)
+            self._grip_marker_vertices = np.asarray(sphere.vertices, dtype=np.float32)
+            self._grip_marker_faces = np.asarray(sphere.faces, dtype=np.uint32)
+        return self._grip_marker_vertices, self._grip_marker_faces
+
     def _required_id(self, object_type: mujoco.mjtObj, name: str) -> int:
         qualified_name = name if "/" in name else f"{self.cfg.entity_name}/{name}"
         object_id = int(
@@ -1598,6 +1811,8 @@ class LadderClimbCommandCfg(CommandTermCfg):
     torso_body_name: str = "torso_link"
     pelvis_body_name: str = "pelvis"
 
+    # Which hand climbs first. The other hand is second, then both legs.
+    lead_hand: str = "left"
     start_rung: int = 0
     initialize_on_reset: bool = False
     initial_foot_rung: int = 0
@@ -1694,13 +1909,16 @@ FOOT_SOLE_END_OFFSETS = (
     (0.092, 0.0, 0.0),
 )
 HOLD_REWARD = 0.5
-# A rung is three phases: left hand, right hand, then both legs.
-CLIMB_PHASE_LEFT = 0
-CLIMB_PHASE_RIGHT = 1
+# A rung is three phases: the lead hand, the other hand, then both legs.
+CLIMB_PHASE_FIRST = 0
+CLIMB_PHASE_SECOND = 1
 CLIMB_PHASE_LEGS = 2
-# Per hand after that hand's phase has ended. Progress 1 pays 0. Progress 0
+# Per hand that is not the one climbing. Progress 1 pays 0. Progress 0
 # pays -0.3 per second. The manager multiplies by dt.
 UNGRIP_RATE = 0.3
+# The climbing hand is charged while it stays closed. Progress 1 costs 0.1
+# per second. Progress 0 costs nothing. The manager multiplies by dt.
+DETACH_RATE = 0.1
 # Off the ground. The manager multiplies by dt. The rate is 1 per second
 # until the episode has lasted 2 s, then 0. The ground-contact step pays 0.
 ALIVE_RATE = 1.0
@@ -1944,19 +2162,42 @@ def ladder_climb(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
 
 
 def _hand_ungrip(env: ManagerBasedRlEnv, command_name: str, hand: int) -> torch.Tensor:
-    """``(progress - 1) * 0.3`` per second after that hand's phase has ended.
+    """``(progress - 1) * 0.3`` per second while this hand is not climbing.
 
-    A closed weld pays 0. A fully open hand pays -0.3 per second. The left
-    hand starts once the right-hand phase begins. The right hand starts with
-    the legs. The manager multiplies by ``dt``.
+    A closed weld pays 0. A fully open hand pays -0.3 per second. The
+    climbing hand is exempt. Both hands pay during the legs phase. The
+    manager multiplies by ``dt``.
     """
 
     command = _ladder_command(env, command_name)
-    phase = command._reward_phase
-    started = CLIMB_PHASE_RIGHT if hand == 0 else CLIMB_PHASE_LEGS
-    active = phase >= started
+    active = command._climbing_hand() != hand
     rate = (command.grip_progress[:, hand] - 1.0) * UNGRIP_RATE
     return torch.where(active, rate, torch.zeros_like(rate))
+
+
+def _hand_detach(env: ManagerBasedRlEnv, command_name: str, hand: int) -> torch.Tensor:
+    """``-0.1 * progress`` per second while this hand is the one climbing.
+
+    A closed weld costs 0.1 per second. An open hand costs nothing. The
+    manager multiplies by ``dt``.
+    """
+
+    command = _ladder_command(env, command_name)
+    active = command._climbing_hand() == hand
+    rate = -DETACH_RATE * command.grip_progress[:, hand]
+    return torch.where(active, rate, torch.zeros_like(rate))
+
+
+def ladder_detach_left(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Left-hand detach penalty. Zero unless the left hand is the one climbing."""
+
+    return _hand_detach(env, command_name, 0)
+
+
+def ladder_detach_right(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Right-hand detach penalty. Zero unless the right hand is the one climbing."""
+
+    return _hand_detach(env, command_name, 1)
 
 
 def ladder_ungrip_left(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:

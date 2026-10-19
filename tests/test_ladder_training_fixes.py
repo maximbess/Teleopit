@@ -41,6 +41,8 @@ def test_deadline_is_terminal_and_has_no_failure_reward() -> None:
         "ladder_climb_right_arm",
         "ladder_climb_left_leg",
         "ladder_climb_right_leg",
+        "detach_left",
+        "detach_right",
         "ungrip_left",
         "ungrip_right",
         "ladder_hold",

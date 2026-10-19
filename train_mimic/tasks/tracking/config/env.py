@@ -83,8 +83,8 @@ _LADDER_BOX_MARGIN = 0.0
 # Climb-face geoms advertise bit 0 and listen to nothing. See ROBOT_CONTYPE.
 _LADDER_CONTYPE = 1
 _LADDER_CONAFFINITY = 0
-# MuJoCo's default is (0, 0, -9.81). This run uses one half of that.
-_LADDER_GRAVITY = (0.0, 0.0, -9.81 * 0.5)
+# MuJoCo's default is (0, 0, -9.81). This run uses 1.0 of that.
+_LADDER_GRAVITY = (0.0, 0.0, -9.81 * 1.0)
 # Radius of ``left_hand_collision`` / ``right_hand_collision`` and of the
 # grip-site markers. The farthest fingertip is 0.085 m from the grip site.
 _HAND_COLLISION_RADIUS = 0.085
@@ -148,21 +148,24 @@ def _add_ladder_to_g1_spec(spec: mujoco.MjSpec) -> None:
         bodyname1="left_wrist_yaw_link",
         bodyname2="right_wrist_yaw_link",
     )
+    # Group 3 is hidden in the default viewer. The climb command redraws these
+    # spheres each frame: red while latched, blue while open, opacity from the
+    # grip progress. A baked site color cannot change after the mesh is built.
     left_wrist.add_site(
         name="left_grip_site",
         type=mujoco.mjtGeom.mjGEOM_SPHERE,
         pos=(0.10, 0.0, 0.0),
         size=(_HAND_COLLISION_RADIUS,),
-        group=2,
-        rgba=(1.0, 0.0, 0.0, 0.35),
+        group=3,
+        rgba=(0.0, 0.0, 1.0, 0.10),
     )
     right_wrist.add_site(
         name="right_grip_site",
         type=mujoco.mjtGeom.mjGEOM_SPHERE,
         pos=(0.10, 0.0, 0.0),
         size=(_HAND_COLLISION_RADIUS,),
-        group=2,
-        rgba=(0.0, 0.0, 1.0, 0.35),
+        group=3,
+        rgba=(0.0, 0.0, 1.0, 0.10),
     )
 
     world = spec.worldbody
@@ -727,6 +730,7 @@ def make_g1_ladder_rl_env_cfg(
             ),
             torso_body_name="torso_link",
             pelvis_body_name="pelvis",
+            lead_hand="left",
             start_rung=_LADDER_START_RUNG,
             initialize_on_reset=True,
             initial_foot_rung=_LADDER_INITIAL_FOOT_RUNG,
@@ -740,6 +744,7 @@ def make_g1_ladder_rl_env_cfg(
             max_attach_speed=0.35,
             grip_half_span=0.18,
             foot_support_distance=0.11,
+            debug_vis=True,
         ),
     }
 
@@ -806,8 +811,8 @@ def make_g1_ladder_rl_env_cfg(
         # then the next rung starts a new one.
         # On the last
         # step, half of each limb's net approach drop is kept.
-        # Each limb is its own term. A rung pays the left hand, then the
-        # right hand, then both legs. The other columns are zero.
+        # Each limb is its own term. A rung pays the lead hand, then the
+        # other hand, then both legs. The other columns are zero.
         "ladder_climb_left_arm": RewardTermCfg(
             func=mdp.ladder_climb_left_arm,
             weight=1.0,
@@ -828,8 +833,19 @@ def make_g1_ladder_rl_env_cfg(
             weight=1.0,
             params={"command_name": "ladder"},
         ),
-        # After a hand's phase, (progress - 1) * 0.3 per second. A closed
-        # weld is 0. A fully open hand is -0.3 per second.
+        # The climbing hand pays 0.1 * progress per second, so a closed weld
+        # costs 0.1 per second and an open hand costs nothing. Every other
+        # hand pays (progress - 1) * 0.3 per second.
+        "detach_left": RewardTermCfg(
+            func=mdp.ladder_detach_left,
+            weight=1.0,
+            params={"command_name": "ladder"},
+        ),
+        "detach_right": RewardTermCfg(
+            func=mdp.ladder_detach_right,
+            weight=1.0,
+            params={"command_name": "ladder"},
+        ),
         "ungrip_left": RewardTermCfg(
             func=mdp.ladder_ungrip_left,
             weight=1.0,

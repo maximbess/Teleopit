@@ -35,9 +35,10 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     CLIMB_CONTACT_CAP,
     CLIMB_CONTACT_RATE,
     CLIMB_DISTANCE_PER_M,
+    CLIMB_PHASE_FIRST,
     CLIMB_PHASE_LEGS,
-    CLIMB_PHASE_LEFT,
-    CLIMB_PHASE_RIGHT,
+    CLIMB_PHASE_SECOND,
+    DETACH_RATE,
     ALIVE_RATE,
     ALIVE_WINDOW_S,
     LEG_CROSS_RATE,
@@ -73,9 +74,12 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     ladder_climb_left_leg,
     ladder_climb_right_arm,
     ladder_climb_right_leg,
+    ladder_detach_left,
+    ladder_detach_right,
     ladder_flight,
     latch_pressure,
     ladder_face_axes,
+    grip_marker_rgba,
     leg_cross,
     projected_legs_cross,
     projected_legs_cross_rails,
@@ -185,9 +189,18 @@ def _quiet_ladder(*, dwell: int = 3, successes: int = 2) -> _QuietLadder:
     command._pending_start_pose_init = torch.tensor([False])
     command.climb_phase = torch.zeros(1, dtype=torch.long)
     command._reward_phase = torch.zeros(1, dtype=torch.long)
+    command._lead_hand = 0
+    command._trail_hand = 1
     command._env = SimpleNamespace(device="cpu")
     command._init_quiet_window()
     return command
+
+
+def test_grip_marker_is_red_when_latched_and_blue_when_open() -> None:
+    assert grip_marker_rgba(False, 0.0) == pytest.approx((0.0, 0.0, 1.0, 0.10))
+    assert grip_marker_rgba(False, 1.0) == pytest.approx((0.0, 0.0, 1.0, 1.0))
+    assert grip_marker_rgba(True, 1.0) == pytest.approx((1.0, 0.0, 0.0, 1.0))
+    assert grip_marker_rgba(True, 0.5) == pytest.approx((1.0, 0.0, 0.0, 0.55))
 
 
 def test_ladder_task_is_one_repeated_hold() -> None:
@@ -195,6 +208,7 @@ def test_ladder_task_is_one_repeated_hold() -> None:
 
     assert LADDER_RL_TASK in SUPPORTED_TASKS
     assert set(cfg.commands) == {"ladder"}
+    assert cfg.commands["ladder"].debug_vis is True
     assert set(cfg.actions) == {"joint_pos", "grip"}
     assert isinstance(cfg.actions["grip"], LadderGripActionCfg)
     assert set(cfg.rewards) == {
@@ -202,6 +216,8 @@ def test_ladder_task_is_one_repeated_hold() -> None:
         "ladder_climb_right_arm",
         "ladder_climb_left_leg",
         "ladder_climb_right_leg",
+        "detach_left",
+        "detach_right",
         "ungrip_left",
         "ungrip_right",
         "ladder_hold",
@@ -221,6 +237,12 @@ def test_ladder_task_is_one_repeated_hold() -> None:
     assert cfg.rewards["ladder_climb_right_arm"].weight == 1.0
     assert cfg.rewards["ladder_climb_left_leg"].weight == 1.0
     assert cfg.rewards["ladder_climb_right_leg"].weight == 1.0
+    assert cfg.rewards["detach_left"].func is ladder_detach_left
+    assert cfg.rewards["detach_right"].func is ladder_detach_right
+    assert cfg.rewards["detach_left"].weight == 1.0
+    assert cfg.rewards["detach_right"].weight == 1.0
+    assert DETACH_RATE == pytest.approx(0.1)
+    assert cfg.commands["ladder"].lead_hand == "left"
     assert cfg.rewards["ungrip_left"].func is ladder_ungrip_left
     assert cfg.rewards["ungrip_right"].func is ladder_ungrip_right
     assert cfg.rewards["ungrip_left"].weight == 1.0
@@ -645,7 +667,7 @@ def test_climb_terms_pay_only_the_limb_that_earned_them() -> None:
 
     # The right-hand phase pays that hand. The legs phase pays the foot.
     # Readers of one step share one sample, so the cap moves once.
-    _set_climb_phase(command, CLIMB_PHASE_RIGHT)
+    _set_climb_phase(command, CLIMB_PHASE_SECOND)
     env.common_step_counter = 2
     gaps[2] = gaps[1]
     command.held_rung[:, 1] = 5
@@ -1072,21 +1094,30 @@ def test_climb_phase_pays_each_hand_then_the_legs() -> None:
     command._contact[:] = False
     command.foot_rung[:] = 1
     command._climb_valid[:] = True
-    _set_climb_phase(command, CLIMB_PHASE_LEFT)
+    _set_climb_phase(command, CLIMB_PHASE_FIRST)
 
     env.common_step_counter = 1
     assert ladder_climb_left_arm(env, "ladder").item() == pytest.approx(CLIMB_CONTACT_RATE)
     assert ladder_climb_right_arm(env, "ladder").item() == 0.0
     assert ladder_ungrip_left(env, "ladder").item() == 0.0
+    assert ladder_detach_left(env, "ladder").item() == pytest.approx(-DETACH_RATE)
+    command.grip_progress[:] = 0.0
+    env.common_step_counter = 6
+    assert ladder_detach_left(env, "ladder").item() == 0.0
+    assert ladder_detach_right(env, "ladder").item() == 0.0
+    assert ladder_ungrip_right(env, "ladder").item() == pytest.approx(-UNGRIP_RATE)
+    command.grip_progress[:] = 1.0
     command._advance_climb_phase()
-    assert command.climb_phase.item() == CLIMB_PHASE_RIGHT
+    assert command.climb_phase.item() == CLIMB_PHASE_SECOND
 
-    _set_climb_phase(command, CLIMB_PHASE_RIGHT)
+    _set_climb_phase(command, CLIMB_PHASE_SECOND)
     command.grip_progress[:, 0] = 0.0
+    command.grip_progress[:, 1] = 1.0
     command.held_rung[:, 1] = 5
     env.common_step_counter = 2
     assert ladder_climb_right_arm(env, "ladder").item() == pytest.approx(CLIMB_CONTACT_RATE)
     assert ladder_climb_left_arm(env, "ladder").item() == 0.0
+    assert ladder_detach_right(env, "ladder").item() == pytest.approx(-DETACH_RATE)
     assert ladder_ungrip_left(env, "ladder").item() == pytest.approx(-UNGRIP_RATE)
     assert ladder_ungrip_right(env, "ladder").item() == 0.0
     command._advance_climb_phase()
@@ -1106,7 +1137,7 @@ def test_climb_phase_pays_each_hand_then_the_legs() -> None:
     command.foot_rung[:] = 2
     command._contact[:] = True
     command.attached[:] = True
-    _set_climb_phase(command, CLIMB_PHASE_LEFT)
+    _set_climb_phase(command, CLIMB_PHASE_FIRST)
     command._advance_hold()
     assert command.hold_count.item() == 0
     _set_climb_phase(command, CLIMB_PHASE_LEGS)
@@ -1115,7 +1146,47 @@ def test_climb_phase_pays_each_hand_then_the_legs() -> None:
 
     command.just_completed[:] = True
     command._advance_climb_phase()
-    assert command.climb_phase.item() == CLIMB_PHASE_LEFT
+    assert command.climb_phase.item() == CLIMB_PHASE_FIRST
+
+
+def test_detach_penalizes_a_closed_climbing_hand() -> None:
+    command = _quiet_ladder()
+    command.grip_progress[:] = 1.0
+    _set_climb_phase(command, CLIMB_PHASE_FIRST)
+    env = _reward_env(command)
+
+    assert ladder_detach_left(env, "ladder").item() == pytest.approx(-DETACH_RATE)
+    assert ladder_detach_right(env, "ladder").item() == 0.0
+    command.grip_progress[:, 0] = 0.5
+    assert ladder_detach_left(env, "ladder").item() == pytest.approx(-0.5 * DETACH_RATE)
+    command.grip_progress[:, 0] = 0.0
+    assert ladder_detach_left(env, "ladder").item() == 0.0
+
+
+def test_lead_hand_can_be_the_right_hand() -> None:
+    command = _quiet_ladder()
+    _bind_reward_state(command)
+    command._limb_features = lambda: (torch.zeros(1, 4), torch.zeros(1, 4))  # type: ignore[method-assign]
+    env = _reward_env(command)
+    command._lead_hand = 1
+    command._trail_hand = 0
+    command._climb_valid[:] = True
+    command.grip_progress[:, 0] = 0.0
+    command.grip_progress[:, 1] = 1.0
+    command.attached[:] = True
+    command.held_rung[:, 1] = 5
+    command.held_rung[:, 0] = 4
+    _set_climb_phase(command, CLIMB_PHASE_FIRST)
+
+    env.common_step_counter = 1
+    assert ladder_climb_right_arm(env, "ladder").item() == pytest.approx(CLIMB_CONTACT_RATE)
+    assert ladder_climb_left_arm(env, "ladder").item() == 0.0
+    assert ladder_detach_right(env, "ladder").item() == pytest.approx(-DETACH_RATE)
+    assert ladder_detach_left(env, "ladder").item() == 0.0
+    assert ladder_ungrip_left(env, "ladder").item() == pytest.approx(-UNGRIP_RATE)
+    assert ladder_ungrip_right(env, "ladder").item() == 0.0
+    command._advance_climb_phase()
+    assert command.climb_phase.item() == CLIMB_PHASE_SECOND
 
 
 def test_hand_phase_metrics_count_one_latch_per_rung() -> None:
@@ -1124,23 +1195,23 @@ def test_hand_phase_metrics_count_one_latch_per_rung() -> None:
     command.attached[:] = True
     command.held_rung[:, 0] = 5
     command.held_rung[:, 1] = 4
-    _set_climb_phase(command, CLIMB_PHASE_LEFT)
+    _set_climb_phase(command, CLIMB_PHASE_FIRST)
 
     command._reward_phase.copy_(command.climb_phase)
     command._advance_climb_phase()
     command._update_metrics()
-    assert command.climb_phase.item() == CLIMB_PHASE_RIGHT
-    assert command.metrics["left_hand_reached"].item() == pytest.approx(1.0)
-    assert command.metrics["left_hand_phase"].item() == pytest.approx(0.02)
+    assert command.climb_phase.item() == CLIMB_PHASE_SECOND
+    assert command.metrics["first_hand_reached"].item() == pytest.approx(1.0)
+    assert command.metrics["first_hand_phase"].item() == pytest.approx(0.02)
 
     command.held_rung[:, 1] = 5
     command._reward_phase.copy_(command.climb_phase)
     command._advance_climb_phase()
     command._update_metrics()
     assert command.climb_phase.item() == CLIMB_PHASE_LEGS
-    assert command.metrics["left_hand_reached"].item() == pytest.approx(1.0)
-    assert command.metrics["right_hand_reached"].item() == pytest.approx(1.0)
-    assert command.metrics["right_hand_phase"].item() == pytest.approx(0.02)
+    assert command.metrics["first_hand_reached"].item() == pytest.approx(1.0)
+    assert command.metrics["second_hand_reached"].item() == pytest.approx(1.0)
+    assert command.metrics["second_hand_phase"].item() == pytest.approx(0.02)
     assert command.metrics["legs_phase"].item() == 0.0
 
 
@@ -1270,10 +1341,10 @@ def _zero_ladder_metrics(command: _QuietLadder) -> None:
             "supports_one_rung_higher",
             "next_rung_hands",
             "next_rung_feet",
-            "left_hand_reached",
-            "right_hand_reached",
-            "left_hand_phase",
-            "right_hand_phase",
+            "first_hand_reached",
+            "second_hand_reached",
+            "first_hand_phase",
+            "second_hand_phase",
             "legs_phase",
             "stabilization_torso_speed",
             "stabilization_torso_angular_speed",

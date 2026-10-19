@@ -8,14 +8,15 @@ from __future__ import annotations
 
 import os
 
-LADDER_CODE_VERSION = "cap-21"
+LADDER_CODE_VERSION = "cap-23"
 LADDER_CODE_VERSION_NOTES = (
     "The climb return is logged as four limb terms: left arm, right arm, "
-    "left leg, and right leg. A rung is three phases. The left hand pays "
-    "until its weld closes on the next rung, then the right hand, then both "
-    "legs. The hold runs only in the legs phase, and a finished hold starts "
-    "the next rung at the left hand. After a hand's phase, that hand pays "
-    "(progress - 1) * 0.3 per second. "
+    "left leg, and right leg. A rung is three phases. lead_hand chooses "
+    "which hand climbs first, then the other hand, then both legs. The "
+    "climbing hand pays 0.1 per second times grip progress, so a closed weld "
+    "costs 0.1 per second. Every other hand pays (progress - 1) * 0.3 per second. "
+    "The hold runs only in the legs phase, and a finished hold starts the "
+    "next rung at the lead hand. "
     "Climb pays 0.5 per meter of approach until the limb is on the next "
     "rung. A foot's approach is the rung-to-rung gap of the sole point "
     "furthest behind the standing height, 43 mm above the next rung center. "
