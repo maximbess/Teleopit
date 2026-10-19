@@ -1146,9 +1146,7 @@ def test_climb_phase_pays_each_hand_then_the_legs() -> None:
     assert ladder_detach_left(env, "ladder").item() == 0.0
     command.grip_progress[:] = 0.0
     env.common_step_counter = 6
-    assert ladder_detach_left(env, "ladder").item() == pytest.approx(
-        (DETACH_POTENTIAL + DETACH_COMPLETE) / env.step_dt
-    )
+    assert ladder_detach_left(env, "ladder").item() == 0.0
     assert ladder_detach_right(env, "ladder").item() == 0.0
     assert ladder_ungrip_right(env, "ladder").item() == pytest.approx(-UNGRIP_RATE)
     command.grip_progress[:] = 1.0
@@ -1211,6 +1209,7 @@ def test_detach_pays_the_climbing_hand_for_letting_go() -> None:
     assert ladder_detach_left(env, "ladder").item() == pytest.approx(
         -0.5 * DETACH_POTENTIAL / dt
     )
+    command._detach_commanded[:, 0] = True
     command.grip_progress[:, 0] = 0.0
     assert ladder_detach_left(env, "ladder").item() == pytest.approx(
         (DETACH_POTENTIAL + DETACH_COMPLETE) / dt
@@ -1218,6 +1217,32 @@ def test_detach_pays_the_climbing_hand_for_letting_go() -> None:
     assert ladder_detach_left(env, "ladder").item() == 0.0
     command.grip_progress[:, 0] = 1.0
     assert ladder_detach_left(env, "ladder").item() == pytest.approx(-DETACH_POTENTIAL / dt)
+    command.grip_progress[:, 0] = 0.0
+    assert ladder_detach_left(env, "ladder").item() == 0.0
+
+
+def test_detach_ignores_a_forced_release_and_a_next_rung_weld() -> None:
+    command = _quiet_ladder()
+    command.grip_progress[:] = 1.0
+    _set_climb_phase(command, CLIMB_PHASE_FIRST)
+    env = _reward_env(command)
+
+    assert ladder_detach_left(env, "ladder").item() == 0.0
+    command._detach_forced[:, 0] = True
+    command._detach_commanded[:, 0] = True
+    command.grip_progress[:, 0] = 0.0
+    command.held_rung[:, 0] = -1
+    command.attached[:, 0] = False
+    assert ladder_detach_left(env, "ladder").item() == 0.0
+
+    command.grip_progress[:, 0] = 1.0
+    command.held_rung[:, 0] = command.baseline_hand_rung[:, 0] + 1
+    command.attached[:, 0] = True
+    assert ladder_detach_left(env, "ladder").item() == 0.0
+    command.grip_progress[:, 0] = 0.5
+    assert ladder_detach_left(env, "ladder").item() == 0.0
+    command.grip_progress[:, 0] = 0.0
+    assert ladder_detach_left(env, "ladder").item() == 0.0
 
 
 def test_lead_hand_can_be_the_right_hand() -> None:

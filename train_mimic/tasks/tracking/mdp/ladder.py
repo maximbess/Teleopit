@@ -475,6 +475,13 @@ class LadderClimbCommand(CommandTerm):
         self._detach_tracked = torch.zeros(
             (self.num_envs, 2), dtype=torch.bool, device=self.device
         )
+        self._detach_held_prev = self.held_rung.clone()
+        self._detach_forced = torch.zeros(
+            (self.num_envs, 2), dtype=torch.bool, device=self.device
+        )
+        self._detach_commanded = torch.zeros(
+            (self.num_envs, 2), dtype=torch.bool, device=self.device
+        )
         self._robot_mass = self._robot_mass_kg()
         self._reward_cache_step = -1
         self._reward_cache: dict[str, torch.Tensor] | None = None
@@ -973,6 +980,9 @@ class LadderClimbCommand(CommandTerm):
         self._hold_count_prev[env_ids] = 0
         self._detach_progress_prev[env_ids] = 0.0
         self._detach_tracked[env_ids] = False
+        self._detach_held_prev[env_ids] = -1
+        self._detach_forced[env_ids] = False
+        self._detach_commanded[env_ids] = False
         self.climb_phase[env_ids] = CLIMB_PHASE_FIRST
         self._reward_phase[env_ids] = CLIMB_PHASE_FIRST
         self._reward_cache_step = -1
@@ -1497,7 +1507,11 @@ class LadderClimbCommand(CommandTerm):
             self.grip_progress[:, hand_id] = progress
             self.grip_strength[:, hand_id] = progress
             # A full second of -1 lands on 0, aside from float dust.
-            self._release(torch.where(latched & (progress <= 1.0e-4))[0], hand_id)
+            self._release(
+                torch.where(latched & (progress <= 1.0e-4))[0],
+                hand_id,
+                forced=False,
+            )
             close = (
                 ~self.attached[:, hand_id]
                 & (self.grip_progress[:, hand_id] >= 1.0)
@@ -1529,9 +1543,28 @@ class LadderClimbCommand(CommandTerm):
         self.grip_progress[env_ids, hand_id] = 1.0
         self.held_rung[env_ids, hand_id] = rung_indices
 
-    def _release(self, env_ids: torch.Tensor, hand_id: int) -> None:
+    def _release(
+        self, env_ids: torch.Tensor, hand_id: int, *, forced: bool = True
+    ) -> None:
         if env_ids.numel() == 0:
             return
+        if not hasattr(self, "_detach_forced"):
+            self._detach_forced = torch.zeros(
+                self.attached.shape, dtype=torch.bool, device=self.attached.device
+            )
+        if not hasattr(self, "_detach_commanded"):
+            self._detach_commanded = torch.zeros(
+                self.attached.shape, dtype=torch.bool, device=self.attached.device
+            )
+        if forced:
+            was_on = self.attached[env_ids, hand_id]
+            forced_ids = env_ids[was_on]
+            if forced_ids.numel() > 0:
+                self._detach_forced[forced_ids, hand_id] = True
+                self._detach_commanded[forced_ids, hand_id] = False
+        else:
+            self._detach_commanded[env_ids, hand_id] = True
+            self._detach_forced[env_ids, hand_id] = False
         weld_id = int(self._weld_ids[hand_id].item())
         self._env.sim.data.eq_active[env_ids, weld_id] = False
         self.attached[env_ids, hand_id] = False
@@ -2051,9 +2084,12 @@ CLIMB_PHASE_LEGS = 2
 # Per hand that is not the one climbing. Progress 1 pays 0. Progress 0
 # pays -0.3 per second. The manager multiplies by dt.
 UNGRIP_RATE = 0.3
-# Climbing-hand detach potential. The potential is (1 - progress) times this
-# scale, so a full release is +1 and closing gives it back. Reaching progress
-# 0 also pays DETACH_COMPLETE once. The manager multiplies by dt.
+# Climbing-hand detach potential, only while that hand still holds the
+# baseline rung. The potential is (1 - progress) times this scale, so a
+# commanded full release is +1 and closing gives it back. A commanded
+# release that reaches progress 0 also pays DETACH_COMPLETE once. A weld
+# that breaks without that commanded open pays 0, including the 0.5. The
+# manager multiplies by dt. Latch load on a closed weld is latch_pressure.
 DETACH_POTENTIAL = 1.0
 DETACH_COMPLETE = 0.5
 # Off the ground. The manager multiplies by dt. The rate is 1 per second
@@ -2313,15 +2349,16 @@ def _hand_ungrip(env: ManagerBasedRlEnv, command_name: str, hand: int) -> torch.
 
 
 def _hand_detach(env: ManagerBasedRlEnv, command_name: str, hand: int) -> torch.Tensor:
-    """Potential on releasing the climbing hand.
+    """Potential on releasing the climbing hand from the baseline rung.
 
         r = 1 * ((1 - p_t) - (1 - p_{t-1}))
 
     Opening pays the rise. Closing pays it back. The first sample after this
-    hand becomes the one climbing pays 0. The step that reaches progress 0
-    also pays ``+0.5``. A hand that is not climbing pays 0, and the next
-    time it climbs the potential starts over. The manager multiplies by
-    ``dt``, so this returns the step amount divided by ``dt``.
+    hand becomes the one climbing pays 0. A commanded grip that reaches
+    progress 0 also pays ``+0.5``. A weld that breaks without that commanded
+    open pays 0, including the ``+0.5``. A hand that is not climbing, or is
+    already on the next rung, pays 0. The manager multiplies by ``dt``, so
+    this returns the step amount divided by ``dt``.
     """
 
     command = _ladder_command(env, command_name)
@@ -2333,15 +2370,38 @@ def _hand_detach(env: ManagerBasedRlEnv, command_name: str, hand: int) -> torch.
             dtype=torch.bool,
             device=command.grip_progress.device,
         )
+    if not hasattr(command, "_detach_held_prev"):
+        command._detach_held_prev = command.held_rung.clone()
+    if not hasattr(command, "_detach_forced"):
+        command._detach_forced = torch.zeros(
+            command.grip_progress.shape,
+            dtype=torch.bool,
+            device=command.grip_progress.device,
+        )
+    if not hasattr(command, "_detach_commanded"):
+        command._detach_commanded = torch.zeros(
+            command.grip_progress.shape,
+            dtype=torch.bool,
+            device=command.grip_progress.device,
+        )
     prev = command._detach_progress_prev[:, hand]
     tracked = command._detach_tracked[:, hand]
+    on_base = command._detach_held_prev[:, hand] == command.baseline_hand_rung[:, hand]
+    forced = command._detach_forced[:, hand]
+    commanded = command._detach_commanded[:, hand]
     active = command._climbing_hand() == hand
+    eligible = active & tracked & on_base & ~forced
     opened = DETACH_POTENTIAL * (prev - progress)
-    step = torch.where(active & tracked, opened, torch.zeros_like(progress))
-    complete = active & tracked & (prev > 1.0e-4) & (progress <= 1.0e-4)
+    hit_zero = (prev > 1.0e-4) & (progress <= 1.0e-4)
+    opened = torch.where(hit_zero & ~commanded, torch.zeros_like(opened), opened)
+    step = torch.where(eligible, opened, torch.zeros_like(progress))
+    complete = eligible & commanded & hit_zero
     step = step + complete.float() * DETACH_COMPLETE
     command._detach_progress_prev[:, hand] = progress
+    command._detach_held_prev[:, hand] = command.held_rung[:, hand]
     command._detach_tracked[:, hand] = active
+    command._detach_forced[:, hand] = False
+    command._detach_commanded[:, hand] = False
     return step / float(env.step_dt)
 
 
