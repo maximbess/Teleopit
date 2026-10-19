@@ -833,9 +833,10 @@ def make_g1_ladder_rl_env_cfg(
             weight=1.0,
             params={"command_name": "ladder"},
         ),
-        # The climbing hand pays 0.1 * progress per second, so a closed weld
-        # costs 0.1 per second and an open hand costs nothing. Every other
-        # hand pays (progress - 1) * 0.3 per second.
+        # The climbing hand earns the rise in (1 - grip progress), so a full
+        # release is +1 and closing gives that back. Reaching a full release
+        # also pays +0.5 once. Every other hand pays (progress - 1) * 0.3
+        # per second.
         "detach_left": RewardTermCfg(
             func=mdp.ladder_detach_left,
             weight=1.0,

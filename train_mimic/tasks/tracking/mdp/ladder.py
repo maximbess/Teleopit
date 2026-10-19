@@ -30,6 +30,14 @@ def grip_marker_rgba(latched: bool, progress: float) -> tuple[float, float, floa
     return (0.0, 0.0, 1.0, alpha)
 
 
+def grip_latch_caption(side: str, latched: bool, progress: float) -> str:
+    """Short latch readout, for example ``Left 40% open``."""
+
+    clamped = min(max(float(progress), 0.0), 1.0)
+    state = "latched" if latched else "open"
+    return f"{side} {clamped * 100:.0f}% {state}"
+
+
 def _as_rotation_matrix(value: torch.Tensor) -> torch.Tensor:
     """Accept MJWarp site matrices stored as either ``(..., 9)`` or ``(..., 3, 3)``."""
 
@@ -301,6 +309,10 @@ class LadderClimbCommand(CommandTerm):
         self._grip_marker_faces: np.ndarray | None = None
         self._grip_marker_latched: np.ndarray | None = None
         self._grip_marker_progress: np.ndarray | None = None
+        self._grip_label_handles: dict[tuple[int, int], object] = {}
+        self._grip_gui_bars: list[object] = []
+        self._grip_gui_captions: list[object] = []
+        self._grip_gui_env = None
         self._foot_site_ids = torch.tensor(
             foot_site_ids, dtype=torch.long, device=self.device
         )
@@ -456,6 +468,12 @@ class LadderClimbCommand(CommandTerm):
         )
         self._hold_count_prev = torch.zeros(
             self.num_envs, dtype=torch.long, device=self.device
+        )
+        # Baseline for the climbing-hand detach potential. The first sample
+        # of a phase pays 0; later samples pay the change in (1 - progress).
+        self._detach_progress_prev = self.grip_progress.clone()
+        self._detach_tracked = torch.zeros(
+            (self.num_envs, 2), dtype=torch.bool, device=self.device
         )
         self._robot_mass = self._robot_mass_kg()
         self._reward_cache_step = -1
@@ -953,6 +971,8 @@ class LadderClimbCommand(CommandTerm):
         self._approach_peak[env_ids] = 0.0
         self._climb_valid[env_ids] = False
         self._hold_count_prev[env_ids] = 0
+        self._detach_progress_prev[env_ids] = 0.0
+        self._detach_tracked[env_ids] = False
         self.climb_phase[env_ids] = CLIMB_PHASE_FIRST
         self._reward_phase[env_ids] = CLIMB_PHASE_FIRST
         self._reward_cache_step = -1
@@ -1617,6 +1637,7 @@ class LadderClimbCommand(CommandTerm):
 
         self._grip_marker_latched = self.attached.detach().cpu().numpy()
         self._grip_marker_progress = self.grip_progress.detach().cpu().numpy()
+        self._update_grip_progress_gui()
         if hasattr(visualizer, "server"):
             self._install_viser_grip_markers(visualizer)
             return
@@ -1672,15 +1693,18 @@ class LadderClimbCommand(CommandTerm):
             and getattr(visualizer, "debug_visualization_enabled", True)
         )
         handle = self._grip_marker_handle
+        self._update_grip_progress_gui()
         if not enabled:
             if handle is not None:
                 handle.visible = False
+            self._set_grip_labels_visible(False)
             return
 
         env_indices = list(visualizer.get_env_indices(body_xpos.shape[0]))
         if not env_indices:
             if handle is not None:
                 handle.visible = False
+            self._set_grip_labels_visible(False)
             return
 
         latched = self._grip_marker_latched
@@ -1692,6 +1716,10 @@ class LadderClimbCommand(CommandTerm):
         positions: list[np.ndarray] = []
         colors: list[tuple[int, int, int]] = []
         opacities: list[float] = []
+        label_keys: list[tuple[int, int]] = []
+        label_texts: list[str] = []
+        label_positions: list[np.ndarray] = []
+        sides = self._hand_side_labels()
         for batch in env_indices:
             for hand_id in (0, 1):
                 body_id = int(self._hand_site_body_ids[hand_id])
@@ -1712,7 +1740,23 @@ class LadderClimbCommand(CommandTerm):
                     tuple(int(round(channel * 255.0)) for channel in rgba[:3])
                 )
                 opacities.append(rgba[3])
+                label_keys.append((int(batch), hand_id))
+                label_texts.append(
+                    grip_latch_caption(
+                        sides[hand_id],
+                        bool(latched[batch, hand_id]),
+                        float(progress[batch, hand_id]),
+                    )
+                )
+                label_positions.append(
+                    (center + np.array([0.0, 0.0, 0.08], dtype=np.float64)).astype(
+                        np.float32
+                    )
+                )
         self._sync_viser_grip_markers(visualizer, positions, colors, opacities)
+        self._sync_viser_grip_labels(
+            visualizer, label_keys, label_texts, label_positions
+        )
         if self._grip_marker_handle is not None:
             self._grip_marker_handle.visible = True
 
@@ -1762,6 +1806,97 @@ class LadderClimbCommand(CommandTerm):
         handle.batched_scales = scales
         handle.batched_colors = cols
         handle.batched_opacities = alphas
+
+    def _hand_side_labels(self) -> tuple[str, ...]:
+        names = getattr(self.cfg, "hand_site_names", ())
+        labels: list[str] = []
+        for index, name in enumerate(names):
+            short = str(name).rsplit("/", 1)[-1].lower()
+            if "left" in short:
+                labels.append("Left")
+            elif "right" in short:
+                labels.append("Right")
+            else:
+                labels.append(f"Hand {index}")
+        if len(labels) < 2:
+            labels.extend(f"Hand {index}" for index in range(len(labels), 2))
+        return tuple(labels[:2])
+
+    def create_gui(
+        self,
+        name: str,
+        server,
+        get_env_idx,
+        on_change=None,
+        request_action=None,
+    ) -> None:
+        """Latch progress for each hand in the viser controls panel."""
+
+        del name, on_change, request_action
+        self._grip_gui_env = get_env_idx
+        self._grip_gui_bars = []
+        self._grip_gui_captions = []
+        with server.gui.add_folder("Hand latch"):
+            for side in self._hand_side_labels():
+                self._grip_gui_captions.append(
+                    server.gui.add_markdown(grip_latch_caption(side, False, 0.0))
+                )
+                self._grip_gui_bars.append(server.gui.add_progress_bar(0.0))
+
+    def _update_grip_progress_gui(self) -> None:
+        bars = self._grip_gui_bars
+        if not bars:
+            return
+        env_idx = 0
+        if self._grip_gui_env is not None:
+            env_idx = int(self._grip_gui_env())
+        last_env = int(self.grip_progress.shape[0]) - 1
+        env_idx = min(max(env_idx, 0), last_env)
+        for hand_id, bar in enumerate(bars):
+            progress = float(self.grip_progress[env_idx, hand_id].item())
+            latched = bool(self.attached[env_idx, hand_id].item())
+            clamped = min(max(progress, 0.0), 1.0)
+            bar.value = clamped * 100.0
+            bar.color = (220, 50, 50) if latched else (40, 90, 220)
+            self._grip_gui_captions[hand_id].content = grip_latch_caption(
+                self._hand_side_labels()[hand_id], latched, clamped
+            )
+
+    def _set_grip_labels_visible(self, visible: bool) -> None:
+        for handle in self._grip_label_handles.values():
+            handle.visible = visible
+
+    def _sync_viser_grip_labels(
+        self,
+        visualizer,
+        keys: list[tuple[int, int]],
+        texts: list[str],
+        positions: list[np.ndarray],
+    ) -> None:
+        """A screen-space label above each drawn hand."""
+
+        wanted = set(keys)
+        for key, text, position in zip(keys, texts, positions, strict=True):
+            handle = self._grip_label_handles.get(key)
+            if handle is None:
+                batch, hand_id = key
+                handle = visualizer.server.scene.add_label(
+                    f"/debug/grip_labels/{batch}_{hand_id}",
+                    text,
+                    position=tuple(float(channel) for channel in position),
+                    font_size_mode="screen",
+                    font_screen_scale=0.7,
+                    anchor="bottom-center",
+                    depth_test=False,
+                )
+                self._grip_label_handles[key] = handle
+                continue
+            handle.text = text
+            handle.position = position
+            handle.visible = True
+        for key, handle in self._grip_label_handles.items():
+            if key not in wanted:
+                handle.visible = False
 
     def _grip_marker_mesh(self) -> tuple[np.ndarray, np.ndarray]:
         if self._grip_marker_vertices is None or self._grip_marker_faces is None:
@@ -1916,9 +2051,11 @@ CLIMB_PHASE_LEGS = 2
 # Per hand that is not the one climbing. Progress 1 pays 0. Progress 0
 # pays -0.3 per second. The manager multiplies by dt.
 UNGRIP_RATE = 0.3
-# The climbing hand is charged while it stays closed. Progress 1 costs 0.1
-# per second. Progress 0 costs nothing. The manager multiplies by dt.
-DETACH_RATE = 0.1
+# Climbing-hand detach potential. The potential is (1 - progress) times this
+# scale, so a full release is +1 and closing gives it back. Reaching progress
+# 0 also pays DETACH_COMPLETE once. The manager multiplies by dt.
+DETACH_POTENTIAL = 1.0
+DETACH_COMPLETE = 0.5
 # Off the ground. The manager multiplies by dt. The rate is 1 per second
 # until the episode has lasted 2 s, then 0. The ground-contact step pays 0.
 ALIVE_RATE = 1.0
@@ -2176,26 +2313,46 @@ def _hand_ungrip(env: ManagerBasedRlEnv, command_name: str, hand: int) -> torch.
 
 
 def _hand_detach(env: ManagerBasedRlEnv, command_name: str, hand: int) -> torch.Tensor:
-    """``-0.1 * progress`` per second while this hand is the one climbing.
+    """Potential on releasing the climbing hand.
 
-    A closed weld costs 0.1 per second. An open hand costs nothing. The
-    manager multiplies by ``dt``.
+        r = 1 * ((1 - p_t) - (1 - p_{t-1}))
+
+    Opening pays the rise. Closing pays it back. The first sample after this
+    hand becomes the one climbing pays 0. The step that reaches progress 0
+    also pays ``+0.5``. A hand that is not climbing pays 0, and the next
+    time it climbs the potential starts over. The manager multiplies by
+    ``dt``, so this returns the step amount divided by ``dt``.
     """
 
     command = _ladder_command(env, command_name)
+    progress = command.grip_progress[:, hand]
+    if not hasattr(command, "_detach_progress_prev"):
+        command._detach_progress_prev = command.grip_progress.clone()
+        command._detach_tracked = torch.zeros(
+            command.grip_progress.shape,
+            dtype=torch.bool,
+            device=command.grip_progress.device,
+        )
+    prev = command._detach_progress_prev[:, hand]
+    tracked = command._detach_tracked[:, hand]
     active = command._climbing_hand() == hand
-    rate = -DETACH_RATE * command.grip_progress[:, hand]
-    return torch.where(active, rate, torch.zeros_like(rate))
+    opened = DETACH_POTENTIAL * (prev - progress)
+    step = torch.where(active & tracked, opened, torch.zeros_like(progress))
+    complete = active & tracked & (prev > 1.0e-4) & (progress <= 1.0e-4)
+    step = step + complete.float() * DETACH_COMPLETE
+    command._detach_progress_prev[:, hand] = progress
+    command._detach_tracked[:, hand] = active
+    return step / float(env.step_dt)
 
 
 def ladder_detach_left(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
-    """Left-hand detach penalty. Zero unless the left hand is the one climbing."""
+    """Left-hand detach potential. Zero unless the left hand is the one climbing."""
 
     return _hand_detach(env, command_name, 0)
 
 
 def ladder_detach_right(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
-    """Right-hand detach penalty. Zero unless the right hand is the one climbing."""
+    """Right-hand detach potential. Zero unless the right hand is the one climbing."""
 
     return _hand_detach(env, command_name, 1)
 

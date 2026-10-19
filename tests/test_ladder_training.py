@@ -38,7 +38,8 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     CLIMB_PHASE_FIRST,
     CLIMB_PHASE_LEGS,
     CLIMB_PHASE_SECOND,
-    DETACH_RATE,
+    DETACH_COMPLETE,
+    DETACH_POTENTIAL,
     ALIVE_RATE,
     ALIVE_WINDOW_S,
     LEG_CROSS_RATE,
@@ -79,6 +80,7 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     ladder_flight,
     latch_pressure,
     ladder_face_axes,
+    grip_latch_caption,
     grip_marker_rgba,
     leg_cross,
     projected_legs_cross,
@@ -196,6 +198,46 @@ def _quiet_ladder(*, dwell: int = 3, successes: int = 2) -> _QuietLadder:
     return command
 
 
+def test_grip_latch_caption_names_the_hand_and_its_progress() -> None:
+    assert grip_latch_caption("Left", False, 0.0) == "Left 0% open"
+    assert grip_latch_caption("Left", False, 0.42) == "Left 42% open"
+    assert grip_latch_caption("Right", True, 1.0) == "Right 100% latched"
+
+
+def test_viser_hand_latch_panel_follows_each_hand() -> None:
+    class _Folder:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args) -> bool:
+            return False
+
+    class _Gui:
+        def add_folder(self, name: str) -> _Folder:
+            assert name == "Hand latch"
+            return _Folder()
+
+        def add_markdown(self, text: str) -> SimpleNamespace:
+            return SimpleNamespace(content=text)
+
+        def add_progress_bar(self, value: float) -> SimpleNamespace:
+            return SimpleNamespace(value=value, color=None)
+
+    command = _quiet_ladder()
+    command.cfg.hand_site_names = ("left_grip_site", "right_grip_site")
+    command.create_gui("ladder", SimpleNamespace(gui=_Gui()), lambda: 0)
+    command.grip_progress[:] = torch.tensor([[0.4, 1.0]])
+    command.attached[:] = torch.tensor([[False, True]])
+    command._update_grip_progress_gui()
+
+    assert command._grip_gui_bars[0].value == pytest.approx(40.0)
+    assert command._grip_gui_bars[0].color == (40, 90, 220)
+    assert command._grip_gui_captions[0].content == "Left 40% open"
+    assert command._grip_gui_bars[1].value == pytest.approx(100.0)
+    assert command._grip_gui_bars[1].color == (220, 50, 50)
+    assert command._grip_gui_captions[1].content == "Right 100% latched"
+
+
 def test_grip_marker_is_red_when_latched_and_blue_when_open() -> None:
     assert grip_marker_rgba(False, 0.0) == pytest.approx((0.0, 0.0, 1.0, 0.10))
     assert grip_marker_rgba(False, 1.0) == pytest.approx((0.0, 0.0, 1.0, 1.0))
@@ -241,7 +283,8 @@ def test_ladder_task_is_one_repeated_hold() -> None:
     assert cfg.rewards["detach_right"].func is ladder_detach_right
     assert cfg.rewards["detach_left"].weight == 1.0
     assert cfg.rewards["detach_right"].weight == 1.0
-    assert DETACH_RATE == pytest.approx(0.1)
+    assert DETACH_POTENTIAL == pytest.approx(1.0)
+    assert DETACH_COMPLETE == pytest.approx(0.5)
     assert cfg.commands["ladder"].lead_hand == "left"
     assert cfg.rewards["ungrip_left"].func is ladder_ungrip_left
     assert cfg.rewards["ungrip_right"].func is ladder_ungrip_right
@@ -1100,10 +1143,12 @@ def test_climb_phase_pays_each_hand_then_the_legs() -> None:
     assert ladder_climb_left_arm(env, "ladder").item() == pytest.approx(CLIMB_CONTACT_RATE)
     assert ladder_climb_right_arm(env, "ladder").item() == 0.0
     assert ladder_ungrip_left(env, "ladder").item() == 0.0
-    assert ladder_detach_left(env, "ladder").item() == pytest.approx(-DETACH_RATE)
+    assert ladder_detach_left(env, "ladder").item() == 0.0
     command.grip_progress[:] = 0.0
     env.common_step_counter = 6
-    assert ladder_detach_left(env, "ladder").item() == 0.0
+    assert ladder_detach_left(env, "ladder").item() == pytest.approx(
+        (DETACH_POTENTIAL + DETACH_COMPLETE) / env.step_dt
+    )
     assert ladder_detach_right(env, "ladder").item() == 0.0
     assert ladder_ungrip_right(env, "ladder").item() == pytest.approx(-UNGRIP_RATE)
     command.grip_progress[:] = 1.0
@@ -1117,7 +1162,7 @@ def test_climb_phase_pays_each_hand_then_the_legs() -> None:
     env.common_step_counter = 2
     assert ladder_climb_right_arm(env, "ladder").item() == pytest.approx(CLIMB_CONTACT_RATE)
     assert ladder_climb_left_arm(env, "ladder").item() == 0.0
-    assert ladder_detach_right(env, "ladder").item() == pytest.approx(-DETACH_RATE)
+    assert ladder_detach_right(env, "ladder").item() == 0.0
     assert ladder_ungrip_left(env, "ladder").item() == pytest.approx(-UNGRIP_RATE)
     assert ladder_ungrip_right(env, "ladder").item() == 0.0
     command._advance_climb_phase()
@@ -1149,18 +1194,30 @@ def test_climb_phase_pays_each_hand_then_the_legs() -> None:
     assert command.climb_phase.item() == CLIMB_PHASE_FIRST
 
 
-def test_detach_penalizes_a_closed_climbing_hand() -> None:
+def test_detach_pays_the_climbing_hand_for_letting_go() -> None:
     command = _quiet_ladder()
     command.grip_progress[:] = 1.0
     _set_climb_phase(command, CLIMB_PHASE_FIRST)
     env = _reward_env(command)
+    dt = env.step_dt
 
-    assert ladder_detach_left(env, "ladder").item() == pytest.approx(-DETACH_RATE)
+    assert ladder_detach_left(env, "ladder").item() == 0.0
     assert ladder_detach_right(env, "ladder").item() == 0.0
     command.grip_progress[:, 0] = 0.5
-    assert ladder_detach_left(env, "ladder").item() == pytest.approx(-0.5 * DETACH_RATE)
+    assert ladder_detach_left(env, "ladder").item() == pytest.approx(
+        0.5 * DETACH_POTENTIAL / dt
+    )
+    command.grip_progress[:, 0] = 1.0
+    assert ladder_detach_left(env, "ladder").item() == pytest.approx(
+        -0.5 * DETACH_POTENTIAL / dt
+    )
     command.grip_progress[:, 0] = 0.0
+    assert ladder_detach_left(env, "ladder").item() == pytest.approx(
+        (DETACH_POTENTIAL + DETACH_COMPLETE) / dt
+    )
     assert ladder_detach_left(env, "ladder").item() == 0.0
+    command.grip_progress[:, 0] = 1.0
+    assert ladder_detach_left(env, "ladder").item() == pytest.approx(-DETACH_POTENTIAL / dt)
 
 
 def test_lead_hand_can_be_the_right_hand() -> None:
@@ -1181,7 +1238,7 @@ def test_lead_hand_can_be_the_right_hand() -> None:
     env.common_step_counter = 1
     assert ladder_climb_right_arm(env, "ladder").item() == pytest.approx(CLIMB_CONTACT_RATE)
     assert ladder_climb_left_arm(env, "ladder").item() == 0.0
-    assert ladder_detach_right(env, "ladder").item() == pytest.approx(-DETACH_RATE)
+    assert ladder_detach_right(env, "ladder").item() == 0.0
     assert ladder_detach_left(env, "ladder").item() == 0.0
     assert ladder_ungrip_left(env, "ladder").item() == pytest.approx(-UNGRIP_RATE)
     assert ladder_ungrip_right(env, "ladder").item() == 0.0
