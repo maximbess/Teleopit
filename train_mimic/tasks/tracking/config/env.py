@@ -813,8 +813,9 @@ def make_g1_ladder_rl_env_cfg(
         # then the next rung starts a new one.
         # On the last
         # step, half of each limb's net approach drop is kept.
-        # Each limb is its own term. A rung pays the lead hand, then the
-        # other hand, then both legs. The other columns are zero.
+        # Each limb is its own term. A hand or foot turns on when its phase
+        # starts and stays on for the rest of the rung. The lead foot is the
+        # same side as the lead hand. Columns that have not started are zero.
         "ladder_climb_left_arm": RewardTermCfg(
             func=mdp.ladder_climb_left_arm,
             weight=1.0,
@@ -870,8 +871,17 @@ def make_g1_ladder_rl_env_cfg(
             weight=1.0,
             params={"command_name": "ladder"},
         ),
-        # The hold potential and the completion impulse run only in the
-        # legs phase.
+        # The step a leg phase ends pays +4. The gate is that foot on the
+        # next rung with 20% of body weight. The lead foot matches the lead
+        # hand. Both feet on one step pays +8. Weight on the starting rung
+        # pays 0, and a finished hold pays 0.
+        "ladder_leg_phase": RewardTermCfg(
+            func=mdp.ladder_leg_phase,
+            weight=1.0,
+            params={"command_name": "ladder"},
+        ),
+        # The hold potential and the completion impulse run only after both
+        # feet have passed the load gate.
         "ladder_hold": RewardTermCfg(
             func=mdp.ladder_hold,
             weight=1.0,

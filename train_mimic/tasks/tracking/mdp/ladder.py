@@ -557,7 +557,13 @@ class LadderClimbCommand(CommandTerm):
         self.metrics["second_hand_reached"] = torch.zeros(
             self.num_envs, device=self.device
         )
-        for phase_name in ("first_hand_phase", "second_hand_phase", "legs_phase"):
+        for phase_name in (
+            "first_hand_phase",
+            "second_hand_phase",
+            "lead_leg_phase",
+            "trail_leg_phase",
+            "hold_phase",
+        ):
             self.metrics[phase_name] = torch.zeros(self.num_envs, device=self.device)
         for metric_name in (
             "stabilization_torso_speed",
@@ -979,7 +985,9 @@ class LadderClimbCommand(CommandTerm):
         ).float()
         self.metrics["first_hand_phase"] += (phase == CLIMB_PHASE_FIRST).float() * dt
         self.metrics["second_hand_phase"] += (phase == CLIMB_PHASE_SECOND).float() * dt
-        self.metrics["legs_phase"] += (phase == CLIMB_PHASE_LEGS).float() * dt
+        self.metrics["lead_leg_phase"] += (phase == CLIMB_PHASE_LEAD_LEG).float() * dt
+        self.metrics["trail_leg_phase"] += (phase == CLIMB_PHASE_TRAIL_LEG).float() * dt
+        self.metrics["hold_phase"] += (phase == CLIMB_PHASE_HOLD).float() * dt
         self.metrics["supports_one_rung_higher"] += (
             self.supports_one_rung_higher.float() * dt
         )
@@ -1137,7 +1145,7 @@ class LadderClimbCommand(CommandTerm):
             self.initialized
             & ~self.finished
             & self.supports_one_rung_higher
-            & (self.climb_phase == CLIMB_PHASE_LEGS)
+            & (self.climb_phase == CLIMB_PHASE_HOLD)
         )
         torso_speed = torch.linalg.vector_norm(self.torso_com_vel_w, dim=-1)
         torso_ang = torch.linalg.vector_norm(self.torso_ang_vel_w, dim=-1)
@@ -1165,13 +1173,16 @@ class LadderClimbCommand(CommandTerm):
         )
 
     def _advance_climb_phase(self) -> None:
-        """Move a rung from the lead hand, to the other hand, then to the legs.
+        """Move a rung through the hands, then each leg, then the hold.
 
-        The reward for this step still uses ``_reward_phase``. A finished
-        hold returns to the lead hand for the next rung.
+        The reward for this step still uses ``_reward_phase``. A hand phase
+        ends when that hand latches the next rung. A leg phase ends when
+        that foot is on the next rung and carries 20% of body weight. A
+        finished hold returns to the lead hand for the next rung.
         """
 
         latched = self.attached & (self.held_rung == self.baseline_hand_rung + 1)
+        loaded = self._foot_loaded_on_next()
         phase = self.climb_phase
         phase = torch.where(
             (phase == CLIMB_PHASE_FIRST) & latched[:, self._lead_hand],
@@ -1180,15 +1191,31 @@ class LadderClimbCommand(CommandTerm):
         )
         phase = torch.where(
             (phase == CLIMB_PHASE_SECOND) & latched[:, self._trail_hand],
-            torch.full_like(phase, CLIMB_PHASE_LEGS),
+            torch.full_like(phase, CLIMB_PHASE_LEAD_LEG),
+            phase,
+        )
+        phase = torch.where(
+            (phase == CLIMB_PHASE_LEAD_LEG) & loaded[:, self._lead_hand],
+            torch.full_like(phase, CLIMB_PHASE_TRAIL_LEG),
+            phase,
+        )
+        phase = torch.where(
+            (phase == CLIMB_PHASE_TRAIL_LEG) & loaded[:, self._trail_hand],
+            torch.full_like(phase, CLIMB_PHASE_HOLD),
             phase,
         )
         self.climb_phase = torch.where(
             self.just_completed, torch.zeros_like(phase), phase
         )
 
+    def _foot_loaded_on_next(self) -> torch.Tensor:
+        """Whether each foot is on the next rung with 20% of body weight."""
+
+        on_next = self.foot_rung == self.baseline_foot_rung + 1
+        return on_next & (self.foot_load_fraction() >= FOOT_WEIGHT_FRACTION)
+
     def _climbing_hand(self) -> torch.Tensor:
-        """Hand index earning the climb, or -1 during the legs phase."""
+        """Hand index earning the climb, or -1 during the leg and hold phases."""
 
         phase = self._reward_phase
         hand = torch.full_like(phase, -1)
@@ -1204,17 +1231,26 @@ class LadderClimbCommand(CommandTerm):
         )
 
     def _active_limbs(self) -> torch.Tensor:
-        """Which climb columns pay during ``_reward_phase``. Shape ``(E, 4)``."""
+        """Which climb columns pay. Shape ``(E, 4)``.
+
+        A hand or foot turns on when its phase starts and stays on through
+        the later phases of this rung. The lead foot follows ``lead_hand``.
+        Motion before a column turns on is marked paid, so it does not
+        arrive later.
+        """
 
         phase = self._reward_phase
-        on_first = phase == CLIMB_PHASE_FIRST
-        on_second = phase == CLIMB_PHASE_SECOND
-        legs = phase == CLIMB_PHASE_LEGS
+        lead_hand = torch.ones_like(phase, dtype=torch.bool)
+        trail_hand = phase >= CLIMB_PHASE_SECOND
+        lead_leg = phase >= CLIMB_PHASE_LEAD_LEG
+        trail_leg = phase >= CLIMB_PHASE_TRAIL_LEG
         if self._lead_hand == 0:
-            left, right = on_first, on_second
+            left_arm, right_arm = lead_hand, trail_hand
+            left_leg, right_leg = lead_leg, trail_leg
         else:
-            left, right = on_second, on_first
-        return torch.stack((left, right, legs, legs), dim=1)
+            left_arm, right_arm = trail_hand, lead_hand
+            left_leg, right_leg = trail_leg, lead_leg
+        return torch.stack((left_arm, right_arm, left_leg, right_leg), dim=1)
 
     def _measured_latch_pressure(self) -> torch.Tensor:
         """How hard the latched body is loading the weld, in trip units.
@@ -1345,7 +1381,9 @@ class LadderClimbCommand(CommandTerm):
         """Agent-visible climb, hold, and alive terms.
 
         Cached on ``common_step_counter`` so the reward terms share one sample.
-        The climb phase selects one hand, then the other, then both legs.
+        A hand or foot's climb turns on when its phase starts and stays on
+        for the rest of the rung. The lead foot is the same side as the
+        lead hand.
         """
 
         step_id = int(getattr(self._env, "common_step_counter", -1))
@@ -1425,8 +1463,8 @@ class LadderClimbCommand(CommandTerm):
             room,
             contact,
         )
-        # The lead hand, then the other hand, then both legs. Motion outside
-        # the active phase is marked paid so it does not arrive as a lump later.
+        # A hand or foot stays on after its phase starts. Motion before a
+        # column turns on is marked paid below.
         active = self._active_limbs()
         approach = torch.where(active, approach, torch.zeros_like(approach))
         contact = torch.where(active, contact, torch.zeros_like(contact))
@@ -1479,7 +1517,7 @@ class LadderClimbCommand(CommandTerm):
         )
         hold = HOLD_REWARD * hold_step.float() / dwell
         hold = torch.where(
-            self._reward_phase == CLIMB_PHASE_LEGS,
+            self._reward_phase == CLIMB_PHASE_HOLD,
             hold,
             torch.zeros_like(hold),
         )
@@ -2102,7 +2140,7 @@ class LadderClimbCommandCfg(CommandTermCfg):
     torso_body_name: str = "torso_link"
     pelvis_body_name: str = "pelvis"
 
-    # Which hand climbs first. The other hand is second, then both legs.
+    # Which hand climbs first. The same foot leads after the hands.
     lead_hand: str = "left"
     start_rung: int = 0
     initialize_on_reset: bool = False
@@ -2198,13 +2236,17 @@ FOOT_SOLE_END_OFFSETS = (
     (0.092, 0.0, 0.0),
 )
 HOLD_REWARD = 0.5
-# A rung is three phases: the lead hand, the other hand, then both legs.
+# A rung is five stages: lead hand, other hand, lead foot, other foot, hold.
+# The lead foot is the same side as the lead hand.
 CLIMB_PHASE_FIRST = 0
 CLIMB_PHASE_SECOND = 1
-CLIMB_PHASE_LEGS = 2
-# Impulse when a hand phase ends. The manager multiplies by dt. Both hands
-# finishing on one step pays this twice.
+CLIMB_PHASE_LEAD_LEG = 2
+CLIMB_PHASE_TRAIL_LEG = 3
+CLIMB_PHASE_HOLD = 4
+# Impulse when a hand or foot phase ends. The manager multiplies by dt.
+# Both limbs of a pair finishing on one step pays this twice.
 HAND_PHASE_REWARD = 4.0
+LEG_PHASE_REWARD = 4.0
 # Per hand that is not the one climbing. Progress 1 pays 0. Progress 0
 # pays -0.3 per second. The manager multiplies by dt.
 UNGRIP_RATE = 0.3
@@ -2481,8 +2523,10 @@ def ladder_climb(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     ``1 - REFUND_FRACTION`` of the net approach given back since that limb's
     best point is returned, once.
     On top of that, a latched hand pays ``0.25`` per second while it is welded
-    to the next rung. An unlatched hand inside that rung's latch zone pays
-    the same rate times its grip progress. A foot on the next tread pays
+    to the next rung. That rate starts when the hand's phase starts and keeps
+    paying through the later phases until the cap or the next rung. An
+    unlatched hand inside that rung's latch zone pays the same rate times its
+    grip progress, on the same schedule. A foot on the next tread pays
     ``0.10`` per second for the contact, plus ``1`` per second times the
     share of body weight on
     that foot. The share is the upward contact force divided by body mass
@@ -2507,7 +2551,7 @@ def _hand_ungrip(env: ManagerBasedRlEnv, command_name: str, hand: int) -> torch.
     """``(progress - 1) * 0.3`` per second while this hand is not climbing.
 
     A closed weld pays 0. A fully open hand pays -0.3 per second. The
-    climbing hand is exempt. Both hands pay during the legs phase. The
+    climbing hand is exempt. Both hands pay during the leg and hold phases. The
     manager multiplies by ``dt``.
     """
 
@@ -2605,7 +2649,7 @@ def ladder_ungrip_left(env: ManagerBasedRlEnv, command_name: str) -> torch.Tenso
 
 
 def ladder_ungrip_right(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
-    """Right-hand ungrip cost. Zero until the legs phase."""
+    """Right-hand ungrip cost. Zero while the right hand is the one climbing."""
 
     return _hand_ungrip(env, command_name, 1)
 
@@ -2898,24 +2942,56 @@ def ladder_alive(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     return command.reward_terms()["alive"]
 
 
+def _phases_crossed(
+    started: torch.Tensor, ended: torch.Tensor, first: int, last: int
+) -> torch.Tensor:
+    """How many phases in ``[first, last]`` this step walked past.
+
+    A finished hold sets ``ended`` back to the lead hand, which is behind
+    ``started``, so that step counts as zero.
+    """
+
+    count = torch.zeros_like(started, dtype=torch.float32)
+    for phase in range(first, last + 1):
+        count = count + ((started <= phase) & (ended > phase)).float()
+    return count
+
+
 def ladder_hand_phase(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     """Impulse when a hand phase finishes. The manager scales by ``dt``.
 
     The lead hand latching the next rung pays ``+4``. The trailing hand
-    doing the same pays ``+4``. Both on one step pays ``+8``: the phase
-    walks from the lead hand through the other hand into the legs before
-    this is read. A finished hold returns to the lead hand and pays 0.
+    doing the same pays ``+4``. Both on one step pays ``+8``. A finished
+    hold returns to the lead hand and pays 0.
     """
 
     command = _ladder_command(env, command_name)
-    started = command._reward_phase
-    ended = command.climb_phase
-    first_done = (started == CLIMB_PHASE_FIRST) & (ended != CLIMB_PHASE_FIRST)
-    second_done = (ended == CLIMB_PHASE_LEGS) & (
-        (started == CLIMB_PHASE_FIRST) | (started == CLIMB_PHASE_SECOND)
+    count = _phases_crossed(
+        command._reward_phase,
+        command.climb_phase,
+        CLIMB_PHASE_FIRST,
+        CLIMB_PHASE_SECOND,
     )
-    count = first_done.float() + second_done.float()
     return count * HAND_PHASE_REWARD / env.step_dt
+
+
+def ladder_leg_phase(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Impulse when a leg phase finishes. The manager scales by ``dt``.
+
+    The lead foot on the next rung with 20% of body weight pays ``+4``.
+    The trailing foot doing the same pays ``+4``. Both on one step pays
+    ``+8``. Weight still on the rung the foot started from pays 0. A
+    finished hold pays 0.
+    """
+
+    command = _ladder_command(env, command_name)
+    count = _phases_crossed(
+        command._reward_phase,
+        command.climb_phase,
+        CLIMB_PHASE_LEAD_LEG,
+        CLIMB_PHASE_TRAIL_LEG,
+    )
+    return count * LEG_PHASE_REWARD / env.step_dt
 
 
 def ladder_hold_completed(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
@@ -2929,7 +3005,7 @@ def ladder_hold_completed(env: ManagerBasedRlEnv, command_name: str) -> torch.Te
     """
 
     command = _ladder_command(env, command_name)
-    done = command.just_completed & (command._reward_phase == CLIMB_PHASE_LEGS)
+    done = command.just_completed & (command._reward_phase == CLIMB_PHASE_HOLD)
     return done.float() / env.step_dt
 
 
