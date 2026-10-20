@@ -632,23 +632,22 @@ class LadderClimbCommand(CommandTerm):
     def foot_bears_weight(self) -> torch.Tensor:
         """Whether each foot's upward ladder force carries 20% of body weight.
 
-        The contact sensor reports the force on the foot. With the contact
-        frame rotated into the world, a foot standing on a tread has a
-        positive ``z`` component. Body weight is mass times the simulator
-        gravity, so the same stance crosses this line when gravity changes.
-        The step reward uses ``foot_load_fraction`` instead.
+        The contact normal points from the foot into the ladder, so a foot
+        pressing down on a tread has a negative world ``z``. The load is that
+        downward component. Body weight is mass times the simulator gravity,
+        so the same stance crosses this line when gravity changes. The step
+        reward uses ``foot_load_fraction`` instead.
         """
 
-        force = self._foot_contact_sensor.data.force
-        if force is None:
+        support = self._foot_support_force()
+        if support is None:
             return torch.zeros(
                 (self.num_envs, 2), dtype=torch.bool, device=self.device
             )
-        upward = force[:, self._foot_contact_indices, 2]
         weight = self._robot_mass * self._gravity_magnitude()
         return foot_bears_load(
-            upward,
-            torch.as_tensor(weight, device=upward.device, dtype=upward.dtype),
+            support,
+            torch.as_tensor(weight, device=support.device, dtype=support.dtype),
         )
 
     def foot_load_fraction(self) -> torch.Tensor:
@@ -658,17 +657,30 @@ class LadderClimbCommand(CommandTerm):
         same stance is the same share when gravity changes.
         """
 
-        force = self._foot_contact_sensor.data.force
-        if force is None:
+        support = self._foot_support_force()
+        if support is None:
             return torch.zeros(
                 (self.num_envs, 2), dtype=torch.float32, device=self.device
             )
-        upward = force[:, self._foot_contact_indices, 2]
         weight = self._robot_mass * self._gravity_magnitude()
         return foot_step_load(
-            upward,
-            torch.as_tensor(weight, device=upward.device, dtype=upward.dtype),
+            support,
+            torch.as_tensor(weight, device=support.device, dtype=support.dtype),
         )
+
+    def _foot_support_force(self) -> torch.Tensor | None:
+        """Downward ladder force on each foot, in newtons.
+
+        The contact normal points from the foot into the ladder and the
+        normal force is non-negative along it, so pressing down on a tread
+        gives a negative world ``z``. Returns ``None`` when the sensor has
+        no force.
+        """
+
+        force = self._foot_contact_sensor.data.force
+        if force is None:
+            return None
+        return foot_support_force(force[:, self._foot_contact_indices, 2])
 
     def _robot_mass_kg(self) -> float:
         """Body mass, excluding the ladder, from the unrandomized model."""
@@ -2318,7 +2330,7 @@ FOOT_WEIGHT_FRACTION = 0.20
 # Flat rate for a foot standing on the next tread, paid on top of the load
 # term so a light contact is worth taking before the foot bears weight.
 FOOT_STEP_RATE = 0.10
-# Per unit of body-weight share on a foot. The share is the upward contact
+# Per unit of body-weight share on a foot. The share is the downward contact
 # force divided by mass times the live gravity, and it stops rising at 0.35,
 # so the pressure term stops at 0.35 per second. With the flat contact rate,
 # a fully loaded foot pays 0.45 per second.
@@ -2438,6 +2450,17 @@ def hand_approach_distance(
 
     plane, along = hand_approach_gaps(hand, edge, origin, climb, normal, degenerate)
     return plane + along
+
+
+def foot_support_force(force_z: torch.Tensor) -> torch.Tensor:
+    """Supporting force from a contact whose normal points into the surface.
+
+    ``force_z`` is the contact force in the world frame. The normal points
+    from the foot into the ladder, so a foot pressing down has a negative
+    ``z``. The support is that downward component.
+    """
+
+    return -force_z
 
 
 def foot_bears_load(upward_n: torch.Tensor, body_weight_n: torch.Tensor) -> torch.Tensor:
@@ -2579,7 +2602,7 @@ def ladder_climb(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     grip progress, on the same schedule. A foot on the next tread pays
     ``0.10`` per second for the contact, plus ``1`` per second times the
     share of body weight on
-    that foot. The share is the upward contact force divided by body mass
+    that foot. The share is the downward contact force divided by body mass
     times the simulator gravity, clamped to ``[0, 0.35]``, so the foot rate
     rises from ``0.10`` to ``0.45`` per second as the foot takes weight.
     Each limb caps at ``+3``. Letting go pauses that limb until its phase

@@ -63,6 +63,7 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     RUNG_WINDOW_COUNT,
     EpisodeSumRewardManager,
     foot_bears_load,
+    foot_support_force,
     foot_on_tread,
     foot_step_load,
     foot_tread_features,
@@ -1011,6 +1012,14 @@ def test_approach_floors_at_zero_and_keeps_half_when_the_episode_ends() -> None:
     env.reset_buf = torch.tensor([True])
     assert ladder_climb(env, "ladder").item() == pytest.approx(
         (1.0 - REFUND_FRACTION) * earned / 0.02
+    )
+
+
+def test_foot_support_counts_a_downward_push() -> None:
+    force_z = torch.tensor([-120.0, 15.0, 0.0])
+    torch.testing.assert_close(
+        foot_support_force(force_z),
+        torch.tensor([120.0, -15.0, 0.0]),
     )
 
 

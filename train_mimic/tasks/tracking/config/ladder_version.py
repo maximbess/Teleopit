@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 
-LADDER_CODE_VERSION = "phase-cap-28"
+LADDER_CODE_VERSION = "phase-cap-29"
 LADDER_CODE_VERSION_NOTES = (
     "The climb return is logged as four limb terms: left arm, right arm, "
     "left leg, and right leg. A rung is five stages. lead_hand chooses "
@@ -44,7 +44,8 @@ LADDER_CODE_VERSION_NOTES = (
     "times progress. Both share the +3 cap. A foot on the next tread pays "
     "0.10 per second for the contact, plus 1 per second times its share of "
     "body weight, clamped to 0.35, so the foot rate rises from 0.10 to 0.45 "
-    "per second. The share is the upward force divided by mass times "
+    "per second. The share is the downward contact force, the negation of "
+    "world z, divided by mass times "
     "the simulator gravity. Each limb caps at +3. The episode ends on the 20 s timeout "
     "or when the robot touches the ground. Staying off the ground pays 1 per second "
     "until the episode has lasted 2 seconds, and the ground-contact step "
