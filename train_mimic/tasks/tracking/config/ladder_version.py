@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 
-LADDER_CODE_VERSION = "phase-cap-29"
+LADDER_CODE_VERSION = "phase-cap-31"
 LADDER_CODE_VERSION_NOTES = (
     "The climb return is logged as four limb terms: left arm, right arm, "
     "left leg, and right leg. A rung is five stages. lead_hand chooses "
@@ -18,14 +18,10 @@ LADDER_CODE_VERSION_NOTES = (
     "is left of that hand's +3 contact cap. A foot phase ends when that "
     "foot is on the next rung with 20% of body weight and pays +4, filling "
     "that foot's cap the same way. Both limbs of a pair on one step pays "
-    "+8 and fills both caps. Later contact on a filled limb pays nothing "
-    "until the next rung. The climbing hand pays 0.1 per second "
+    "+8 and fills both caps. A climb column is on only during its phase, "
+    "and locks off once that phase ends. The climbing hand pays 0.1 per second "
     "times grip progress, so a closed weld costs 0.1 per second. Every "
-    "other hand pays (progress - 1) * 0.3 per second. Every other foot "
-    "pays (min(share / 0.20, 1) - 1) * 0.3 per second, so a foot at 20% of "
-    "body weight pays 0 and a foot with no load pays -0.3 per second. The "
-    "stepping foot is exempt, and both feet pay during the hand and hold "
-    "phases. "
+    "other hand pays (progress - 1) * 0.3 per second. "
     "The hold runs only after both feet have passed that gate, and a "
     "finished hold starts the next rung at the lead hand. "
     "Climb pays 0.5 per meter of approach along the plane through the two "

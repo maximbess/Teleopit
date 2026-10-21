@@ -100,8 +100,6 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     ladder_hold_completed,
     ladder_ungrip_left,
     ladder_ungrip_right,
-    ladder_unstep_left,
-    ladder_unstep_right,
     UNGRIP_RATE,
     ladder_critic_privileged,
 )
@@ -320,8 +318,6 @@ def test_ladder_task_is_one_repeated_hold() -> None:
         "detach_right",
         "ungrip_left",
         "ungrip_right",
-        "unstep_left",
-        "unstep_right",
         "ladder_hand_phase",
         "ladder_leg_phase",
         "ladder_hold",
@@ -352,10 +348,6 @@ def test_ladder_task_is_one_repeated_hold() -> None:
     assert cfg.rewards["ungrip_right"].func is ladder_ungrip_right
     assert cfg.rewards["ungrip_left"].weight == 1.0
     assert cfg.rewards["ungrip_right"].weight == 1.0
-    assert cfg.rewards["unstep_left"].func is ladder_unstep_left
-    assert cfg.rewards["unstep_right"].func is ladder_unstep_right
-    assert cfg.rewards["unstep_left"].weight == 1.0
-    assert cfg.rewards["unstep_right"].weight == 1.0
     assert UNGRIP_RATE == pytest.approx(0.3)
     assert cfg.rewards["ladder_hand_phase"].func is ladder_hand_phase
     assert cfg.rewards["ladder_hand_phase"].weight == 1.0
@@ -560,6 +552,10 @@ def test_finishing_a_phase_fills_that_limb_cap() -> None:
     _set_climb_phase(command, CLIMB_PHASE_SECOND)
     env.common_step_counter = 3
     assert ladder_climb_left_arm(env, "ladder").item() == 0.0
+    assert command._climb_paid[0, 0].item() == pytest.approx(CLIMB_CONTACT_CAP)
+    env.common_step_counter = 9
+    assert ladder_climb_left_arm(env, "ladder").item() == 0.0
+    assert command._climb_paid[0, 0].item() == pytest.approx(CLIMB_CONTACT_CAP)
 
     command._climb_paid.zero_()
     command.held_rung[:] = 5
@@ -1113,16 +1109,17 @@ def test_climb_terms_pay_only_the_limb_that_earned_them() -> None:
     assert command._climb_paid[0].tolist() == pytest.approx(
         [0.0, CLIMB_CONTACT_RATE * env.step_dt, 0.0, 0.0]
     )
-    # The legs phase pays the foot. The latched right hand keeps its contact.
-    _set_climb_phase(command, CLIMB_PHASE_HOLD)
+    # The trail-foot phase pays that foot. The right hand's phase is over,
+    # so its column stays off.
+    _set_climb_phase(command, CLIMB_PHASE_TRAIL_LEG)
     env.common_step_counter = 3
     gaps[3] = gaps[2]
     command.foot_rung[:, 1] = 2
     command._contact[:, 1] = True
     paid = limbs()
-    assert paid == pytest.approx([0.0, CLIMB_CONTACT_RATE, 0.0, FOOT_STEP_RATE])
+    assert paid == pytest.approx([0.0, 0.0, 0.0, FOOT_STEP_RATE])
     assert command._climb_paid[0, 1].item() == pytest.approx(
-        2.0 * CLIMB_CONTACT_RATE * env.step_dt
+        CLIMB_CONTACT_RATE * env.step_dt
     )
     assert command._climb_paid[0, 3].item() == pytest.approx(FOOT_STEP_RATE * env.step_dt)
 
@@ -1192,9 +1189,10 @@ def test_climb_pays_a_contact_once_and_ignores_a_reach() -> None:
     assert climb() == pytest.approx(0.0, abs=1e-4)
     command.attached[:] = False
 
-    # The legs phase pays a foot on the next tread 0.10 per second for the
-    # contact, plus 1 per second times its load share. The share stops at 0.35.
-    _set_climb_phase(command, CLIMB_PHASE_HOLD)
+    # The lead-foot phase pays that foot on the next tread 0.10 per second
+    # for the contact, plus 1 per second times its load share. The share
+    # stops at 0.35.
+    _set_climb_phase(command, CLIMB_PHASE_LEAD_LEG)
     command.foot_rung[:, 0] = 2
     assert climb() == pytest.approx(FOOT_STEP_RATE)
     command._foot_load[:, 0] = 0.10
@@ -1237,21 +1235,21 @@ def test_completion_fills_the_unpaid_contact_caps() -> None:
     command._foot_load[:] = 0.0
     command.hold_count[:] = 10
     _set_climb_phase(command, CLIMB_PHASE_HOLD)
-    open_rate = 2 * CLIMB_CONTACT_RATE + 2 * FOOT_STEP_RATE
 
     assert ladder_climb(env, "ladder").item() == 0.0
     env.common_step_counter = 1
-    assert ladder_climb(env, "ladder").item() == pytest.approx(open_rate)
+    assert ladder_climb(env, "ladder").item() == 0.0
 
     env.common_step_counter = 2
     command.just_completed[:] = True
-    remainder = (CLIMB_CONTACT_CAP - command._climb_paid[0]).sum().item()
-    assert ladder_climb(env, "ladder").item() == pytest.approx(remainder / env.step_dt)
+    assert ladder_climb(env, "ladder").item() == pytest.approx(
+        4.0 * CLIMB_CONTACT_CAP / env.step_dt
+    )
     assert command._climb_paid[0].tolist() == pytest.approx([0.0, 0.0, 0.0, 0.0])
 
     env.common_step_counter = 3
     command.just_completed[:] = False
-    assert ladder_climb(env, "ladder").item() == pytest.approx(open_rate)
+    assert ladder_climb(env, "ladder").item() == 0.0
 
 
 def test_hold_pays_back_a_broken_gate_and_not_a_completion() -> None:
@@ -1554,7 +1552,7 @@ def test_climb_phase_pays_each_hand_then_the_legs() -> None:
     command.held_rung[:, 1] = 5
     env.common_step_counter = 2
     assert ladder_climb_right_arm(env, "ladder").item() == pytest.approx(CLIMB_CONTACT_RATE)
-    assert ladder_climb_left_arm(env, "ladder").item() == pytest.approx(CLIMB_CONTACT_RATE)
+    assert ladder_climb_left_arm(env, "ladder").item() == 0.0
     assert ladder_detach_right(env, "ladder").item() == 0.0
     assert ladder_ungrip_left(env, "ladder").item() == pytest.approx(-UNGRIP_RATE)
     assert ladder_ungrip_right(env, "ladder").item() == 0.0
@@ -1572,8 +1570,8 @@ def test_climb_phase_pays_each_hand_then_the_legs() -> None:
         FOOT_STEP_RATE + FOOT_PRESSURE_RATE * 0.10
     )
     assert ladder_climb_right_leg(env, "ladder").item() == 0.0
-    assert ladder_climb_left_arm(env, "ladder").item() == pytest.approx(CLIMB_CONTACT_RATE)
-    assert ladder_climb_right_arm(env, "ladder").item() == pytest.approx(CLIMB_CONTACT_RATE)
+    assert ladder_climb_left_arm(env, "ladder").item() == 0.0
+    assert ladder_climb_right_arm(env, "ladder").item() == 0.0
     assert ladder_ungrip_right(env, "ladder").item() == pytest.approx(-UNGRIP_RATE)
     command._reward_phase.copy_(command.climb_phase)
     command._advance_climb_phase()
@@ -1625,42 +1623,6 @@ def test_climb_phase_pays_each_hand_then_the_legs() -> None:
     command.just_completed[:] = True
     command._advance_climb_phase()
     assert command.climb_phase.item() == CLIMB_PHASE_FIRST
-
-
-def test_unstep_charges_a_foot_that_is_not_stepping() -> None:
-    command = _quiet_ladder()
-    _set_climb_phase(command, CLIMB_PHASE_FIRST)
-    env = _reward_env(command)
-
-    assert ladder_unstep_left(env, "ladder").item() == pytest.approx(-UNGRIP_RATE)
-    assert ladder_unstep_right(env, "ladder").item() == pytest.approx(-UNGRIP_RATE)
-
-    command._foot_load[:, 0] = 0.5 * FOOT_WEIGHT_FRACTION
-    command._foot_load[:, 1] = FOOT_WEIGHT_FRACTION
-    assert ladder_unstep_left(env, "ladder").item() == pytest.approx(-0.5 * UNGRIP_RATE)
-    assert ladder_unstep_right(env, "ladder").item() == 0.0
-
-    _set_climb_phase(command, CLIMB_PHASE_LEAD_LEG)
-    command._foot_load[:, 0] = 0.0
-    command._foot_load[:, 1] = 0.0
-    assert ladder_unstep_left(env, "ladder").item() == 0.0
-    assert ladder_unstep_right(env, "ladder").item() == pytest.approx(-UNGRIP_RATE)
-
-    _set_climb_phase(command, CLIMB_PHASE_TRAIL_LEG)
-    assert ladder_unstep_left(env, "ladder").item() == pytest.approx(-UNGRIP_RATE)
-    assert ladder_unstep_right(env, "ladder").item() == 0.0
-
-    _set_climb_phase(command, CLIMB_PHASE_HOLD)
-    command._foot_load[:] = FOOT_WEIGHT_FRACTION
-    assert ladder_unstep_left(env, "ladder").item() == 0.0
-    assert ladder_unstep_right(env, "ladder").item() == 0.0
-
-    command._lead_hand = 1
-    command._trail_hand = 0
-    _set_climb_phase(command, CLIMB_PHASE_LEAD_LEG)
-    command._foot_load[:] = 0.0
-    assert ladder_unstep_left(env, "ladder").item() == pytest.approx(-UNGRIP_RATE)
-    assert ladder_unstep_right(env, "ladder").item() == 0.0
 
 
 def test_detach_pays_the_climbing_hand_for_letting_go() -> None:

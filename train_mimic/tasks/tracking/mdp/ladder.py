@@ -1264,17 +1264,16 @@ class LadderClimbCommand(CommandTerm):
     def _active_limbs(self) -> torch.Tensor:
         """Which climb columns pay. Shape ``(E, 4)``.
 
-        A hand or foot turns on when its phase starts and stays on through
-        the later phases of this rung. The lead foot follows ``lead_hand``.
-        Motion before a column turns on is marked paid, so it does not
-        arrive later.
+        A hand or foot is on only during its own phase. Once that phase
+        ends, the column locks off for the rest of the rung. The lead foot
+        follows ``lead_hand``.
         """
 
         phase = self._reward_phase
-        lead_hand = torch.ones_like(phase, dtype=torch.bool)
-        trail_hand = phase >= CLIMB_PHASE_SECOND
-        lead_leg = phase >= CLIMB_PHASE_LEAD_LEG
-        trail_leg = phase >= CLIMB_PHASE_TRAIL_LEG
+        lead_hand = phase == CLIMB_PHASE_FIRST
+        trail_hand = phase == CLIMB_PHASE_SECOND
+        lead_leg = phase == CLIMB_PHASE_LEAD_LEG
+        trail_leg = phase == CLIMB_PHASE_TRAIL_LEG
         if self._lead_hand == 0:
             left_arm, right_arm = lead_hand, trail_hand
             left_leg, right_leg = lead_leg, trail_leg
@@ -1433,9 +1432,8 @@ class LadderClimbCommand(CommandTerm):
         """Agent-visible climb, hold, and alive terms.
 
         Cached on ``common_step_counter`` so the reward terms share one sample.
-        A hand or foot's climb turns on when its phase starts and stays on
-        for the rest of the rung. The lead foot is the same side as the
-        lead hand.
+        A hand or foot's climb is on only during its own phase. The lead
+        foot is the same side as the lead hand.
         """
 
         step_id = int(getattr(self._env, "common_step_counter", -1))
@@ -1507,6 +1505,12 @@ class LadderClimbCommand(CommandTerm):
             contact,
             torch.zeros_like(contact),
         )
+        # A column is on only during its phase, so a finished limb stops
+        # moving this term. The phase-end fill and a finished hold are
+        # applied after that mask.
+        active = self._active_limbs()
+        approach = torch.where(active, approach, torch.zeros_like(approach))
+        contact = torch.where(active, contact, torch.zeros_like(contact))
         # A finished hold pays whatever is left of each planted limb's cap,
         # then the reset below starts the next rung at zero. The rate slice
         # is already zero on this step, so the remainder is not counted twice.
@@ -1515,14 +1519,9 @@ class LadderClimbCommand(CommandTerm):
             room,
             contact,
         )
-        # A hand or foot stays on after its phase starts. Motion before a
-        # column turns on is marked paid below.
-        active = self._active_limbs()
-        approach = torch.where(active, approach, torch.zeros_like(approach))
-        contact = torch.where(active, contact, torch.zeros_like(contact))
         # The step a phase ends pays that limb whatever is left of its cap,
-        # instead of the rate slice. Later steps on this rung pay no more
-        # contact for it. A skip fills every limb whose phase was crossed.
+        # instead of the rate slice. A skip fills every limb whose phase
+        # was crossed.
         contact = torch.where(
             self._limbs_finishing_phase() & ~hold_fresh.unsqueeze(1),
             room,
@@ -2308,9 +2307,7 @@ CLIMB_PHASE_HOLD = 4
 HAND_PHASE_REWARD = 4.0
 LEG_PHASE_REWARD = 4.0
 # Per hand that is not the one climbing. Progress 1 pays 0. Progress 0
-# pays -0.3 per second. The manager multiplies by dt. A foot that is not
-# the one stepping uses the same rate on its weight share: 20% of body
-# weight pays 0, and no load pays -0.3 per second.
+# pays -0.3 per second. The manager multiplies by dt.
 UNGRIP_RATE = 0.3
 # Climbing-hand detach potential, only while that hand still holds the
 # baseline rung. The potential is (1 - progress) times this scale, so a
@@ -2320,7 +2317,7 @@ UNGRIP_RATE = 0.3
 # weld that breaks without that commanded open pays 0, including the 0.5.
 # The manager multiplies by dt. Latch load on a closed weld is latch_pressure.
 DETACH_POTENTIAL = 1.0
-DETACH_COMPLETE = 0.5
+DETACH_COMPLETE = 3
 # Off the ground. The manager multiplies by dt. The rate is 1 per second
 # until the episode has lasted 2 s, then 0. The ground-contact step pays 0.
 ALIVE_RATE = 1.0
@@ -2596,21 +2593,20 @@ def ladder_climb(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     ``1 - REFUND_FRACTION`` of the net approach given back since that limb's
     best point is returned, once.
     On top of that, a latched hand pays ``0.25`` per second while it is welded
-    to the next rung. That rate starts when the hand's phase starts and keeps
-    paying through the later phases until the cap or the next rung. An
-    unlatched hand inside that rung's latch zone pays the same rate times its
-    grip progress, on the same schedule. A foot on the next tread pays
-    ``0.10`` per second for the contact, plus ``1`` per second times the
-    share of body weight on
-    that foot. The share is the downward contact force divided by body mass
-    times the simulator gravity, clamped to ``[0, 0.35]``, so the foot rate
-    rises from ``0.10`` to ``0.45`` per second as the foot takes weight.
+    to the next rung, and only during that hand's phase. An unlatched hand
+    inside that rung's latch zone pays the same rate times its grip progress,
+    on the same schedule. A foot on the next tread pays ``0.10`` per second
+    for the contact, plus ``1`` per second times the share of body weight on
+    that foot, only during that foot's phase. The share is the downward
+    contact force divided by body mass times the simulator gravity, clamped
+    to ``[0, 0.35]``, so the foot rate rises from ``0.10`` to ``0.45`` per
+    second as the foot takes weight.
     Each limb caps at ``+3``. Letting go pauses that limb until its phase
-    ends. The step the phase ends pays whatever is left of that limb's cap
-    and the cap stays full for the rest of the rung, so later contact on
-    that limb pays nothing. Both limbs of a pair ending on one step fill
-    both caps. A finished hold still pays any remainder left on a limb that
-    is on the next rung, then clears every cap.
+    ends. The step the phase ends pays whatever is left of that limb's cap.
+    After that the climb column locks off, so later motion does not change
+    it. Both limbs of a pair ending on one step fill both caps. A finished
+    hold still pays any remainder left on a limb that is on the next rung,
+    then clears every cap.
     ``reward_terms`` stores ``rate * dt`` for one open step, and this
     divides by ``dt``, so the step returns the rate. The completion
     remainder is stored as the amount, and this divides by ``dt`` too.
@@ -2726,35 +2722,6 @@ def ladder_ungrip_right(env: ManagerBasedRlEnv, command_name: str) -> torch.Tens
     """Right-hand ungrip cost. Zero while the right hand is the one climbing."""
 
     return _hand_ungrip(env, command_name, 1)
-
-
-def _foot_unstep(env: ManagerBasedRlEnv, command_name: str, foot: int) -> torch.Tensor:
-    """``(planted - 1) * 0.3`` per second while this foot is not stepping.
-
-    ``planted`` is the weight share divided by 20% of body weight, clamped
-    to 1. A foot carrying at least that share pays 0. A foot with no load
-    pays -0.3 per second. The stepping foot is exempt. Both feet pay during
-    the hand and hold phases. The manager multiplies by ``dt``.
-    """
-
-    command = _ladder_command(env, command_name)
-    active = command._climbing_foot() != foot
-    share = command.foot_load_fraction()[:, foot]
-    planted = (share / FOOT_WEIGHT_FRACTION).clamp(max=1.0)
-    rate = (planted - 1.0) * UNGRIP_RATE
-    return torch.where(active, rate, torch.zeros_like(rate))
-
-
-def ladder_unstep_left(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
-    """Left-foot unstep cost. Zero during the left-foot phase."""
-
-    return _foot_unstep(env, command_name, 0)
-
-
-def ladder_unstep_right(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
-    """Right-foot unstep cost. Zero while the right foot is the one stepping."""
-
-    return _foot_unstep(env, command_name, 1)
 
 
 def ladder_hold(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:

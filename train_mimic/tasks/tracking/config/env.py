@@ -810,13 +810,13 @@ def make_g1_ladder_rl_env_cfg(
         # plus 1 per second times its share of body weight.
         # That share stops at 0.35 and uses the simulator gravity. Each limb
         # caps at +3. The step its phase ends pays whatever is left of that
-        # cap, and later contact on that limb pays nothing until the next
-        # rung. A completed hold clears the caps.
+        # cap. After that the climb column locks off until the next rung.
+        # A completed hold clears the caps.
         # On the last
         # step, half of each limb's net approach drop is kept.
-        # Each limb is its own term. A hand or foot turns on when its phase
-        # starts and stays on for the rest of the rung. The lead foot is the
-        # same side as the lead hand. Columns that have not started are zero.
+        # Each limb is its own term. A hand or foot is on only during its
+        # phase. The lead foot is the same side as the lead hand. Columns
+        # outside their phase are zero.
         "ladder_climb_left_arm": RewardTermCfg(
             func=mdp.ladder_climb_left_arm,
             weight=1.0,
@@ -843,9 +843,7 @@ def make_g1_ladder_rl_env_cfg(
         # pays +0.5. The +1 and the +0.5 each pay once per rung. A weld that
         # breaks without that commanded open pays 0, including the 0.5.
         # Latch load is latch_pressure. Every other hand pays
-        # (progress - 1) * 0.3 per second. Every other foot pays the same
-        # rate on its weight share: 20% of body weight is 0, and no load
-        # is -0.3 per second. The stepping foot is exempt.
+        # (progress - 1) * 0.3 per second.
         "detach_left": RewardTermCfg(
             func=mdp.ladder_detach_left,
             weight=1.0,
@@ -863,16 +861,6 @@ def make_g1_ladder_rl_env_cfg(
         ),
         "ungrip_right": RewardTermCfg(
             func=mdp.ladder_ungrip_right,
-            weight=1.0,
-            params={"command_name": "ladder"},
-        ),
-        "unstep_left": RewardTermCfg(
-            func=mdp.ladder_unstep_left,
-            weight=1.0,
-            params={"command_name": "ladder"},
-        ),
-        "unstep_right": RewardTermCfg(
-            func=mdp.ladder_unstep_right,
             weight=1.0,
             params={"command_name": "ladder"},
         ),
