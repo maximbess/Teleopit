@@ -604,7 +604,8 @@ class LadderClimbCommand(CommandTerm):
         """Heel and toe on the sole, shape ``(num_envs, 2, 2, 3)``.
 
         The offsets are in the foot-site frame. The site frame matches the
-        ankle frame, so the climb axis picks whichever end is still behind.
+        ankle frame, so the path around the next rung uses whichever end is
+        still outside the standing slab.
         """
 
         rotation = _as_rotation_matrix(
@@ -1362,7 +1363,6 @@ class LadderClimbCommand(CommandTerm):
     def _limb_features(self) -> tuple[torch.Tensor, torch.Tensor]:
         """Return ``(d, ell)`` for both hands and both feet, shape ``(E, 4)``."""
 
-        centers = self._env.sim.data.site_xpos[:, self._rung_site_ids]
         on_target = self._limbs_on_next_rung()
         hand_next = torch.clamp(
             self.baseline_hand_rung + 1, min=0, max=self.num_rungs - 1
@@ -1381,11 +1381,15 @@ class LadderClimbCommand(CommandTerm):
         self._hand_plane_gap = plane_gap
         hand_distance = along
         hand_lateral = torch.zeros_like(hand_distance)
-        next_foot_center = _gather_rung_centers(centers, foot_next)
+        # The grip site lies along the rung, so the box pose comes from the geom.
+        data = self._env.sim.data
+        geom_centers = data.geom_xpos[:, self._rung_geom_ids]
+        geom_rotation = _as_rotation_matrix(data.geom_xmat[:, self._rung_geom_ids])
         foot_distance, foot_lateral = foot_tread_features(
             self.foot_sole_points_w,
-            _gather_rung_centers(centers, self.baseline_foot_rung),
-            next_foot_center,
+            _gather_rung_centers(geom_centers, foot_next),
+            _gather_rung_rotations(geom_rotation, foot_next),
+            self._rung_box_half[foot_next],
             on_target[:, 2:],
         )
         return (
@@ -1443,7 +1447,8 @@ class LadderClimbCommand(CommandTerm):
         # A hand's approach distance is how far it still is along the rail from
         # the far top edge of the next rung. Leaving the ladder plane is
         # penalized separately, at 0.5 per meter from the attached pose.
-        # A foot's distance falls until the sole reaches the next tread.
+        # A foot's distance is the path around the next rung box to the
+        # standing slab, and it falls until the sole is on that tread.
         # A limb's approach account stops at 0, so moving far away only gives
         # back what that limb earned. Contact accrues
         # separately and stops at +3 per limb, including during the hold.
@@ -2381,6 +2386,20 @@ def _gather_rung_centers(centers: torch.Tensor, indices: torch.Tensor) -> torch.
     return torch.gather(centers, 1, safe.unsqueeze(-1).expand(-1, -1, 3))
 
 
+def _gather_rung_rotations(
+    rotation: torch.Tensor, indices: torch.Tensor
+) -> torch.Tensor:
+    """Gather geom rotations.
+
+    ``rotation`` has shape ``(E, R, 3, 3)`` and ``indices`` has shape
+    ``(E, F)``. The result has shape ``(E, F, 3, 3)``.
+    """
+
+    safe = indices.clamp(0, rotation.shape[1] - 1)
+    index = safe.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, 3, 3)
+    return torch.gather(rotation, 1, index)
+
+
 def rung_far_top_edge(
     center: torch.Tensor,
     rotation: torch.Tensor,
@@ -2503,32 +2522,80 @@ def foot_on_tread(
     return on_top & over_tread & on_span
 
 
-def foot_tread_features(
-    sole_points: torch.Tensor,
-    base_center: torch.Tensor,
-    next_center: torch.Tensor,
-    on_target: torch.Tensor,
-) -> tuple[torch.Tensor, torch.Tensor]:
-    """Remaining climb of the sole point furthest behind the next tread.
+def foot_box_distance(
+    depth: torch.Tensor,
+    height: torch.Tensor,
+    half_depth: torch.Tensor,
+    half_height: torch.Tensor,
+    standing: float,
+) -> torch.Tensor:
+    """Path length from each sole point to the standing slab.
 
-    ``sole_points`` has shape ``(E, F, P, 3)``. The axis runs from the
-    baseline rung center to the next rung center, the same axis as a hand.
-    The target on that axis is 0.043 m above the next rung center. ``d`` is
-    the largest remaining distance among the sole points, clamped at 0, so
-    an ankle that has arrived does not hide a heel still a rung below.
-    ``d = 0`` once the foot is on that next tread. The lateral term is zero.
+    ``depth`` is local x, with the far side positive, and ``height`` is
+    local z. The slab is the tread, ``|depth| <= half_depth`` and
+    ``height >= standing``. Outside a face the path is the straight line to
+    that face's lip. Under the box it goes to the nearer bottom corner, then
+    up the face; a tie takes the near side. ``standing`` is above the top
+    face, so the last stretch over the tread is straight up.
     """
 
-    axis = next_center - base_center
-    length = torch.linalg.vector_norm(axis, dim=-1, keepdim=True)
-    direction = axis / length.clamp_min(1.0e-8)
-    degenerate = length.squeeze(-1) < 1.0e-6
-    standing = next_center.clone()
-    standing[..., 2] = standing[..., 2] + FOOT_TREAD_ABOVE_CENTER_M
-    gap = standing.unsqueeze(-2) - sole_points
-    remaining = (gap * direction.unsqueeze(-2)).sum(dim=-1).clamp_min(0.0)
+    def _hypot(u: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
+        return torch.sqrt(u.square() + v.square())
+
+    rise = (standing - height).clamp(min=0.0)
+    near_out = _hypot((-half_depth - depth).clamp(min=0.0), rise)
+    far_out = _hypot((depth - half_depth).clamp(min=0.0), rise)
+    under_tail = standing + half_height
+    under_near = _hypot(depth + half_depth, height + half_height) + under_tail
+    under_far = _hypot(half_depth - depth, height + half_height) + under_tail
+    under = torch.where(under_near <= under_far, under_near, under_far)
+    inside_near = (depth + half_depth) + rise
+    inside_far = (half_depth - depth) + rise
+    inside = torch.where(inside_near <= inside_far, inside_near, inside_far)
+    over_or_under = torch.where(
+        height >= half_height,
+        rise,
+        torch.where(height <= -half_height, under, inside),
+    )
+    return torch.where(
+        depth <= -half_depth,
+        near_out,
+        torch.where(depth >= half_depth, far_out, over_or_under),
+    )
+
+
+def foot_tread_features(
+    sole_points: torch.Tensor,
+    next_center: torch.Tensor,
+    rotation: torch.Tensor,
+    half_sizes: torch.Tensor,
+    on_target: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Path around the next rung box for the sole point still outside it.
+
+    ``sole_points`` has shape ``(E, F, P, 3)``. ``next_center`` and
+    ``rotation`` are the next rung geom pose, with shapes ``(E, F, 3)`` and
+    ``(E, F, 3, 3)``, and the geom's local axes are columns of ``rotation``.
+    ``half_sizes`` has shape ``(E, F, 3)``. Local +x is the far side and
+    local +z is up. The standing slab is that top face at 0.043 m above the
+    center. ``d`` is the longest path among the sole points, so an end that
+    has arrived does not hide one still under the rung. ``d = 0`` once the
+    foot is on that next tread. The lateral term is zero.
+    """
+
+    delta = sole_points - next_center.unsqueeze(-2)
+    depth = (delta * rotation[..., 0].unsqueeze(-2)).sum(dim=-1)
+    height = (delta * rotation[..., 2].unsqueeze(-2)).sum(dim=-1)
+    half_depth = half_sizes[..., 0].unsqueeze(-1)
+    half_height = half_sizes[..., 2].unsqueeze(-1)
+    remaining = foot_box_distance(
+        depth,
+        height,
+        half_depth,
+        half_height,
+        FOOT_TREAD_ABOVE_CENTER_M,
+    )
     distance = remaining.amax(dim=-1)
-    distance = torch.where(degenerate, torch.zeros_like(distance), distance)
     distance = torch.where(on_target, torch.zeros_like(distance), distance)
     return distance, torch.zeros_like(distance)
 
@@ -2583,9 +2650,10 @@ def ladder_climb(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     separate penalty, ``-0.5`` per meter from the pose sampled at the reset
     or the last completed hold. Attached to the ladder, that sample is zero.
     Moving out pays the meters, and moving back returns them. A foot's
-    distance is the rung-to-rung gap of the sole point furthest behind the
-    standing height on the next tread, and it keeps paying until the foot is
-    on that tread.
+    distance is the path around the next rung box of the sole point still
+    outside the standing slab. That slab is the top of the box at 0.043 m
+    above the rung center. Local +x of the rung geom is the far side. The
+    distance keeps paying until the foot is on that tread.
     ``0.5`` per meter. The account is the gap closed since the reset sample,
     or since the last completed hold, and it stops at 0. Moving far away
     gives back only what that limb earned, and coming back re-earns that same

@@ -802,8 +802,9 @@ def make_g1_ladder_rl_env_cfg(
         # 0.5 per meter of approach. A hand's approach gap is the climb left
         # to the far top edge of the next rung. Leaving the plane through the
         # two lowest rungs costs 0.5 per meter from the attached pose. A
-        # foot's gap is the sole point furthest behind the next rung. Each
-        # limb's approach stops at 0.
+        # foot's gap is the path around the next rung box to the standing
+        # slab, using the sole point still outside it. Each limb's approach
+        # stops at 0.
         # A latched hand then pays 0.25 per second on the next rung. An
         # unlatched hand in that zone pays the same rate times grip progress.
         # A foot on the next tread pays 0.10 per second for the contact,

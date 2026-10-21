@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 import re
 from types import SimpleNamespace
 
@@ -667,40 +668,97 @@ def test_a_foot_counts_only_on_the_top_of_the_rung() -> None:
     assert not foot_on_tread(on_the_rail, center, half).item()
 
 
+def _flat_rung_box() -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    center = torch.tensor([[[0.0, 0.0, 0.20]]])
+    rotation = torch.eye(3).view(1, 1, 3, 3)
+    half = torch.tensor([[[0.055, 0.35, 0.035]]])
+    return center, rotation, half
+
+
 def test_foot_approach_uses_the_sole_point_furthest_down_the_rail() -> None:
-    base = torch.zeros(1, 1, 3)
-    nxt = torch.tensor([[[0.0, 0.0, 0.20]]])
+    nxt, rotation, half = _flat_rung_box()
     standing_z = 0.20 + FOOT_TREAD_ABOVE_CENTER_M
     ankle = torch.tensor([0.0, 0.0, standing_z])
     heel = torch.tensor([0.0, 0.0, standing_z - 0.10])
     points = torch.stack((ankle, heel)).view(1, 1, 2, 3)
     on_rung = torch.tensor([[False]])
+    # The heel is under the box. The path runs to the near bottom corner, then
+    # up to the standing lip.
+    heel_height = FOOT_TREAD_ABOVE_CENTER_M - 0.10
+    expected = math.hypot(0.055, heel_height + 0.035) + (
+        FOOT_TREAD_ABOVE_CENTER_M + 0.035
+    )
 
-    distance, lateral = foot_tread_features(points, base, nxt, on_rung)
-    assert distance.item() == pytest.approx(0.10)
+    distance, lateral = foot_tread_features(points, nxt, rotation, half, on_rung)
+    assert distance.item() == pytest.approx(expected)
     assert lateral.item() == 0.0
 
-    # The ankle is already at the standing height. It does not pay the heel's gap.
-    alone, _ = foot_tread_features(ankle.view(1, 1, 1, 3), base, nxt, on_rung)
-    assert alone.item() == pytest.approx(0.0)
+    # The ankle is already on the standing slab. It does not pay the heel's gap.
+    alone, _ = foot_tread_features(ankle.view(1, 1, 1, 3), nxt, rotation, half, on_rung)
+    assert alone.item() == pytest.approx(0.0, abs=1e-5)
 
-    planted, _ = foot_tread_features(points, base, nxt, torch.tensor([[True]]))
+    planted, _ = foot_tread_features(points, nxt, rotation, half, torch.tensor([[True]]))
     assert planted.item() == 0.0
 
     # Past the standing height, and off the end of the rung, adds nothing.
     ahead = torch.tensor([0.0, 0.50, standing_z + 0.05])
     clear, _ = foot_tread_features(
         torch.stack((ankle, ahead)).view(1, 1, 2, 3),
-        base,
         nxt,
+        rotation,
+        half,
         on_rung,
     )
-    assert clear.item() == pytest.approx(0.0)
+    assert clear.item() == pytest.approx(0.0, abs=1e-5)
 
-    # The target is above the rung center, so the center itself is still short.
+    # Inside the box, the path leaves through the near face and then climbs.
     center_point = torch.tensor([0.0, 0.0, 0.20]).view(1, 1, 1, 3)
-    short, _ = foot_tread_features(center_point, base, nxt, on_rung)
-    assert short.item() == pytest.approx(FOOT_TREAD_ABOVE_CENTER_M)
+    short, _ = foot_tread_features(center_point, nxt, rotation, half, on_rung)
+    assert short.item() == pytest.approx(0.055 + FOOT_TREAD_ABOVE_CENTER_M)
+
+
+def test_foot_path_goes_around_the_near_side_of_the_rung() -> None:
+    center, rotation, half = _flat_rung_box()
+    on_rung = torch.tensor([[False]])
+    depth = 0.055
+    height = 0.035
+    standing = FOOT_TREAD_ABOVE_CENTER_M
+
+    def distance_at(point: torch.Tensor, rung_rotation: torch.Tensor) -> float:
+        gap, lateral = foot_tread_features(
+            point.view(1, 1, 1, 3),
+            center,
+            rung_rotation,
+            half,
+            on_rung,
+        )
+        assert lateral.item() == 0.0
+        return gap.item()
+
+    # Outside the near face, the path is the straight line to the near lip.
+    near = torch.tensor([-0.10, 0.0, 0.20 - 0.14])
+    assert distance_at(near, rotation) == pytest.approx(
+        math.hypot(-depth - (-0.10), standing - (-0.14))
+    )
+
+    # On the near face and below the box, that straight line matches the
+    # under-box path, so crossing the face does not jump.
+    lip = standing - (-0.10)
+    boundary = torch.tensor([-depth, 0.25, 0.20 - 0.10])
+    assert distance_at(boundary, rotation) == pytest.approx(lip)
+
+    # Under the center the tie goes to the near bottom corner.
+    under = torch.tensor([0.0, 0.40, 0.20 - 0.10])
+    under_near = math.hypot(depth, -0.10 + height) + (standing + height)
+    assert distance_at(under, rotation) == pytest.approx(under_near)
+
+    # A turned box carries the near face with it. Local +x is the far side.
+    quarter_turn = torch.tensor(
+        [[[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]]]
+    )
+    local = torch.tensor([-0.10, 0.0, -0.14])
+    world = center.view(3) + (quarter_turn.view(3, 3) * local).sum(dim=-1)
+    assert distance_at(world, quarter_turn) == pytest.approx(distance_at(near, rotation))
 
 
 def test_rung_far_top_edge_follows_the_box_geom() -> None:
@@ -748,22 +806,26 @@ def _leaning_hand_ladder() -> tuple[_QuietLadder, dict[str, torch.Tensor]]:
     normal = torch.cross(lateral, climb, dim=-1)
     num_rungs = 6
     command._rung_site_ids = torch.arange(num_rungs)
+    command._rung_geom_ids = torch.arange(num_rungs)
     command._foot_site_ids = torch.tensor([num_rungs, num_rungs + 1])
     command._foot_sole_offsets = torch.zeros(2, 3)
     nsite = num_rungs + 2
     site_xpos = torch.zeros(1, nsite, 3)
     for index in range(num_rungs):
         site_xpos[0, index] = pitch * index
+    half = torch.tensor([[0.055, 0.35, 0.035]]).repeat(num_rungs, 1)
+    half[4, 2] = 0.02
+    half[5, 2] = 0.08
+    command._rung_box_half = half
+    rotation = torch.eye(3).view(1, 1, 3, 3).expand(1, num_rungs, 3, 3).contiguous()
     command._env.sim = SimpleNamespace(
         data=SimpleNamespace(
             site_xpos=site_xpos,
             site_xmat=torch.eye(3).reshape(1, 1, 3, 3).expand(1, nsite, 3, 3).contiguous(),
+            geom_xpos=site_xpos[:, :num_rungs].contiguous(),
+            geom_xmat=rotation,
         )
     )
-    half = torch.tensor([[0.055, 0.35, 0.035]]).repeat(num_rungs, 1)
-    half[4, 2] = 0.02
-    half[5, 2] = 0.08
-    rotation = torch.eye(3).view(1, 1, 3, 3).expand(1, num_rungs, 3, 3).contiguous()
     edges = rung_far_top_edge(site_xpos[:, :num_rungs], rotation, half)
     command._rung_far_top_w = lambda: edges  # type: ignore[method-assign]
     command.bottom_rung_plane = lambda: (  # type: ignore[method-assign]
@@ -2503,10 +2565,16 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
         )
         site = torch.tensor(data.site_xpos[foot_site], dtype=torch.float32)
         ends = site + sole @ rotation.T
+        next_geom = mujoco.mj_name2id(
+            model, mujoco.mjtObj.mjOBJ_GEOM, "left_ladder_rung_05"
+        )
         gap, _ = foot_tread_features(
             ends.view(1, 1, 2, 3),
-            torch.tensor(data.site_xpos[foot_rung_site], dtype=torch.float32).view(1, 1, 3),
-            torch.tensor(data.site_xpos[next_rung_site], dtype=torch.float32).view(1, 1, 3),
+            torch.tensor(data.geom_xpos[next_geom], dtype=torch.float32).view(1, 1, 3),
+            torch.tensor(
+                data.geom_xmat[next_geom].reshape(3, 3), dtype=torch.float32
+            ).view(1, 1, 3, 3),
+            torch.tensor(model.geom_size[next_geom], dtype=torch.float32).view(1, 1, 3),
             torch.tensor([[False]]),
         )
         assert 0.12 < gap.item() < 0.28

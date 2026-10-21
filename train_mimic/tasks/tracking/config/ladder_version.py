@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 
-LADDER_CODE_VERSION = "phase-cap-31"
+LADDER_CODE_VERSION = "foot-path-32"
 LADDER_CODE_VERSION_NOTES = (
     "The climb return is logged as four limb terms: left arm, right arm, "
     "left leg, and right leg. A rung is five stages. lead_hand chooses "
@@ -28,9 +28,10 @@ LADDER_CODE_VERSION_NOTES = (
     "lowest rungs, up to the far top edge of the next rung. That edge is the "
     "far top corner of the rung box, read from the rung geom. Passing the "
     "edge adds nothing. Distance out of that plane costs 0.5 per meter from "
-    "the attached pose, which is the zero. A foot's approach is the rung-to-rung gap of the sole "
-    "point furthest behind the standing height, 43 mm above the next rung "
-    "center. "
+    "the attached pose, which is the zero. A foot's approach is the path "
+    "around the next rung box to the standing slab, using the sole point "
+    "still outside it. The slab is the top of that box at 43 mm above the "
+    "center, and local +x of the rung geom is the far side. "
     "Each limb's approach stops at 0. On the "
     "last step, half of the net unbanked drop in each limb's "
     "approach is given back. Grip progress stays 0 outside the 0.14 m latch "
