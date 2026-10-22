@@ -934,6 +934,15 @@ def make_g1_ladder_rl_env_cfg(
             weight=1.0,
             params={"command_name": "ladder"},
         ),
+        # Center of mass outside the segment from the starting foot rung to
+        # the last hand rung. The projection follows gravity. Inside the
+        # segment the rate is 0. It falls linearly to -0.2 per second at
+        # 0.15 m, the keyframe lean, and stays there. The episode stops at -1.
+        "ladder_stance": RewardTermCfg(
+            func=mdp.ladder_stance,
+            weight=1.0,
+            params={"command_name": "ladder"},
+        ),
         # Squared action change near 1 for the whole 20 s costs 0.04, about
         # a sixth of one plant. The tread-1 fall averaged near 7.5 and would
         # cost 0.30 stretched over 20 s, about one plant, so dying early to

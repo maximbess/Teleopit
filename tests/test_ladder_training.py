@@ -73,6 +73,9 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     LadderGripActionCfg,
     FLIGHT_RATE,
     FLIGHT_TOTAL,
+    STANCE_DISTANCE,
+    STANCE_RATE,
+    STANCE_TOTAL,
     ladder_alive,
     ladder_climb,
     ladder_climb_left_arm,
@@ -82,7 +85,10 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     ladder_detach_left,
     ladder_detach_right,
     ladder_flight,
+    ladder_stance,
     latch_pressure,
+    stance_outside_distance,
+    stance_penalty_rate,
     ladder_face_axes,
     hand_approach_distance,
     rung_far_top_edge,
@@ -328,6 +334,7 @@ def test_ladder_task_is_one_repeated_hold() -> None:
         "side_cross",
         "latch_pressure",
         "ladder_flight",
+        "ladder_stance",
         "action_rate_l2",
     }
     assert cfg.rewards["ladder_climb_left_arm"].func is ladder_climb_left_arm
@@ -380,6 +387,12 @@ def test_ladder_task_is_one_repeated_hold() -> None:
     assert FLIGHT_RATE == -1.0
     assert FLIGHT_TOTAL == pytest.approx(-1.0)
     assert cfg.rewards["ladder_flight"].params == {"command_name": "ladder"}
+    assert cfg.rewards["ladder_stance"].func is ladder_stance
+    assert cfg.rewards["ladder_stance"].weight == 1.0
+    assert STANCE_RATE == pytest.approx(-0.2)
+    assert STANCE_DISTANCE == pytest.approx(0.15)
+    assert STANCE_TOTAL == pytest.approx(-1.0)
+    assert cfg.rewards["ladder_stance"].params == {"command_name": "ladder"}
     assert cfg.rewards["action_rate_l2"].func is action_rate_l2
     assert cfg.rewards["action_rate_l2"].weight == -0.002
     assert cfg.rewards["ladder_hold_completed"].weight == 1.0
@@ -2202,6 +2215,86 @@ def test_ladder_command_reports_the_latch_and_the_progress() -> None:
 
     assert observation.shape == (1, 4)
     assert observation[0].tolist() == pytest.approx([1.0, 0.0, 1.0, 0.4])
+
+
+def test_stance_distance_is_the_gap_past_the_fixed_rungs() -> None:
+    gravity = torch.tensor([0.0, 0.0, -9.81])
+    foot = torch.tensor([[-0.77, 0.0, 1.0]])
+    hand = torch.tensor([[-0.28, 0.0, 2.2]])
+    between = torch.tensor([[-0.50, 0.15, 1.6]])
+    past_feet = torch.tensor([[-0.85, -0.20, 0.4]])
+    past_hands = torch.tensor([[-0.24, 0.05, 3.0]])
+
+    assert stance_outside_distance(between, foot, hand, gravity).item() == pytest.approx(
+        0.0, abs=1.0e-6
+    )
+    assert stance_outside_distance(past_feet, foot, hand, gravity).item() == pytest.approx(
+        0.08
+    )
+    assert stance_outside_distance(past_hands, foot, hand, gravity).item() == pytest.approx(
+        0.04
+    )
+    # A segment that lies along gravity has no horizontal span.
+    collapsed = stance_outside_distance(
+        torch.tensor([[1.0, 2.0, 3.0]]),
+        torch.tensor([[0.0, 0.0, 0.0]]),
+        torch.tensor([[0.0, 0.0, 1.0]]),
+        gravity,
+    )
+    assert collapsed.item() == pytest.approx(0.0)
+    # Shift along gravity does not leave the corridor.
+    along_y = torch.tensor([0.0, -3.0, 0.0])
+    shifted = between + torch.tensor([0.0, 4.0, 0.0])
+    assert stance_outside_distance(shifted, foot, hand, along_y).item() == pytest.approx(
+        0.0, abs=1.0e-6
+    )
+
+
+def test_stance_penalty_is_linear_out_to_the_keyframe_lean() -> None:
+    distance = torch.tensor([0.0, 0.5 * STANCE_DISTANCE, STANCE_DISTANCE, 1.0])
+
+    rate = stance_penalty_rate(distance)
+
+    assert rate[0].item() == pytest.approx(0.0)
+    assert rate[1].item() == pytest.approx(0.5 * STANCE_RATE)
+    assert rate[2].item() == pytest.approx(STANCE_RATE)
+    assert rate[3].item() == pytest.approx(STANCE_RATE)
+
+
+def test_stance_stops_at_one_and_ignores_the_corridor() -> None:
+    command = _quiet_ladder()
+    command._stance_paid = torch.zeros(1)
+    command._stance_step = -1
+    command._stance_rate = torch.zeros(1)
+    command.stance_outside_m = lambda: torch.zeros(1)  # type: ignore[method-assign]
+    env = SimpleNamespace(
+        step_dt=0.02,
+        common_step_counter=0,
+        command_manager=SimpleNamespace(get_term=lambda _name: command),
+    )
+
+    assert ladder_stance(env, "ladder").item() == 0.0
+    assert command._stance_paid.item() == pytest.approx(0.0)
+
+    command.stance_outside_m = lambda: torch.tensor([0.5 * STANCE_DISTANCE])  # type: ignore[method-assign]
+    env.common_step_counter = 1
+    expected = 0.5 * STANCE_RATE
+    assert ladder_stance(env, "ladder").item() == pytest.approx(expected)
+    paid = command._stance_paid.item()
+    assert ladder_stance(env, "ladder").item() == pytest.approx(expected)
+    assert command._stance_paid.item() == pytest.approx(paid)
+
+    command._stance_paid[:] = STANCE_TOTAL + 0.001
+    env.common_step_counter = 2
+    command.stance_outside_m = lambda: torch.tensor([1.0])  # type: ignore[method-assign]
+    unsaturated = stance_penalty_rate(torch.tensor([1.0])).item()
+    capped = ladder_stance(env, "ladder").item()
+    assert capped < 0.0
+    assert capped > unsaturated
+    assert command._stance_paid.item() == pytest.approx(STANCE_TOTAL)
+
+    env.common_step_counter = 3
+    assert ladder_stance(env, "ladder").item() == 0.0
 
 
 def test_flight_stops_at_one_and_ignores_a_single_reach() -> None:

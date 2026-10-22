@@ -493,6 +493,13 @@ class LadderClimbCommand(CommandTerm):
         self._flight_rate = torch.zeros(
             self.num_envs, dtype=torch.float32, device=self.device
         )
+        self._stance_paid = torch.zeros(
+            self.num_envs, dtype=torch.float32, device=self.device
+        )
+        self._stance_step = -1
+        self._stance_rate = torch.zeros(
+            self.num_envs, dtype=torch.float32, device=self.device
+        )
         self._approach_paid = torch.zeros(
             (self.num_envs, 4), dtype=torch.float32, device=self.device
         )
@@ -522,6 +529,13 @@ class LadderClimbCommand(CommandTerm):
             (self.num_envs, 2), dtype=torch.bool, device=self.device
         )
         self._robot_mass = self._robot_mass_kg()
+        self._robot_body_ids, self._robot_body_mass = self._robot_com_bodies()
+        # The stance corridor stays on the rollout's first foot rung and the
+        # last hand rung. Later baselines move, and this pair does not.
+        self._stance_foot_rung = int(cfg.initial_foot_rung)
+        self._stance_hand_rung = int(
+            cfg.start_rung + cfg.successes_per_rollout - 1
+        )
         self._reward_cache_step = -1
         self._reward_cache: dict[str, torch.Tensor] | None = None
         self._pending_start_pose_init = torch.zeros(
@@ -686,14 +700,40 @@ class LadderClimbCommand(CommandTerm):
     def _robot_mass_kg(self) -> float:
         """Body mass, excluding the ladder, from the unrandomized model."""
 
+        return float(sum(mass for _body_id, mass in self._robot_body_masses()))
+
+    def _robot_body_masses(self) -> list[tuple[int, float]]:
+        """Non-ladder bodies with mass, as ``(body_id, mass)`` pairs."""
+
         model = self._env.sim.mj_model
-        mass = 0.0
+        bodies: list[tuple[int, float]] = []
         for body_id in range(model.nbody):
             name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, body_id) or ""
             if "ladder" in name:
                 continue
-            mass += float(model.body_mass[body_id])
-        return mass
+            mass = float(model.body_mass[body_id])
+            if mass <= 0.0:
+                continue
+            bodies.append((body_id, mass))
+        if not bodies:
+            raise RuntimeError("the robot has no bodies with mass")
+        return bodies
+
+    def _robot_com_bodies(self) -> tuple[torch.Tensor, torch.Tensor]:
+        """Body ids and masses used for the whole-robot center of mass."""
+
+        bodies = self._robot_body_masses()
+        ids = torch.tensor(
+            [body_id for body_id, _mass in bodies],
+            dtype=torch.long,
+            device=self.device,
+        )
+        mass = torch.tensor(
+            [mass for _body_id, mass in bodies],
+            dtype=torch.float32,
+            device=self.device,
+        )
+        return ids, mass
 
     def _gravity_magnitude(self) -> float:
         """Live gravity magnitude from the simulator, in m/s²."""
@@ -718,6 +758,32 @@ class LadderClimbCommand(CommandTerm):
     @property
     def torso_com_pos_w(self) -> torch.Tensor:
         return self._env.sim.data.xipos[:, self._torso_body_id]
+
+    @property
+    def robot_com_pos_w(self) -> torch.Tensor:
+        """Mass-weighted center of the robot, excluding the ladder."""
+
+        com = self._env.sim.data.xipos[:, self._robot_body_ids]
+        mass = self._robot_body_mass.to(dtype=com.dtype, device=com.device)
+        total = mass.sum().clamp_min(1.0e-8)
+        return (com * mass.view(1, -1, 1)).sum(dim=1) / total
+
+    def stance_outside_m(self) -> torch.Tensor:
+        """Meters the robot center of mass sits outside the fixed corridor.
+
+        The corridor is the gravity projection of the segment from the
+        starting foot rung to the last hand rung of the rollout.
+        """
+
+        centers = self._env.sim.data.site_xpos[:, self._rung_site_ids]
+        foot = centers[:, self._stance_foot_rung]
+        hand = centers[:, self._stance_hand_rung]
+        gravity = torch.as_tensor(
+            self._env.sim.mj_model.opt.gravity,
+            dtype=foot.dtype,
+            device=foot.device,
+        )
+        return stance_outside_distance(self.robot_com_pos_w, foot, hand, gravity)
 
     @property
     def pelvis_com_pos_w(self) -> torch.Tensor:
@@ -1034,6 +1100,8 @@ class LadderClimbCommand(CommandTerm):
         self._latch_pressure[env_ids] = 0.0
         self._flight_paid[env_ids] = 0.0
         self._flight_step = -1
+        self._stance_paid[env_ids] = 0.0
+        self._stance_step = -1
         self._approach_paid[env_ids] = 0.0
         self._approach_peak[env_ids] = 0.0
         if hasattr(self, "_plane_baseline"):
@@ -2364,6 +2432,17 @@ LATCH_PRESSURE_RATE = -32.0
 # integral stops at -1, so a long fall costs the same as one second.
 FLIGHT_RATE = -1.0
 FLIGHT_TOTAL = -1.0
+# Center of mass outside the fixed climb corridor. The corridor is the
+# gravity projection of the segment from the starting foot rung to the last
+# hand rung. Inside it the rate is 0. The climbing keyframe sits about
+# 0.15 m outside the foot rung. The rate is linear in that gap,
+# -0.2 * min(d / 0.15, 1), so halfway back to the corridor is -0.1 per
+# second and the keyframe is at the floor. Farther out stays at -0.2.
+# The manager multiplies by dt. The episode integral stops at -1, so five
+# seconds at the floor spends the budget.
+STANCE_RATE = -0.2
+STANCE_DISTANCE = 0.15
+STANCE_TOTAL = -1.0
 # Thigh and shin bones, left then right. Each leg is hip roll -> knee -> ankle.
 LEG_LINK_NAMES = (
     "left_hip_roll_link",
@@ -3037,6 +3116,76 @@ def latch_pressure(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     command = _ladder_command(env, command_name)
     excess = (command._latch_pressure - LATCH_PRESSURE_ONSET).clamp(min=0.0)
     return excess.square() * LATCH_PRESSURE_RATE
+
+
+def stance_outside_distance(
+    com: torch.Tensor,
+    foot: torch.Tensor,
+    hand: torch.Tensor,
+    gravity: torch.Tensor,
+) -> torch.Tensor:
+    """Meters the center of mass sits outside the rung segment.
+
+    ``gravity`` points down. Each point drops its component along that
+    direction, and the segment joins the foot-rung center to the hand-rung
+    center in that plane. Inside the segment the distance is 0. A segment
+    that collapses along gravity is 0 as well.
+    """
+
+    down = gravity / torch.linalg.vector_norm(gravity, dim=-1, keepdim=True).clamp_min(
+        1.0e-8
+    )
+    while down.ndim < com.ndim:
+        down = down.unsqueeze(0)
+
+    def horizontal(points: torch.Tensor) -> torch.Tensor:
+        return points - down * (points * down).sum(dim=-1, keepdim=True)
+
+    origin = horizontal(foot)
+    axis = horizontal(hand) - origin
+    length = torch.linalg.vector_norm(axis, dim=-1)
+    unit = axis / length.clamp_min(1.0e-8).unsqueeze(-1)
+    offset = ((horizontal(com) - origin) * unit).sum(dim=-1)
+    before = (-offset).clamp(min=0.0)
+    after = (offset - length).clamp(min=0.0)
+    return torch.where(length >= 1.0e-6, before + after, torch.zeros_like(length))
+
+
+def stance_penalty_rate(distance: torch.Tensor) -> torch.Tensor:
+    """Per-second cost for a center of mass outside the corridor.
+
+    Linear from 0 at the segment to ``STANCE_RATE`` (-0.2) at
+    ``STANCE_DISTANCE`` meters, which is the keyframe lean. Farther out
+    stays at ``STANCE_RATE``. ``distance`` is in meters.
+    """
+
+    gap = (distance.clamp(min=0.0) / STANCE_DISTANCE).clamp(max=1.0)
+    return STANCE_RATE * gap
+
+
+def ladder_stance(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+    """Cost while the center of mass is outside the fixed climb corridor.
+
+    The corridor runs from the starting foot rung to the last hand rung,
+    measured in the plane orthogonal to gravity. Inside it the rate is 0.
+    Outside it follows ``stance_penalty_rate``: linear from 0 to -0.2 per
+    second over the keyframe lean, then flat. The manager scales by ``dt``
+    and the weight is 1. The integral
+    stops at ``STANCE_TOTAL`` (-1).
+    """
+
+    command = _ladder_command(env, command_name)
+    step_id = int(getattr(env, "common_step_counter", -1))
+    if command._stance_step == step_id:
+        return command._stance_rate
+
+    rate = stance_penalty_rate(command.stance_outside_m())
+    dt = float(env.step_dt)
+    step_cost = torch.maximum(rate * dt, STANCE_TOTAL - command._stance_paid)
+    command._stance_paid = command._stance_paid + step_cost
+    command._stance_step = step_id
+    command._stance_rate = step_cost / dt
+    return command._stance_rate
 
 
 def ladder_flight(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
