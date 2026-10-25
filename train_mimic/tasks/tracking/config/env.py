@@ -874,16 +874,18 @@ def make_g1_ladder_rl_env_cfg(
             params={"command_name": "ladder"},
         ),
         # The step a leg phase ends pays +4. The gate is that foot on the
-        # next rung with 20% of body weight. The lead foot matches the lead
-        # hand. Both feet on one step pays +8. Weight on the starting rung
-        # pays 0, and a finished hold pays 0.
+        # next rung with 20% of body weight, held for one second. A gap
+        # starts the second over. The lead foot matches the lead hand.
+        # Both feet finishing on one step pays +8. Weight on the starting
+        # rung pays 0, and a finished hold pays 0.
         "ladder_leg_phase": RewardTermCfg(
             func=mdp.ladder_leg_phase,
             weight=1.0,
             params={"command_name": "ladder"},
         ),
         # The hold potential and the completion impulse run only after both
-        # feet have passed the load gate.
+        # feet have passed the load gate and both hands have latched. The
+        # feet climb first.
         "ladder_hold": RewardTermCfg(
             func=mdp.ladder_hold,
             weight=1.0,
