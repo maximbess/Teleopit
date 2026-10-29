@@ -865,19 +865,23 @@ def make_g1_ladder_rl_env_cfg(
             weight=1.0,
             params={"command_name": "ladder"},
         ),
-        # The step a hand phase ends pays +4. The lead hand latching the
-        # next rung is one phase. The trailing hand is the other. Both on
-        # the same step pays +8. A finished hold pays 0 from this term.
+        # The step a hand phase ends pays +4 times that phase's place in
+        # CLIMB_PHASE_ORDER. With feet first, the lead hand pays +16 and
+        # the trailing hand pays +32. Both on the same step pays +48. A
+        # finished hold pays 0 from this term.
         "ladder_hand_phase": RewardTermCfg(
             func=mdp.ladder_hand_phase,
             weight=1.0,
             params={"command_name": "ladder"},
         ),
-        # The step a leg phase ends pays +4. The gate is that foot on the
-        # next rung with 20% of body weight, held for one second. A gap
-        # starts the second over. The lead foot matches the lead hand.
-        # Both feet finishing on one step pays +8. Weight on the starting
-        # rung pays 0, and a finished hold pays 0.
+        # The step a leg phase ends pays +4 times that phase's place in
+        # CLIMB_PHASE_ORDER. With feet first, the lead foot pays +4 and
+        # the trailing foot pays +8. The gate is that foot on the next
+        # rung for one second at 20% of body weight. The clock scales with
+        # load, from nothing at no pressure to full speed at 20%. Leaving
+        # the rung starts the second over. The lead foot matches the lead hand. Both feet
+        # finishing on one step pays +12. Weight on the starting rung
+        # pays 0, and a finished hold pays 0.
         "ladder_leg_phase": RewardTermCfg(
             func=mdp.ladder_leg_phase,
             weight=1.0,
