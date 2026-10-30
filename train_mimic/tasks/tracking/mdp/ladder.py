@@ -1152,6 +1152,7 @@ class LadderClimbCommand(CommandTerm):
         self._detect_foot_rungs()
         self._advance_hold()
         self._release_over_speed_welds()
+        self._release_over_force_welds()
         self._reward_phase.copy_(self.climb_phase)
         self._advance_climb_phase()
 
@@ -1508,6 +1509,40 @@ class LadderClimbCommand(CommandTerm):
         if env_ids.numel() == 0:
             return
         for hand_id in (0, 1):
+            self._release(env_ids, hand_id)
+
+    def _weld_translational_force_n(self) -> torch.Tensor:
+        """Norm of each grip weld's translational force, in newtons.
+
+        Shape ``(num_envs, 2)``. An open weld has no live rows and is 0.
+        """
+
+        data = self._env.sim.data
+        efc = data.efc
+        return weld_translational_force(
+            _torch_view(efc.force),
+            _torch_view(efc.type),
+            _torch_view(efc.id),
+            _torch_view(data.ne),
+            self._weld_ids,
+        )
+
+    def _release_over_force_welds(self) -> None:
+        """Open a grip whose weld force exceeds 100 N.
+
+        The check runs after the physics step, so the next step is unwelded.
+        The load is the norm of that weld's three translational constraint
+        rows. The rotational rows are the weak orientation lock and are not
+        load. Each hand trips on its own. An open grip stays open.
+        """
+
+        force = self._weld_translational_force_n()
+        for hand_id in (0, 1):
+            env_ids = torch.where(
+                self.attached[:, hand_id] & (force[:, hand_id] > WELD_FORCE_LIMIT_N)
+            )[0]
+            if env_ids.numel() == 0:
+                continue
             self._release(env_ids, hand_id)
 
     def _limbs_on_next_rung(self) -> torch.Tensor:
@@ -2600,6 +2635,12 @@ SIDE_CROSS_TOTAL = 4.0 * LEG_CROSS_TOTAL
 # the trip itself (excess 0.5) costs 8 per second. The manager multiplies by dt.
 LATCH_PRESSURE_ONSET = 0.5
 LATCH_PRESSURE_RATE = -32.0
+# A closed weld opens when its translational constraint force exceeds this.
+# The three rotational rows are the weak orientation lock and are not load.
+# The two-foot keyframe sits near 28 N a hand. 100 N also keeps a one-foot
+# hold of that lean, which needs about 90 N on one hand.
+WELD_FORCE_LIMIT_N = 100.0
+WELD_TRANSLATIONAL_ROWS = 3
 # Two or more limbs off the climb. The manager multiplies by dt. The episode
 # integral stops at -1, so a long fall costs the same as one second.
 FLIGHT_RATE = -1.0
@@ -3314,6 +3355,46 @@ def side_cross(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     command._side_cross_step = step_id
     command._side_cross_rate = step_cost / dt
     return command._side_cross_rate
+
+
+def _torch_view(value: torch.Tensor) -> torch.Tensor:
+    """The tensor inside a simulation bridge, or the tensor itself."""
+
+    tensor = getattr(value, "_tensor", value)
+    if not isinstance(tensor, torch.Tensor):
+        raise TypeError(f"Expected a tensor, got {type(value).__name__}")
+    return tensor
+
+
+def weld_translational_force(
+    efc_force: torch.Tensor,
+    efc_type: torch.Tensor,
+    efc_id: torch.Tensor,
+    ne: torch.Tensor,
+    weld_ids: torch.Tensor,
+) -> torch.Tensor:
+    """Norm of each weld's translational constraint force, in newtons.
+
+    ``efc_force``, ``efc_type``, and ``efc_id`` have shape ``(E, M)``.
+    ``ne`` has shape ``(E,)`` and counts the equality rows at the front of
+    the constraint list. ``weld_ids`` has shape ``(H,)``. A weld's first
+    three equality rows are the force. Later rows of that weld are the
+    orientation lock and do not count. A weld with no live rows is 0.
+    The result has shape ``(E, H)``.
+    """
+
+    device = efc_force.device
+    row = torch.arange(efc_force.shape[1], device=device)
+    live = row.unsqueeze(0) < ne.to(device=device).unsqueeze(1)
+    equality = efc_type.to(device=device) == int(mujoco.mjtConstraint.mjCNSTR_EQUALITY)
+    ids = efc_id.to(device=device)
+    forces = []
+    for weld_id in weld_ids.tolist():
+        match = live & equality & (ids == int(weld_id))
+        order = match.to(dtype=efc_force.dtype).cumsum(dim=1)
+        translational = match & (order <= WELD_TRANSLATIONAL_ROWS)
+        forces.append(torch.linalg.vector_norm(efc_force * translational, dim=1))
+    return torch.stack(forces, dim=1)
 
 
 def latch_pressure(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:

@@ -8,8 +8,11 @@ from __future__ import annotations
 
 import os
 
-LADDER_CODE_VERSION = "phase-scale-39"
+LADDER_CODE_VERSION = "weld-100n"
 LADDER_CODE_VERSION_NOTES = (
+    "The reset stands on rung 3 with the mass over the tread, knees nearly "
+    "straight, and both hands latched on rung 7. Each weld stays under 100 N "
+    "and the pelvis stays under the overspeed trip. "
     "The climb return is logged as four limb terms: left arm, right arm, "
     "left leg, and right leg. A rung is the stages in CLIMB_PHASE_ORDER. "
     "The default order is the lead foot, the other foot, the lead hand, "
@@ -50,7 +53,10 @@ LADDER_CODE_VERSION_NOTES = (
     "last step, half of the net unbanked drop in each limb's "
     "approach is given back. Grip progress stays 0 outside the 0.14 m latch "
     "zone. A saturated command takes one second to close or open. The weld "
-    "closes at progress 1 and opens at 0. A latched hand on the next rung "
+    "closes at progress 1 and opens at 0. A closed weld also opens when the "
+    "norm of its three translational constraint forces exceeds 100 N. The "
+    "rotational rows are not part of that load, and each hand trips on its "
+    "own. A latched hand on the next rung "
     "pays 0.25 per second. An unlatched hand in that zone pays the same rate "
     "times progress. Both share the +3 cap. A foot on the next tread pays "
     "0.10 per second for the contact, plus 1 per second times its share of "
@@ -64,8 +70,7 @@ LADDER_CODE_VERSION_NOTES = (
     "or when the robot touches the ground. Staying off the ground pays 1 per second "
     "until the episode has lasted 2 seconds, and the ground-contact step "
     "pays nothing. Gravity is one third of 9.81. The hand collision capsule "
-    "and its marker share radius 0.085. The start pose sets those spheres on "
-    "the near upper corner of the hand rung, clear of the ladder. "
+    "and its marker share radius 0.085. "
     "action_rate weight is -0.002. "
     "A hold counts during the hold phase while all four supports stay on the "
     "next rung. It completes "

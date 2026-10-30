@@ -51,6 +51,8 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     LEG_LINK_NAMES,
     LATCH_PRESSURE_ONSET,
     LATCH_PRESSURE_RATE,
+    WELD_FORCE_LIMIT_N,
+    weld_translational_force,
     SIDE_CROSS_RATE,
     SIDE_CROSS_TOTAL,
     FOOT_HAND_RUNG_GAP,
@@ -2071,6 +2073,74 @@ def test_latch_pressure_is_free_below_half_the_trip_and_heavy_at_the_trip() -> N
     assert latch_pressure(env, "ladder").item() == pytest.approx(0.0)
 
 
+def test_weld_force_is_the_translational_rows_of_that_weld() -> None:
+    equality = int(mujoco.mjtConstraint.mjCNSTR_EQUALITY)
+    contact = int(mujoco.mjtConstraint.mjCNSTR_CONTACT_PYRAMIDAL)
+    efc_force = torch.zeros(2, 14)
+    efc_type = torch.zeros(2, 14, dtype=torch.int32)
+    efc_id = torch.full((2, 14), -1, dtype=torch.int32)
+    # Left weld, then right weld. The last three rows of each are torque.
+    efc_force[0, 0:6] = torch.tensor([30.0, 40.0, 0.0, 0.0, 0.0, 100.0])
+    efc_type[0, 0:6] = equality
+    efc_id[0, 0:6] = 4
+    efc_force[0, 6:12] = torch.tensor([0.0, 50.0, 0.0, 80.0, 0.0, 0.0])
+    efc_type[0, 6:12] = equality
+    efc_id[0, 6:12] = 7
+    # A stale equality row past ne, and a contact row that reuses a weld id.
+    efc_force[0, 12] = 1000.0
+    efc_type[0, 12] = equality
+    efc_id[0, 12] = 4
+    efc_force[1, 0:6] = torch.tensor([30.0, 40.0, 0.0, 0.0, 0.0, 100.0])
+    efc_type[1, 0:6] = equality
+    efc_id[1, 0:6] = 7
+    efc_force[1, 6] = 1000.0
+    efc_type[1, 6] = contact
+    efc_id[1, 6] = 7
+
+    force = weld_translational_force(
+        efc_force,
+        efc_type,
+        efc_id,
+        torch.tensor([12, 7]),
+        torch.tensor([4, 7]),
+    )
+
+    assert force[0, 0].item() == pytest.approx(50.0)
+    assert force[0, 1].item() == pytest.approx(50.0)
+    assert force[1, 0].item() == pytest.approx(0.0)
+    assert force[1, 1].item() == pytest.approx(50.0)
+
+
+def test_weld_force_above_100n_releases_that_hand_only() -> None:
+    command = _quiet_ladder()
+    released: list[tuple[list[int], int]] = []
+
+    def _release(env_ids: torch.Tensor, hand_id: int) -> None:
+        released.append((env_ids.tolist(), hand_id))
+        command.attached[env_ids, hand_id] = False
+
+    command._release = _release  # type: ignore[method-assign]
+    command._weld_translational_force_n = lambda: torch.tensor(  # type: ignore[method-assign]
+        [[WELD_FORCE_LIMIT_N, WELD_FORCE_LIMIT_N]]
+    )
+
+    command._release_over_force_welds()
+    assert released == []
+    assert command.attached.all()
+
+    command._weld_translational_force_n = lambda: torch.tensor(  # type: ignore[method-assign]
+        [[WELD_FORCE_LIMIT_N + 0.1, 10.0]]
+    )
+    command._release_over_force_welds()
+    assert released == [([0], 0)]
+    assert command.attached.tolist() == [[False, True]]
+
+    command.attached[:] = False
+    command._weld_translational_force_n = lambda: torch.tensor([[120.0, 120.0]])  # type: ignore[method-assign]
+    command._release_over_force_welds()
+    assert released == [([0], 0)]
+
+
 def test_nonfinite_step_resets_that_world_and_returns_a_finite_done() -> None:
     reset_ids: list[torch.Tensor] = []
     initialized = {"called": False}
@@ -2689,8 +2759,8 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
     spec = robot_cfg.spec_fn()
     model = Entity(robot_cfg).spec.compile()
 
-    assert robot_cfg.init_state.pos == (-1.079482, 0.0, 1.385411)
-    assert tuple(robot_cfg.init_state.rot) == (0.983835, 0.0, 0.179079, 0.0)
+    assert robot_cfg.init_state.pos == (-0.816186, 0.0, 1.576016)
+    assert tuple(robot_cfg.init_state.rot) == (0.999150, 0.0, 0.041219, 0.0)
     arm_actuator_effort_limits = {
         actuator_cfg.effort_limit
         for actuator_cfg in robot_cfg.articulation.actuators
@@ -2745,7 +2815,8 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
         assert model.site_type[hand_site] == mujoco.mjtGeom.mjGEOM_SPHERE
 
     # Reload the climbing keyframe. Feet are on rung 4 and hands on rung 8
-    # (1-based names), with a bent knee and the next rung still in reach.
+    # (1-based names). The knee is nearly straight so the mass sits over
+    # the tread, and the next rung is still in reach.
     data = mujoco.MjData(model)
     data.qpos[:] = model.qpos0
     data.qpos[:3] = robot_cfg.init_state.pos
@@ -2837,7 +2908,7 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
             0.35,
         ).item()
         hip_to_foot = np.linalg.norm(data.site_xpos[foot_site] - hip)
-        assert 0.50 <= hip_to_foot <= 0.62
+        assert 0.50 <= hip_to_foot <= 0.75
         sole = torch.tensor(FOOT_SOLE_END_OFFSETS, dtype=torch.float32)
         rotation = torch.tensor(
             data.site_xmat[foot_site].reshape(3, 3),
@@ -2866,12 +2937,13 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
         target = data.site_xpos[hand_rung_site].copy()
         target[1] = data.site_xpos[hand_site, 1]
         hand_distance = np.linalg.norm(data.site_xpos[hand_site] - target)
-        # Clear of the wood, and inside the 0.14 m attach distance.
-        assert 0.12 < hand_distance < 0.14
+        # Climber's side of the rung, clear of the wood, within a hand's width.
+        assert data.site_xpos[hand_site, 0] < target[0]
+        assert 0.12 < hand_distance < 0.16
     torso = data.xmat[
         mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "torso_link")
     ].reshape(3, 3)
-    assert float(torso[:, 2] @ rail) > 0.95
+    assert float(torso[:, 2] @ rail) > 0.90
     for contact in data.contact:
         geom_names = {
             mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, contact.geom[0]) or "",
