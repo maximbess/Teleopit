@@ -6,9 +6,10 @@ read the same pose without compiling MuJoCo.
 Feet stand on 0-based rung 3 with the mass over the tread. The knees are
 nearly straight so the shins stay behind the rung above, and the torso
 follows the rail. Hands hold rung 7 from the climber's side, left hand on
-the left and right hand on the right, the way a person grips a rung. The
-grip stays clear of the wood. Under the training position targets both
-welds stay under 100 N and the pelvis stays under the overspeed trip.
+the left and right hand on the right. The elbows hang below the shoulders
+and the forearms reach forward to the rung. The wrists stay near neutral.
+The grip stays clear of the wood. Under the training position targets both
+welds stay under 50 N and the pelvis stays under the overspeed trip.
 """
 
 from __future__ import annotations
@@ -23,15 +24,15 @@ LADDER_INITIAL_JOINT_POS = {
     ".*_knee_joint": 0.063312,
     ".*_ankle_pitch_joint": -0.014484,
     "waist_pitch_joint": 0.060937,
-    ".*_shoulder_pitch_joint": -1.029680,
-    "left_shoulder_roll_joint": 0.310190,
-    "right_shoulder_roll_joint": -0.310190,
-    "left_shoulder_yaw_joint": -0.277790,
-    "right_shoulder_yaw_joint": 0.277790,
-    ".*_elbow_joint": 1.713410,
-    "left_wrist_roll_joint": -0.619780,
-    "right_wrist_roll_joint": 0.619780,
-    ".*_wrist_pitch_joint": 1.271040,
-    "left_wrist_yaw_joint": 1.321060,
-    "right_wrist_yaw_joint": -1.321060,
+    ".*_shoulder_pitch_joint": 0.065580,
+    "left_shoulder_roll_joint": 0.569310,
+    "right_shoulder_roll_joint": -0.569310,
+    "left_shoulder_yaw_joint": -0.392490,
+    "right_shoulder_yaw_joint": 0.392490,
+    ".*_elbow_joint": 0.754930,
+    "left_wrist_roll_joint": 0.003620,
+    "right_wrist_roll_joint": -0.003620,
+    ".*_wrist_pitch_joint": -0.165270,
+    "left_wrist_yaw_joint": -0.018650,
+    "right_wrist_yaw_joint": 0.018650,
 }

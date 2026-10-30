@@ -11,7 +11,7 @@ import os
 LADDER_CODE_VERSION = "hands-first"
 LADDER_CODE_VERSION_NOTES = (
     "The reset stands on rung 3 with the mass over the tread, knees nearly "
-    "straight, and both hands latched on rung 7. Each weld stays under 100 N "
+    "straight, and both hands latched on rung 7. Each weld stays under 50 N "
     "and the pelvis stays under the overspeed trip. "
     "The climb return is logged as four limb terms: left arm, right arm, "
     "left leg, and right leg. A rung is the stages in CLIMB_PHASE_ORDER. "
