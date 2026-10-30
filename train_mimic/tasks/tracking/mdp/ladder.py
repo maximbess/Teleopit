@@ -2521,10 +2521,10 @@ CLIMB_PHASE_HOLD = 4
 # pays. The hold stays last, and finishing it returns to the first stage.
 # ``lead_hand`` only chooses the side, so it does not move these scales.
 CLIMB_PHASE_ORDER = (
-    CLIMB_PHASE_LEAD_LEG,
-    CLIMB_PHASE_TRAIL_LEG,
     CLIMB_PHASE_FIRST,
     CLIMB_PHASE_SECOND,
+    CLIMB_PHASE_LEAD_LEG,
+    CLIMB_PHASE_TRAIL_LEG,
     CLIMB_PHASE_HOLD,
 )
 _PHASE_ORDER_INDEX = {
@@ -2573,7 +2573,7 @@ def _phase_order_index(phase: torch.Tensor) -> torch.Tensor:
 
 # Unscaled finish of a hand or foot stage. The manager multiplies by dt,
 # and the stage's place in ``CLIMB_PHASE_ORDER`` multiplies this again.
-# With feet first, the finishes are +4, +8, +16, and +32.
+# With hands first, the finishes are +4, +8, +16, and +32.
 HAND_PHASE_REWARD = 4.0
 LEG_PHASE_REWARD = 4.0
 # Per hand that is not the one climbing. Progress 1 pays 0. Progress 0
@@ -3549,9 +3549,9 @@ def ladder_hand_phase(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor
     """Impulse when a hand phase finishes. The manager scales by ``dt``.
 
     The unscaled finish is ``+4``. The stage's place in
-    ``CLIMB_PHASE_ORDER`` multiplies it. With feet first, the lead hand
-    pays ``+16`` and the trailing hand pays ``+32``. Both on one step
-    pays ``+48``. A finished hold returns to the first stage and pays 0.
+    ``CLIMB_PHASE_ORDER`` multiplies it. With hands first, the lead hand
+    pays ``+4`` and the trailing hand pays ``+8``. Both on one step
+    pays ``+12``. A finished hold returns to the first stage and pays 0.
     """
 
     command = _ladder_command(env, command_name)
@@ -3568,14 +3568,14 @@ def ladder_leg_phase(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
     """Impulse when a leg phase finishes. The manager scales by ``dt``.
 
     The unscaled finish is ``+4``. The stage's place in
-    ``CLIMB_PHASE_ORDER`` multiplies it. With feet first, the lead foot
-    pays ``+4`` and the trailing foot pays ``+8``. The gate is that foot
+    ``CLIMB_PHASE_ORDER`` multiplies it. With hands first, the lead foot
+    pays ``+16`` and the trailing foot pays ``+32``. The gate is that foot
     on the next rung for one second of inward contact at 20% of body
     weight. The clock adds the horizontal heading times a load scale that
     is 0 at no pressure and 1 at 20%. A toe along the rung does not finish
     and a toe aimed out runs the clock backward. Pointing the toe downhill
     does not count. Both feet on one step pays
-    ``+12``. A shorter contact, or weight still on the rung the foot
+    ``+48``. A shorter contact, or weight still on the rung the foot
     started from, pays 0. A finished hold pays 0.
     """
 

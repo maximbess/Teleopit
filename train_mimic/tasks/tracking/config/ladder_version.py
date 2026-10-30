@@ -8,15 +8,15 @@ from __future__ import annotations
 
 import os
 
-LADDER_CODE_VERSION = "weld-100n"
+LADDER_CODE_VERSION = "hands-first"
 LADDER_CODE_VERSION_NOTES = (
     "The reset stands on rung 3 with the mass over the tread, knees nearly "
     "straight, and both hands latched on rung 7. Each weld stays under 100 N "
     "and the pelvis stays under the overspeed trip. "
     "The climb return is logged as four limb terms: left arm, right arm, "
     "left leg, and right leg. A rung is the stages in CLIMB_PHASE_ORDER. "
-    "The default order is the lead foot, the other foot, the lead hand, "
-    "the other hand, then the hold. The stage at index i pays 2**i times "
+    "The default order is the lead hand, the other hand, the lead foot, "
+    "the other foot, then the hold. The stage at index i pays 2**i times "
     "the first stage, on its approach, contact, detach, contact cap, and "
     "finish. Alive, ungrip, latch pressure, flight, stance, both cross "
     "terms, and action rate stay unscaled. Swapping the limb entries "

@@ -866,8 +866,8 @@ def make_g1_ladder_rl_env_cfg(
             params={"command_name": "ladder"},
         ),
         # The step a hand phase ends pays +4 times that phase's place in
-        # CLIMB_PHASE_ORDER. With feet first, the lead hand pays +16 and
-        # the trailing hand pays +32. Both on the same step pays +48. A
+        # CLIMB_PHASE_ORDER. With hands first, the lead hand pays +4 and
+        # the trailing hand pays +8. Both on the same step pays +12. A
         # finished hold pays 0 from this term.
         "ladder_hand_phase": RewardTermCfg(
             func=mdp.ladder_hand_phase,
@@ -875,12 +875,12 @@ def make_g1_ladder_rl_env_cfg(
             params={"command_name": "ladder"},
         ),
         # The step a leg phase ends pays +4 times that phase's place in
-        # CLIMB_PHASE_ORDER. With feet first, the lead foot pays +4 and
-        # the trailing foot pays +8. The gate is that foot on the next
+        # CLIMB_PHASE_ORDER. With hands first, the lead foot pays +16 and
+        # the trailing foot pays +32. The gate is that foot on the next
         # rung for one second at 20% of body weight. The clock scales with
         # load, from nothing at no pressure to full speed at 20%. Leaving
         # the rung starts the second over. The lead foot matches the lead hand. Both feet
-        # finishing on one step pays +12. Weight on the starting rung
+        # finishing on one step pays +48. Weight on the starting rung
         # pays 0, and a finished hold pays 0.
         "ladder_leg_phase": RewardTermCfg(
             func=mdp.ladder_leg_phase,
@@ -888,8 +888,8 @@ def make_g1_ladder_rl_env_cfg(
             params={"command_name": "ladder"},
         ),
         # The hold potential and the completion impulse run only after both
-        # feet have passed the load gate and both hands have latched. The
-        # feet climb first.
+        # hands have latched and both feet have passed the load gate. The
+        # hands climb first.
         "ladder_hold": RewardTermCfg(
             func=mdp.ladder_hold,
             weight=1.0,
