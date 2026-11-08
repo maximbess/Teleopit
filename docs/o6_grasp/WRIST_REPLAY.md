@@ -36,8 +36,9 @@ rung. The nominal small round-rung experiment remains the default without
 
 The preset uses a 1 ms physics step, 20 ms control step, 200 solver iterations and
 1e-11 solver tolerance. It places the hand at the near upper edge without initial
-penetration. The original closing posture and provisional actuator limits remain
-uncalibrated for this larger cross-section.
+penetration. The wrist placement and closing posture are tuned for unsupported
+gravity holding; see [posture and measured results](GRAVITY_HOLD.md). Actuator
+limits remain provisional and uncalibrated to hardware.
 
 ## Trace contract
 
@@ -110,7 +111,7 @@ the ladder suite scales both rectangular width and height in its size cases.
 
 ## Outputs and observed baseline
 
-A headless trial writes `ladder_rung.jsonl`, `.summary.json`, `.config.json`,
+A headless replay trial writes `ladder_rung.jsonl`, `.summary.json`, `.config.json`,
 `.xml`, and `.replay.json`. The last file preserves the exact input bytes. Its
 SHA-256, source metadata, frames, duration and sample count are in the summary.
 The saved config points to this adjacent snapshot and includes the extended HOLD
@@ -127,28 +128,23 @@ are recorded once per control step (last physics substep); these peaks are not
 continuous-time extrema. Replay values remain diagnostics, outside the actor's
 unchanged 48-value observation.
 
-The bundled synthetic trace, seed 0, MuJoCo 3.8.1 on Windows produced:
+With the updated tilted grasp, the bundled synthetic trace, seed 0, MuJoCo 3.8.1
+on Windows produced:
 
 | Metric | Result |
 |---|---:|
 | Initial penetration | 0 mm |
 | Replay duration / unsupported interval | 2.0 s / 3.0 s |
-| Verified unsupported holding | 0 s; **failed** |
-| First persistent failure | 4.30 s (translation, rotation, actuator loading) |
-| Maximum translation / rotation drift | 27.06 mm / 0.473 rad |
-| Peak applied force / moment about palm | 1.413 N / 0.1071 Nm |
-| Peak penetration / mimic error | 0.309 mm / 0.000207 rad |
-| Peak joint-limit violation | 0.0749 rad (above the 0.02 rad limit) |
+| Verified unsupported holding | 2.72 s; **passed** |
+| First persistent failure | None |
+| Maximum translation / rotation drift | 1.69 mm / 0.0212 rad |
+| Peak penetration / mimic error | 0.115 mm / 0.000263 rad |
+| Peak joint-limit violation | 0.0141 rad (below the 0.02 rad limit) |
 | Numerical warnings / release clear | None / yes |
 
-This is a reproducible failing grasp benchmark. The next controller work is to
-find an opposing-contact posture for this broad rung and verify unsupported
-holding under gravity before increasing loads. Once a climbing simulation or
-hardware test yields wrist wrenches with known sign, axes and origin, convert
-them to this schema and replace the synthetic input. The present result does not
-validate O6 ladder climbing or physical hand strength.
-
-The full gravity-only preset was also run: 0 s verified holding, first persistent
-failure at 4.30 s with the same reasons, maximum drift 26.85 mm / 0.472 rad,
-no numerical warnings and a clear release. Its logged external wrench is zero.
-This establishes that the posture needs work even before additional wrist loads.
+Gravity-only trials also pass, including 31 seconds unsupported at two timesteps;
+see [gravity grasp results](GRAVITY_HOLD.md) for the full comparison and limits.
+Once a climbing simulation or hardware test yields wrist wrenches with known
+sign, axes and origin, convert them to this schema and replace the synthetic
+input. This small synthetic load does not validate O6 ladder climbing or physical
+hand strength.

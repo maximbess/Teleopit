@@ -18,9 +18,10 @@ conda run -n teleopit python -m pytest tests/test_o6_grasp.py -q
 ```
 
 For the climbing task's **700 × 110 × 70 mm rectangular rung**, use
-`--preset ladder-rung`. See [ladder preset and wrist replay](WRIST_REPLAY.md) for
-commands, the six-axis trace format, the synthetic example and its failing grasp
-baseline. No recorded wrist-load data is bundled.
+`--preset ladder-rung`. The updated posture passes gravity-only holding and
+release, including 31-second unsupported checks at two timesteps. See
+[gravity grasp results](GRAVITY_HOLD.md) and [wrist replay](WRIST_REPLAY.md) for
+commands and the six-axis trace format. No recorded wrist-load data is bundled.
 
 The nominal viewer runs one 9.5-second simulation trial (replay may extend HOLD).
 With the viewer window focused,
