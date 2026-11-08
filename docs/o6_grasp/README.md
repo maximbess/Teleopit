@@ -17,7 +17,11 @@ conda run -n teleopit python -m teleopit.sim.o6_grasp --render --output outputs/
 conda run -n teleopit python -m pytest tests/test_o6_grasp.py -q
 ```
 
-The viewer runs one 9.5-second trial. Contact points and forces are enabled.
+The viewer runs one 9.5-second simulation trial. With the viewer window focused,
+press **Space** to pause/resume physics and controller time; camera controls and
+the window remain responsive while paused. The wrist label shows `PAUSED`.
+Contact points are enabled; contact frames/normals and force arrows are hidden
+by default. Enable them manually under Rendering (Frame → Contact, Contact force).
 An orange wrist marker means the fixture is enabled; green means its gain is zero.
 The marker label shows the command mode, fixture gain and verification status.
 Green alone is **not** a successful grasp. RELEASE remains excluded from holding.

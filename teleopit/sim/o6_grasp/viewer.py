@@ -1,6 +1,7 @@
-"""Passive MuJoCo viewer with contact arrows and an explicit support indicator."""
+"""Pausable MuJoCo viewer with optional contact arrows and a support indicator."""
 
 import time
+from threading import Event
 
 import mujoco
 import mujoco.viewer
@@ -18,14 +19,32 @@ def camera_setup(camera):
 
 def show(config):
     env = O6GraspEnv(config)
-    with mujoco.viewer.launch_passive(env.model, env.data) as viewer:
+    _, info = env.reset()
+    paused = Event()
+    done = False
+
+    def on_key(keycode):
+        # The UI thread is the sole writer; the simulation thread only reads.
+        if keycode == 32:  # Space
+            if paused.is_set():
+                paused.clear()
+            else:
+                paused.set()
+
+    with mujoco.viewer.launch_passive(
+        env.model, env.data, key_callback=on_key
+    ) as viewer:
         camera_setup(viewer.cam)
         viewer.opt.geomgroup[3] = 0
-        viewer.opt.flags[mujoco.mjtVisFlag.mjVIS_CONTACTFORCE] = True
+        viewer.opt.frame = mujoco.mjtFrame.mjFRAME_NONE
+        viewer.opt.flags[mujoco.mjtVisFlag.mjVIS_CONTACTFORCE] = False
+        viewer.opt.flags[mujoco.mjtVisFlag.mjVIS_CONTACTSPLIT] = False
         viewer.opt.flags[mujoco.mjtVisFlag.mjVIS_CONTACTPOINT] = True
         while viewer.is_running():
             started = time.monotonic()
-            _, _, _, done, info = env.step(np.zeros(6))
+            is_paused = paused.is_set()
+            if not is_paused:
+                _, _, _, done, info = env.step(np.zeros(6))
             with viewer.lock():
                 scene = viewer.user_scn
                 scene.ngeom = 1
@@ -39,9 +58,10 @@ def show(config):
                     np.eye(3).flatten(),
                     np.array(color, dtype=np.float32),
                 )
+                prefix = "PAUSED | " if is_paused else ""
                 scene.geoms[
                     0
-                ].label = f"{info['mode']} fixture={info['fixture_gain']:.2f} {info['verification']}"
+                ].label = f"{prefix}{info['mode']} fixture={info['fixture_gain']:.2f} {info['verification']}"
             viewer.sync()
             if done:
                 break
