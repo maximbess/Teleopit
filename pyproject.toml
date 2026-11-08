@@ -74,5 +74,9 @@ dexhand = []
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["teleopit*", "train_mimic*"]
+
+[tool.setuptools.package-data]
+"teleopit.sim.o6_grasp" = ["assets/*.urdf", "assets/LICENSE", "assets/*.json", "assets/*.md", "assets/meshes/collision/*.obj"]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]

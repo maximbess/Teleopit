@@ -1,0 +1,20 @@
+{
+  "repository": "https://github.com/linker-bot/linkerhand-urdf",
+  "revision": "49f26021b0a91ff5c33150df22970c07bb548672",
+  "source_prefix": "O6/right",
+  "sha256": {
+    "linkerhand_o6_right.urdf": "6ad8cca6ff8a385086eb3b805cd9c8df3b05ee96edfcc8b6ab92fc6ce0ce1838",
+    "meshes/collision/rh_hand_base_link_col.obj": "8fa12e4df9812facda08688f490cc3b5b2f1bc61d98c952863887c1ba82f9391",
+    "meshes/collision/rh_index_distal_col.obj": "e9adc67731936b5b9aa3037923b986f57c73f03b3daf053ee9274d4a5624732d",
+    "meshes/collision/rh_index_proximal_col.obj": "04ca7beb9f362959912b2277369f5b7c425ca7154d4d91c9a554ba755321b646",
+    "meshes/collision/rh_middle_distal_col.obj": "d2236460a23133e1a87a94d9397629ec70a072e32399244a44531e8d23be7f1d",
+    "meshes/collision/rh_middle_proximal_col.obj": "276390b3f0e8884ab1ddb95337d45bd1fff8bf8ad70813edd8b3b0a536346170",
+    "meshes/collision/rh_pinky_distal_col.obj": "9e7bddf879ff6968e189d52979b5788c7ab7f93c2fa1d7a4abcf5d53f80cae1f",
+    "meshes/collision/rh_pinky_proximal_col.obj": "03dca4ef5618d2fafd44e31240e6ad4f9326ebfbf6bc68c78a46f0452356f071",
+    "meshes/collision/rh_ring_distal_col.obj": "d9509c5e4b2b6b7290978e1ce0d801102f6ad067c170654c7989a75b9034bc4d",
+    "meshes/collision/rh_ring_proximal_col.obj": "2830cad9c173b5088f8548a6bb33ee26f2d0d6dc0402241736a3c92270c90454",
+    "meshes/collision/rh_thumb_distal_col.obj": "ab4596610317477b388a6dc87ef74e6c1c56f9162ed41e3f8c0141fd68a5ab71",
+    "meshes/collision/rh_thumb_metacarpals_base2_col.obj": "a1bf0bca4e3f346dacfc33a52f08907ae970e512be3ac9e484effe83d81db3ea",
+    "meshes/collision/rh_thumb_metacarpals_col.obj": "4599b0641fafd2e60720317ee7b76fae0c13bfb1ba028daebacb449489e8e3ca"
+  }
+}

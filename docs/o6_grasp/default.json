@@ -1,0 +1,130 @@
+{
+  "physics_dt": 0.002,
+  "control_dt": 0.02,
+  "solver_iterations": 100,
+  "solver_tolerance": 1e-10,
+  "cross_section": "circular",
+  "radius": 0.012,
+  "width": 0.024,
+  "height": 0.024,
+  "length": 0.3,
+  "rung_enabled": true,
+  "rung_pos": [
+    0.032,
+    0.0,
+    0.608
+  ],
+  "rung_quat": [
+    0.7071067811865476,
+    0,
+    0,
+    0.7071067811865476
+  ],
+  "palm_pos": [
+    0,
+    0,
+    0.5
+  ],
+  "palm_quat": [
+    1,
+    0,
+    0,
+    0
+  ],
+  "friction": 0.8,
+  "contact_timeconst": 0.006,
+  "kp": 3.0,
+  "kv": 0.02,
+  "effort_limit": 0.35,
+  "joint_damping": 0.002,
+  "armature": 0.0002,
+  "command_rate": 1.0,
+  "actuator_delay_steps": 0,
+  "open_pose": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "closed_pose": [
+    0.35,
+    0.95,
+    1.35,
+    1.35,
+    1.35,
+    1.35
+  ],
+  "residual_bounds": [
+    0.05,
+    0.1,
+    0.12,
+    0.12,
+    0.12,
+    0.12
+  ],
+  "phase_durations": [
+    0.5,
+    2.5,
+    4.0,
+    2.5
+  ],
+  "fixture_ramp": 1.0,
+  "unload_duration": 0.5,
+  "evaluation_mode": "unsupported",
+  "fixture_stiffness": [
+    1500,
+    1500,
+    1500,
+    8,
+    8,
+    8
+  ],
+  "fixture_damping": [
+    35,
+    35,
+    35,
+    0.3,
+    0.3,
+    0.3
+  ],
+  "fixture_force_limit": 30.0,
+  "fixture_torque_limit": 2.0,
+  "load_force": [
+    0,
+    0,
+    -1
+  ],
+  "load_torque": [
+    0,
+    0,
+    0
+  ],
+  "load_point": [
+    0,
+    0,
+    0
+  ],
+  "load_frame": "world",
+  "load_profile": "ramp",
+  "load_ramp": 1.5,
+  "impulse_duration": 0.1,
+  "verification_window": 0.3,
+  "max_translation": 0.015,
+  "max_rotation": 0.35,
+  "pullout_distance": 0.08,
+  "max_slip_speed": 0.02,
+  "max_effort_fraction": 0.98,
+  "min_normal_force": 0.05,
+  "max_penetration": 0.003,
+  "release_clearance": 0.002,
+  "velocity_scale": 5.0,
+  "distance_scale": 0.1,
+  "error_scale": 1.0,
+  "linear_velocity_scale": 1.0,
+  "angular_velocity_scale": 5.0,
+  "observation_noise": 0.0,
+  "observation_delay_steps": 0,
+  "observation_dropout": 0.0
+}
