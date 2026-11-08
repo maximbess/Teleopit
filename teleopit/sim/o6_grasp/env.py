@@ -8,6 +8,7 @@ from .config import GraspConfig
 from .controller import Controller, Mode, phase, validate_action
 from .diagnostics import Verification, contact_diagnostics, relative_palm, reward_terms
 from .observations import VERSION, ObservationSensor, build_observation
+from .replay import WristLoadReplay, fit_replay
 from .scene import build_scene, model_definition
 from .wrenches import apply_wrenches
 
@@ -18,6 +19,11 @@ class O6GraspEnv:
 
     def __init__(self, config=None):
         self.config = config or GraspConfig()
+        self.config.validate()
+        self.replay = None
+        if self.config.load_profile == "replay":
+            self.replay = WristLoadReplay.load(self.config.wrist_load_path)
+            self.config = fit_replay(self.config, self.replay)
         self.model, self.scene_xml = build_scene(self.config)
         self.data = mujoco.MjData(self.model)
         _, active, passive = model_definition()
@@ -69,6 +75,7 @@ class O6GraspEnv:
         self.last_nominal = np.asarray(cfg.open_pose)
         self.last_fixture = np.zeros(6)
         self.last_external = np.zeros(6)
+        self.last_replay = None
         self.last_gain = 1.0
         self.interval_unsupported = False
         return self._observe(Mode.OPEN, 0.0, 0.0)
@@ -170,6 +177,8 @@ class O6GraspEnv:
             numerical_warnings=[int(w.number) for w in self.data.warning],
         )
         info["reward_terms"] = reward_terms(mode, info, action_change)
+        if self.replay is not None:
+            info["wrist_replay"] = self.last_replay
         return self.sensor.sample(normalized), info
 
     def _limit_violation(self):

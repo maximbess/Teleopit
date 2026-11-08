@@ -30,6 +30,7 @@ from train_mimic.tasks.tracking.config.constants import DEFAULT_TRAIN_MOTION_FIL
 from train_mimic.tasks.tracking.mdp import MotionCommandCfg
 from train_mimic.tasks.tracking.tracking_env_cfg import make_tracking_env_cfg
 from teleopit.runtime.assets import UNITREE_G1_XML, missing_gmr_assets_message
+from teleopit.sim.ladder_geometry import LADDER_RUNG
 from .g1_collision import ROBOT_CONAFFINITY, ROBOT_CONTYPE, apply_g1_collision_overlay
 from .ladder_init import (
     LADDER_INITIAL_JOINT_POS,
@@ -65,10 +66,10 @@ _TRAIN_ONLY_EVENTS = (
 _LADDER_NUM_RUNGS = 14
 _LADDER_HALF_BASE = 1.05
 _LADDER_HEIGHT = 2.80
-_LADDER_HALF_WIDTH = 0.35
+_LADDER_HALF_WIDTH = LADDER_RUNG.length / 2
 _LADDER_RAIL_RADIUS = 0.050
-_LADDER_RUNG_HALF_DEPTH = 0.055
-_LADDER_RUNG_HALF_HEIGHT = 0.035
+_LADDER_RUNG_HALF_DEPTH = LADDER_RUNG.depth / 2
+_LADDER_RUNG_HALF_HEIGHT = LADDER_RUNG.height / 2
 _LADDER_GRIP_RADIUS = 0.075
 _LADDER_START_RUNG = 7
 _LADDER_INITIAL_FOOT_RUNG = 3
@@ -218,9 +219,9 @@ def _add_ladder_to_g1_spec(spec: mujoco.MjSpec) -> None:
                 contype=_LADDER_CONTYPE if collides else 0,
                 conaffinity=_LADDER_CONAFFINITY,
                 condim=4,
-                friction=(1.8, 0.02, 0.002),
-                solref=(0.005, 1.0),
-                solimp=(0.99, 0.999, 0.001, 0.5, 2.0),
+                friction=LADDER_RUNG.friction,
+                solref=LADDER_RUNG.solref,
+                solimp=LADDER_RUNG.solimp,
                 margin=_LADDER_BOX_MARGIN,
                 rgba=(0.55, 0.55, 0.58, 1.0),
             )

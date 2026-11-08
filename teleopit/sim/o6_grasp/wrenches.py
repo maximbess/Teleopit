@@ -5,6 +5,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 from .controller import fixture_gain, load_gain
+from .replay import replay_wrench
 
 
 def bounded(vector, limit):
@@ -49,7 +50,11 @@ def apply_wrenches(env, mode, elapsed):
     cfg, data = env.config, env.data
     gain = fixture_gain(cfg, mode, elapsed)
     fixture = fixture_wrench(env, gain)
-    external = external_wrench(env, load_gain(cfg, mode, elapsed))
+    external = (
+        replay_wrench(env, mode, elapsed)
+        if env.replay is not None
+        else external_wrench(env, load_gain(cfg, mode, elapsed))
+    )
     # Rebuild each substep; mj_applyFT adds to its destination.
     data.qfrc_applied[:] = 0
     data.xfrc_applied[:] = 0

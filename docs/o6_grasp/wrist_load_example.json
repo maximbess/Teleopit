@@ -1,0 +1,18 @@
+{
+  "schema": "o6_wrist_load_v1",
+  "source": {
+    "kind": "synthetic",
+    "description": "Hand-authored low-load waveform for replay plumbing tests. NOT a recorded climb or a measured hardware load."
+  },
+  "units": {"time": "s", "force": "N", "torque": "N*m"},
+  "frame": "world",
+  "application_site": "wrist_mount",
+  "point_m": [0, 0, 0],
+  "samples": [
+    {"time_s": 0.0, "force_N": [0, 0, 0], "torque_Nm": [0, 0, 0]},
+    {"time_s": 0.5, "force_N": [0, 0, -1], "torque_Nm": [0, 0.02, 0]},
+    {"time_s": 1.0, "force_N": [0, 0, -1], "torque_Nm": [0, 0.02, 0]},
+    {"time_s": 1.5, "force_N": [-1, 0, -1], "torque_Nm": [0.03, 0.02, 0]},
+    {"time_s": 2.0, "force_N": [0, 0, 0], "torque_Nm": [0, 0, 0]}
+  ]
+}

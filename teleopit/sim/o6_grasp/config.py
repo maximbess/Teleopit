@@ -1,7 +1,7 @@
 """SI-valued experiment settings; dynamics and postures are provisional."""
 
 import json
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, replace
 from pathlib import Path
 
 import numpy as np
@@ -19,6 +19,9 @@ class GraspConfig:
     height: float = 0.024
     length: float = 0.30
     rung_enabled: bool = True
+    rung_friction: tuple | None = None
+    rung_solref: tuple | None = None
+    rung_solimp: tuple | None = None
     rung_pos: tuple = (0.032, 0.0, 0.608)
     rung_quat: tuple = (0.7071067811865476, 0, 0, 0.7071067811865476)
     palm_pos: tuple = (0, 0, 0.5)  # mounting origin, not palm site
@@ -53,6 +56,9 @@ class GraspConfig:
     load_point: tuple = (0, 0, 0)  # offset from palm_frame in palm coordinates
     load_frame: str = "world"
     load_profile: str = "ramp"
+    wrist_load_path: str | None = None
+    replay_fade_duration: float = 0.1
+    replay_scale: float = 1.0
     load_ramp: float = 1.5
     impulse_duration: float = 0.10
     verification_window: float = 0.3
@@ -89,6 +95,28 @@ class GraspConfig:
         self._validate_vectors()
         self._validate_choices()
         self._validate_timing()
+        self._validate_rung_and_replay()
+
+    def _validate_rung_and_replay(self):
+        for name, size in (
+            ("rung_friction", 3),
+            ("rung_solref", 2),
+            ("rung_solimp", 5),
+        ):
+            value = getattr(self, name)
+            if value is not None:
+                _check_vector(value, size, name)
+                if np.min(value) < 0:
+                    raise ValueError(f"{name} cannot be negative")
+        _check_numbers(self, ("replay_fade_duration", "replay_scale"))
+        if (self.load_profile == "replay") != (self.wrist_load_path is not None):
+            raise ValueError(
+                "replay load_profile and wrist_load_path must be set together"
+            )
+        if self.wrist_load_path is not None and not isinstance(
+            self.wrist_load_path, str
+        ):
+            raise ValueError("wrist_load_path must be a file path string")
 
     def _validate_scalars(self):
         positive = (
@@ -201,19 +229,25 @@ class GraspConfig:
             "cross_section": ("circular", "rectangular"),
             "evaluation_mode": ("acquisition", "unsupported"),
             "load_frame": ("world", "palm"),
-            "load_profile": ("constant", "ramp", "impulse"),
+            "load_profile": ("constant", "ramp", "impulse", "replay"),
         }
         for name, options in choices.items():
             if getattr(self, name) not in options:
                 raise ValueError(f"{name} must be one of {options}")
 
 
-def load_config(path: str | Path | None) -> GraspConfig:
+def load_config(
+    path: str | Path | None, *, base: GraspConfig | None = None
+) -> GraspConfig:
     values = {} if path is None else json.loads(Path(path).read_text())
     unknown = values.keys() - {f.name for f in fields(GraspConfig)}
     if unknown:
         raise ValueError(f"unknown settings: {sorted(unknown)}")
-    config = GraspConfig(**values)
+    if values.get("wrist_load_path") is not None:
+        values["wrist_load_path"] = str(
+            (Path(path).resolve().parent / values["wrist_load_path"]).resolve()
+        )
+    config = replace(base or GraspConfig(), **values)
     config.validate()
     return config
 

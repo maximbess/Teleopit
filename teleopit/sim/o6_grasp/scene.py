@@ -190,6 +190,10 @@ def build_scene(config):
 
 def _rung_geom(body, config):
     attributes = {"name": "rung_collision", "rgba": "0.85 0.45 0.12 1"}
+    for name in ("friction", "solref", "solimp"):
+        value = getattr(config, "rung_" + name)
+        if value is not None:
+            attributes[name] = numbers(value)
     if config.cross_section == "circular":
         attributes.update(
             type="cylinder",

@@ -10,15 +10,19 @@ import numpy as np
 from .env import O6GraspEnv
 
 
-def camera_setup(camera):
+def camera_setup(camera, config=None):
     camera.lookat[:] = (0.02, 0, 0.60)
     camera.distance = 0.42
-    camera.azimuth = 135
+    # View the broad ladder rung from the hand side instead of hiding the palm.
+    camera.azimuth = (
+        315 if config is not None and config.cross_section == "rectangular" else 135
+    )
     camera.elevation = -15
 
 
 def show(config):
     env = O6GraspEnv(config)
+    config = env.config
     _, info = env.reset()
     paused = Event()
     done = False
@@ -34,7 +38,7 @@ def show(config):
     with mujoco.viewer.launch_passive(
         env.model, env.data, key_callback=on_key
     ) as viewer:
-        camera_setup(viewer.cam)
+        camera_setup(viewer.cam, config)
         viewer.opt.geomgroup[3] = 0
         viewer.opt.frame = mujoco.mjtFrame.mjFRAME_NONE
         viewer.opt.flags[mujoco.mjtVisFlag.mjVIS_CONTACTFORCE] = False
@@ -75,8 +79,9 @@ def render_frames(config, output):
     import imageio.v3 as imageio
 
     env = O6GraspEnv(config)
+    config = env.config
     camera = mujoco.MjvCamera()
-    camera_setup(camera)
+    camera_setup(camera, config)
     option = mujoco.MjvOption()
     option.geomgroup[3] = 0
     output = Path(output)

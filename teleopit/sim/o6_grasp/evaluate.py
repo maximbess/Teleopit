@@ -18,6 +18,8 @@ def scenarios(config):
         np.asarray(config.rung_quat)[[1, 2, 3, 0]]
     ).as_matrix()
     along, across = rung_rotation[:, 0], rung_rotation[:, 1]
+    small = resized_rung(config, 5 / 6)
+    large = resized_rung(config, 7 / 6)
     return {
         "free_motion": replace(
             config, rung_enabled=False, evaluation_mode="acquisition"
@@ -49,8 +51,8 @@ def scenarios(config):
         "alignment_offset": replace(
             config, palm_pos=tuple(np.asarray(config.palm_pos) + [0.004, 0, 0])
         ),
-        "rung_small": replace(config, radius=0.010),
-        "rung_large": replace(config, radius=0.014),
+        "rung_small": small,
+        "rung_large": large,
         "rectangular": replace(config, cross_section="rectangular"),
         "actuator_delay": replace(config, actuator_delay_steps=3),
         "finite_edge": replace(
@@ -65,6 +67,12 @@ def scenarios(config):
             solver_tolerance=config.solver_tolerance / 10,
         ),
     }
+
+
+def resized_rung(config, factor):
+    if config.cross_section == "circular":
+        return replace(config, radius=config.radius * factor)
+    return replace(config, width=config.width * factor, height=config.height * factor)
 
 
 def summarize(name, config, initial, rows):
@@ -106,6 +114,24 @@ def holding_summary(rows, dt):
         "longest_stable_seconds": longest,
         "failure_observed": bool(failures),
         "failure_reasons": reasons,
+        "first_failure": failure_sample(failures),
+    }
+
+
+def failure_sample(rows):
+    if not rows:
+        return None
+    row = rows[0]
+    return {
+        key: row[key]
+        for key in (
+            "time",
+            "verification",
+            "verification_reasons",
+            "external_wrench",
+            "translation_drift",
+            "rotation_drift",
+        )
     }
 
 
@@ -143,10 +169,14 @@ def run_trial(name, config, output, *, seed=0, callback=None):
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     env = O6GraspEnv(config)
+    config = env.config  # includes any HOLD extension required by the full trace
     _, initial = env.reset(seed=seed)
-    (output / f"{name}.config.json").write_text(
-        json.dumps(asdict(config), indent=2) + "\n"
-    )
+    resolved = asdict(config)
+    if env.replay is not None:
+        snapshot = f"{name}.replay.json"
+        (output / snapshot).write_bytes(env.replay.raw_bytes)
+        resolved["wrist_load_path"] = snapshot  # relative to the saved config
+    (output / f"{name}.config.json").write_text(json.dumps(resolved, indent=2) + "\n")
     (output / f"{name}.xml").write_text(env.scene_xml)
     rows = []
     with (output / f"{name}.jsonl").open("w") as stream:
@@ -162,11 +192,22 @@ def run_trial(name, config, output, *, seed=0, callback=None):
                 break
     summary = summarize(name, config, initial, rows)
     summary.update(seed=seed, mujoco_version=mujoco.__version__, config=asdict(config))
+    if env.replay is not None:
+        summary.update(
+            replay=env.replay.metadata, replay_result=replay_summary(rows, config)
+        )
+        summary["unsupported_success"] &= (
+            summary["replay_result"]["verified_seconds"] >= config.success_duration
+        )
     (output / f"{name}.summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     return summary
 
 
 def run_suite(config, output, *, seed=0):
+    if config.load_profile == "replay":
+        raise ValueError(
+            "run a single replay trial; the analytic suite substitutes its own loads"
+        )
     results = [
         run_trial(name, cfg, output, seed=seed)
         for name, cfg in scenarios(config).items()
@@ -186,3 +227,24 @@ def run_suite(config, output, *, seed=0):
         )
     (path / "summary.md").write_text("\n".join(lines) + "\n")
     return results
+
+
+def replay_summary(rows, config):
+    active = [row for row in rows if row["wrist_replay"]["active"]]
+    verified = [
+        row
+        for row in active
+        if row["verification"] == "VERIFIED" and row["unsupported"]
+    ]
+    return {
+        "active_seconds": len(active) * config.control_dt,
+        "verified_seconds": len(verified) * config.control_dt,
+        "scale": config.replay_scale,
+        "fade_duration_s": config.replay_fade_duration,
+        "peak_applied_force_N": max(
+            (np.linalg.norm(row["external_wrench"][:3]) for row in active), default=0.0
+        ),
+        "peak_applied_moment_Nm": max(
+            (np.linalg.norm(row["external_wrench"][3:]) for row in active), default=0.0
+        ),
+    }
