@@ -1,6 +1,7 @@
 """SI-valued experiment settings; dynamics and postures are provisional."""
-from dataclasses import dataclass, fields
+
 import json
+from dataclasses import dataclass, fields
 from pathlib import Path
 
 import numpy as np
@@ -12,7 +13,7 @@ class GraspConfig:
     control_dt: float = 0.02
     solver_iterations: int = 100
     solver_tolerance: float = 1e-10
-    cross_section: str = 'circular'
+    cross_section: str = "circular"
     radius: float = 0.012
     width: float = 0.024
     height: float = 0.024
@@ -38,19 +39,24 @@ class GraspConfig:
     phase_durations: tuple = (0.5, 2.5, 4.0, 2.5)
     fixture_ramp: float = 1.0
     unload_duration: float = 0.5
-    evaluation_mode: str = 'unsupported'
+    evaluation_mode: str = "unsupported"
     fixture_stiffness: tuple = (1500, 1500, 1500, 8, 8, 8)
     fixture_damping: tuple = (35, 35, 35, 0.3, 0.3, 0.3)
     fixture_force_limit: float = 30.0
     fixture_torque_limit: float = 2.0
+    fixture_target_pos: tuple | None = (
+        None  # world palm_frame origin; None = reset pose
+    )
+    fixture_target_quat: tuple | None = None  # world wxyz; None = reset orientation
     load_force: tuple = (0, 0, -1)
     load_torque: tuple = (0, 0, 0)
     load_point: tuple = (0, 0, 0)  # offset from palm_frame in palm coordinates
-    load_frame: str = 'world'
-    load_profile: str = 'ramp'
+    load_frame: str = "world"
+    load_profile: str = "ramp"
     load_ramp: float = 1.5
     impulse_duration: float = 0.10
     verification_window: float = 0.3
+    success_duration: float = 1.0
     max_translation: float = 0.015
     max_rotation: float = 0.35
     pullout_distance: float = 0.08
@@ -58,6 +64,8 @@ class GraspConfig:
     max_effort_fraction: float = 0.98
     min_normal_force: float = 0.05
     max_penetration: float = 0.003
+    max_coupling_error: float = 0.015
+    max_joint_limit_violation: float = 0.02
     release_clearance: float = 0.002
     velocity_scale: float = 5.0
     distance_scale: float = 0.1
@@ -70,70 +78,157 @@ class GraspConfig:
 
     @property
     def dimensions(self):
-        return (2 * self.radius,) * 2 if self.cross_section == 'circular' else (self.width, self.height)
+        return (
+            (2 * self.radius,) * 2
+            if self.cross_section == "circular"
+            else (self.width, self.height)
+        )
 
     def validate(self):
-        positive = ('physics_dt', 'control_dt', 'radius', 'width', 'height', 'length',
-                    'contact_timeconst', 'kp', 'effort_limit', 'command_rate',
-                    'fixture_force_limit', 'fixture_torque_limit', 'fixture_ramp',
-                    'unload_duration', 'load_ramp', 'impulse_duration', 'verification_window',
-                    'max_translation', 'max_rotation', 'pullout_distance', 'max_slip_speed',
-                    'min_normal_force', 'max_penetration', 'release_clearance', 'velocity_scale',
-                    'distance_scale', 'error_scale', 'linear_velocity_scale', 'angular_velocity_scale',
-                    'solver_tolerance')
-        for name in positive:
-            if not np.isfinite(getattr(self, name)) or getattr(self, name) <= 0:
-                raise ValueError(f'{name} must be finite and positive')
-        for name in ('friction', 'kv', 'joint_damping', 'armature', 'observation_noise'):
-            if not np.isfinite(getattr(self, name)) or getattr(self, name) < 0:
-                raise ValueError(f'{name} must be finite and nonnegative')
-        for name in ('actuator_delay_steps', 'observation_delay_steps', 'solver_iterations'):
-            value = getattr(self, name)
-            if not isinstance(value, int) or value < (1 if name == 'solver_iterations' else 0):
-                raise ValueError(f'invalid {name}')
+        self._validate_scalars()
         self._validate_vectors()
         self._validate_choices()
+        self._validate_timing()
+
+    def _validate_scalars(self):
+        positive = (
+            "physics_dt",
+            "control_dt",
+            "radius",
+            "width",
+            "height",
+            "length",
+            "contact_timeconst",
+            "kp",
+            "effort_limit",
+            "command_rate",
+            "fixture_force_limit",
+            "fixture_torque_limit",
+            "fixture_ramp",
+            "unload_duration",
+            "load_ramp",
+            "impulse_duration",
+            "verification_window",
+            "max_translation",
+            "max_rotation",
+            "pullout_distance",
+            "max_slip_speed",
+            "min_normal_force",
+            "max_penetration",
+            "release_clearance",
+            "velocity_scale",
+            "distance_scale",
+            "error_scale",
+            "linear_velocity_scale",
+            "angular_velocity_scale",
+            "solver_tolerance",
+            "success_duration",
+            "max_coupling_error",
+            "max_joint_limit_violation",
+        )
+        _check_numbers(self, positive, strictly_positive=True)
+        _check_numbers(
+            self, ("friction", "kv", "joint_damping", "armature", "observation_noise")
+        )
+        for name in (
+            "actuator_delay_steps",
+            "observation_delay_steps",
+            "solver_iterations",
+        ):
+            value = getattr(self, name)
+            if not isinstance(value, int) or value < (
+                1 if name == "solver_iterations" else 0
+            ):
+                raise ValueError(f"invalid {name}")
+        if (
+            not 0 <= self.observation_dropout <= 1
+            or not 0 < self.max_effort_fraction <= 1
+        ):
+            raise ValueError("invalid dropout or effort fraction")
+
+    def _validate_timing(self):
         ratio = self.control_dt / self.physics_dt
         if ratio < 1 or not np.isclose(ratio, round(ratio)):
-            raise ValueError('control_dt must be an integer multiple of physics_dt')
+            raise ValueError("control_dt must be an integer multiple of physics_dt")
         if self.fixture_ramp + self.unload_duration >= self.phase_durations[2]:
-            raise ValueError('HOLD needs an unsupported interval before unloading')
-        if not 0 <= self.observation_dropout <= 1 or not 0 < self.max_effort_fraction <= 1:
-            raise ValueError('invalid dropout or effort fraction')
+            raise ValueError("HOLD needs an unsupported interval before unloading")
+        if (
+            self.success_duration + self.verification_window
+            > self.phase_durations[2] - self.fixture_ramp
+        ):
+            raise ValueError("HOLD interval cannot fit the required success duration")
 
     def _validate_vectors(self):
-        sizes = {3: ('rung_pos', 'palm_pos', 'load_force', 'load_torque', 'load_point'),
-                 4: ('rung_quat', 'palm_quat', 'phase_durations'),
-                 6: ('open_pose', 'closed_pose', 'residual_bounds', 'fixture_stiffness', 'fixture_damping')}
+        sizes = {
+            3: ("rung_pos", "palm_pos", "load_force", "load_torque", "load_point"),
+            4: ("rung_quat", "palm_quat", "phase_durations"),
+            6: (
+                "open_pose",
+                "closed_pose",
+                "residual_bounds",
+                "fixture_stiffness",
+                "fixture_damping",
+            ),
+        }
         for size, names in sizes.items():
             for name in names:
-                value = np.asarray(getattr(self, name))
-                if value.shape != (size,) or not np.isfinite(value).all():
-                    raise ValueError(f'{name} must contain {size} finite values')
-        for name in ('rung_quat', 'palm_quat'):
-            if not np.isclose(np.linalg.norm(getattr(self, name)), 1):
-                raise ValueError(f'{name} must be a unit wxyz quaternion')
-        for name in ('residual_bounds', 'fixture_stiffness', 'fixture_damping', 'phase_durations'):
+                _check_vector(getattr(self, name), size, name)
+        self._validate_poses()
+        for name in (
+            "residual_bounds",
+            "fixture_stiffness",
+            "fixture_damping",
+            "phase_durations",
+        ):
             if np.min(getattr(self, name)) < 0:
-                raise ValueError(f'{name} cannot be negative')
+                raise ValueError(f"{name} cannot be negative")
         if min(self.phase_durations) <= 0:
-            raise ValueError('phase durations must be positive')
+            raise ValueError("phase durations must be positive")
+
+    def _validate_poses(self):
+        if self.fixture_target_pos is not None:
+            _check_vector(self.fixture_target_pos, 3, "fixture_target_pos")
+        for name in ("rung_quat", "palm_quat", "fixture_target_quat"):
+            value = getattr(self, name)
+            if value is None:
+                continue
+            _check_vector(value, 4, name)
+            if not np.isclose(np.linalg.norm(value), 1):
+                raise ValueError(f"{name} must be a unit wxyz quaternion")
 
     def _validate_choices(self):
-        choices = {'cross_section': ('circular', 'rectangular'),
-                   'evaluation_mode': ('acquisition', 'unsupported'),
-                   'load_frame': ('world', 'palm'),
-                   'load_profile': ('constant', 'ramp', 'impulse')}
+        choices = {
+            "cross_section": ("circular", "rectangular"),
+            "evaluation_mode": ("acquisition", "unsupported"),
+            "load_frame": ("world", "palm"),
+            "load_profile": ("constant", "ramp", "impulse"),
+        }
         for name, options in choices.items():
             if getattr(self, name) not in options:
-                raise ValueError(f'{name} must be one of {options}')
+                raise ValueError(f"{name} must be one of {options}")
 
 
 def load_config(path: str | Path | None) -> GraspConfig:
     values = {} if path is None else json.loads(Path(path).read_text())
     unknown = values.keys() - {f.name for f in fields(GraspConfig)}
     if unknown:
-        raise ValueError(f'unknown settings: {sorted(unknown)}')
+        raise ValueError(f"unknown settings: {sorted(unknown)}")
     config = GraspConfig(**values)
     config.validate()
     return config
+
+
+def _check_numbers(config, names, *, strictly_positive=False):
+    for name in names:
+        value = getattr(config, name)
+        valid = value > 0 if strictly_positive else value >= 0
+        if not np.isfinite(value) or not valid:
+            raise ValueError(
+                f"{name} must be finite and {'positive' if strictly_positive else 'nonnegative'}"
+            )
+
+
+def _check_vector(value, size, name):
+    array = np.asarray(value)
+    if array.shape != (size,) or not np.isfinite(array).all():
+        raise ValueError(f"{name} must contain {size} finite values")
