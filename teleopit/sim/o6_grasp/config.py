@@ -266,3 +266,4 @@ def _check_vector(value, size, name):
     array = np.asarray(value)
     if array.shape != (size,) or not np.isfinite(array).all():
         raise ValueError(f"{name} must contain {size} finite values")
+    return array

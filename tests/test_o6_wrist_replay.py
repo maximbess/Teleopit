@@ -66,6 +66,13 @@ def test_interpolation_is_timestamp_based_and_does_not_repeat_tail(trace_path):
     np.testing.assert_array_equal(replay.sample(-0.001), np.zeros(6))
     np.testing.assert_array_equal(replay.sample(2.001), np.zeros(6))
     assert replay.duration == 2
+    # A zero-valued endpoint cannot distinguish zero-outside from tail holding.
+    document = trace_document()
+    document["samples"][-1]["force_N"] = [0, 2, 0]
+    trace_path.write_text(json.dumps(document))
+    nonzero_tail = WristLoadReplay.load(trace_path)
+    assert nonzero_tail.sample(2)[1] == 2
+    np.testing.assert_array_equal(nonzero_tail.sample(2.001), np.zeros(6))
 
 
 def test_replay_starts_unsupported_and_shifts_wrist_moment_to_palm(trace_path):

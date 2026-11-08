@@ -17,7 +17,13 @@ conda run -n teleopit python -m teleopit.sim.o6_grasp --render --output outputs/
 conda run -n teleopit python -m pytest tests/test_o6_grasp.py -q
 ```
 
-The viewer runs one 9.5-second simulation trial. With the viewer window focused,
+For the climbing task's **700 × 110 × 70 mm rectangular rung**, use
+`--preset ladder-rung`. See [ladder preset and wrist replay](WRIST_REPLAY.md) for
+commands, the six-axis trace format, the synthetic example and its failing grasp
+baseline. No recorded wrist-load data is bundled.
+
+The nominal viewer runs one 9.5-second simulation trial (replay may extend HOLD).
+With the viewer window focused,
 press **Space** to pause/resume physics and controller time; camera controls and
 the window remain responsive while paused. The wrist label shows `PAUSED`.
 Contact points are enabled; contact frames/normals and force arrows are hidden

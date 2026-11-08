@@ -7,18 +7,12 @@ from pathlib import Path
 
 import numpy as np
 
+from .config import _check_vector
 from .controller import Mode, smooth
 
 SCHEMA = "o6_wrist_load_v1"
 UNITS = {"time": "s", "force": "N", "torque": "N*m"}
 FRAME_SITES = {"palm": "palm_frame", "rung": "rung_frame"}
-
-
-def _vector(value, size, name):
-    array = np.asarray(value, dtype=float)
-    if array.shape != (size,) or not np.isfinite(array).all():
-        raise ValueError(f"{name} must have {size} finite numbers")
-    return array
 
 
 def _metadata(document):
@@ -42,7 +36,7 @@ def _metadata(document):
     if document["application_site"] not in ("wrist_mount", "palm_frame"):
         raise ValueError("application_site must be wrist_mount or palm_frame")
     _validate_source(document["source"])
-    return _vector(document["point_m"], 3, "point_m")
+    return _check_vector(document["point_m"], 3, "point_m")
 
 
 def _validate_source(source):
@@ -72,8 +66,8 @@ def _samples(document):
         times.append(float(row["time_s"]))
         wrenches.append(
             np.r_[
-                _vector(row["force_N"], 3, "force_N"),
-                _vector(row["torque_Nm"], 3, "torque_Nm"),
+                _check_vector(row["force_N"], 3, "force_N"),
+                _check_vector(row["torque_Nm"], 3, "torque_Nm"),
             ]
         )
     times = np.asarray(times)
