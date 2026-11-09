@@ -47,7 +47,7 @@ def scenarios(config):
         "combined": replace(config, load_torque=(0, 0.1, 0)),
         "impulse": replace(config, load_force=(0, 0, -10), load_profile="impulse"),
         "release": replace(config, load_profile="constant"),
-        "friction_low": replace(config, friction=0.25),
+        "friction_low": replace(config, friction=0.25, rung_friction=(0.25, 0.001, 0.0001)),
         "alignment_offset": replace(
             config, palm_pos=tuple(np.asarray(config.palm_pos) + [0.004, 0, 0])
         ),
