@@ -100,20 +100,31 @@ def build_model(cfg):
     # Canonical keyframes have only 29 joints; derive reset explicitly instead.
     for key in list(root.findall("keyframe")):
         root.remove(key)
+    # Canonical visual geoms can be anonymous. Give every diagnostic row a
+    # stable identity before configuring and serializing compiled contacts.
+    for index, geom in enumerate(root.find("worldbody").iter("geom")):
+        if geom.get("name") is None:
+            geom.set("name", f"g1_original_geom_{index:03d}")
     xml = ET.tostring(root, encoding="unicode")
     model = mujoco.MjModel.from_xml_string(xml)
-    configure_contacts(model, cfg.friction_scale)
-    # Save the compiled contact overrides too, not just the construction tree.
+    configure_contacts(root, model, cfg.friction_scale)
+    # condim is structural: mutating its compiled array is not retained by
+    # mj_saveLastXML. Configure the source, then compile and audit the result.
+    xml = ET.tostring(root, encoding="unicode")
+    model = mujoco.MjModel.from_xml_string(xml)
     audit = inventory(original, model, hands)
     return model, xml, hands, audit
 
 
-def configure_contacts(model, scale):
-    for geom in range(model.ngeom):
+def configure_contacts(root, model, scale):
+    for element in root.find("worldbody").iter("geom"):
+        geom = model.geom(element.get("name")).id
         if model.geom_contype[geom] or model.geom_conaffinity[geom]:
-            model.geom_condim[geom] = 4
-            model.geom_priority[geom] = 0
-            model.geom_friction[geom] *= scale
+            element.set("condim", "4")
+            element.set("priority", "0")
+            element.set(
+                "friction", " ".join(str(v) for v in model.geom_friction[geom] * scale)
+            )
 
 
 def inventory(before, after, hands):
