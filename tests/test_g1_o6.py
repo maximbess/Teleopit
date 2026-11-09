@@ -109,6 +109,44 @@ def test_invalid_initial_state_aborts_in_environment(coupled):
     assert row["next_phase"] == "ABORT"
 
 
+def test_retraction_clearance_uses_physical_distance(coupled):
+    env = coupled
+    env.reset()
+    assert not env.clearance()
+    # Test-only placement, never used by the experiment's controller.
+    env.data.qpos[0] -= 0.3
+    mujoco.mj_forward(env.model, env.data)
+    assert env.clearance()
+
+
+def test_both_release_sides_shift_then_return_only_selected_arm(coupled):
+    from dataclasses import replace
+
+    env = coupled
+    env.reset()
+    for side, sign in (("left", 1), ("right", -1)):
+        env.config = replace(Config(), release_side=side)
+        waist = env.model.actuator("waist_roll_joint").id
+        shoulder = env.model.actuator(side + "_shoulder_pitch_joint").id
+        other = env.model.actuator(
+            ("right" if side == "left" else "left") + "_shoulder_pitch_joint"
+        ).id
+        env.phase = "UNLOAD_SELECTED_HAND"
+        target = env.body_target.copy()
+        env.transfer_targets(target, 3)
+        assert target[waist] - env.body_target[waist] == pytest.approx(sign * 0.04)
+        env.phase = "RETRACT"
+        target = env.body_target.copy()
+        env.transfer_targets(target, 3)
+        assert target[shoulder] - env.body_target[shoulder] == pytest.approx(0.15)
+        assert target[other] == env.body_target[other]
+        env.phase = "RETURN"
+        target = env.body_target.copy()
+        env.transfer_targets(target, 3)
+        assert target[shoulder] == env.body_target[shoulder]
+    env.config = Config()
+
+
 def test_support_requires_correct_partner_and_opposing_contacts():
     from teleopit.sim.g1_o6.diagnostics import support, unintended
 
