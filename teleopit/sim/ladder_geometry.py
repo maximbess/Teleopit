@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass
 
+import mujoco
+
 
 @dataclass(frozen=True)
 class LadderRung:
@@ -19,3 +21,85 @@ class LadderRung:
 
 
 LADDER_RUNG = LadderRung()
+
+
+_LADDER_NUM_RUNGS = 14
+_LADDER_HALF_BASE = 1.05
+_LADDER_HEIGHT = 2.80
+_LADDER_HALF_WIDTH = LADDER_RUNG.length / 2
+_LADDER_RAIL_RADIUS = 0.050
+_LADDER_RUNG_HALF_DEPTH = LADDER_RUNG.depth / 2
+_LADDER_RUNG_HALF_HEIGHT = LADDER_RUNG.height / 2
+_LADDER_GRIP_RADIUS = 0.075
+
+_LADDER_CONTYPE = 1
+_LADDER_CONAFFINITY = 0
+_LADDER_RAIL_MARGIN = 0.002
+_LADDER_BOX_MARGIN = 0.0
+
+
+def add_ladder(spec):
+    world = spec.worldbody
+    # The robot stands on the negative-x face. The positive-x face is the back
+    # of the A-frame: keep it for rendering, and leave it out of collision.
+    for side, base_x in (("left", -_LADDER_HALF_BASE), ("right", _LADDER_HALF_BASE)):
+        collides = side == "left"
+        side_body = world.add_body(name=f"{side}_ladder_body")
+        for rail_index, y in enumerate(
+            (-_LADDER_HALF_WIDTH, _LADDER_HALF_WIDTH),
+            start=1,
+        ):
+            side_body.add_geom(
+                name=f"{side}_ladder_rail_{rail_index:02d}",
+                type=mujoco.mjtGeom.mjGEOM_CAPSULE,
+                fromto=(base_x, y, 0.0, 0.0, y, _LADDER_HEIGHT),
+                size=(_LADDER_RAIL_RADIUS,),
+                contype=_LADDER_CONTYPE if collides else 0,
+                conaffinity=_LADDER_CONAFFINITY,
+                condim=4,
+                friction=(1.4, 0.02, 0.002),
+                solref=(0.005, 1.0),
+                solimp=(0.99, 0.999, 0.001, 0.5, 2.0),
+                margin=_LADDER_RAIL_MARGIN,
+                rgba=(0.55, 0.55, 0.58, 1.0),
+            )
+
+        for rung_index in range(1, _LADDER_NUM_RUNGS + 1):
+            fraction = rung_index / (_LADDER_NUM_RUNGS + 1)
+            x = base_x * (1.0 - fraction)
+            z = _LADDER_HEIGHT * fraction
+            fromto = (
+                x,
+                -_LADDER_HALF_WIDTH,
+                z,
+                x,
+                _LADDER_HALF_WIDTH,
+                z,
+            )
+            rung_name = f"{side}_ladder_rung_{rung_index:02d}"
+            side_body.add_geom(
+                name=rung_name,
+                type=mujoco.mjtGeom.mjGEOM_BOX,
+                pos=(x, 0.0, z),
+                size=(
+                    _LADDER_RUNG_HALF_DEPTH,
+                    _LADDER_HALF_WIDTH,
+                    _LADDER_RUNG_HALF_HEIGHT,
+                ),
+                contype=_LADDER_CONTYPE if collides else 0,
+                conaffinity=_LADDER_CONAFFINITY,
+                condim=4,
+                friction=LADDER_RUNG.friction,
+                solref=LADDER_RUNG.solref,
+                solimp=LADDER_RUNG.solimp,
+                margin=_LADDER_BOX_MARGIN,
+                rgba=(0.55, 0.55, 0.58, 1.0),
+            )
+            side_body.add_site(
+                name=f"{rung_name}_grip",
+                type=mujoco.mjtGeom.mjGEOM_CAPSULE,
+                fromto=fromto,
+                size=(_LADDER_GRIP_RADIUS,),
+                group=3,
+                rgba=(0.15, 0.95, 0.25, 0.25),
+            )

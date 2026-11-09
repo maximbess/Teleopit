@@ -30,7 +30,14 @@ from train_mimic.tasks.tracking.config.constants import DEFAULT_TRAIN_MOTION_FIL
 from train_mimic.tasks.tracking.mdp import MotionCommandCfg
 from train_mimic.tasks.tracking.tracking_env_cfg import make_tracking_env_cfg
 from teleopit.runtime.assets import UNITREE_G1_XML, missing_gmr_assets_message
-from teleopit.sim.ladder_geometry import LADDER_RUNG
+from teleopit.sim.ladder_geometry import (
+    add_ladder,
+    _LADDER_NUM_RUNGS,
+    _LADDER_RAIL_MARGIN,
+    _LADDER_BOX_MARGIN,
+    _LADDER_CONTYPE,
+    _LADDER_CONAFFINITY,
+)
 from .g1_collision import ROBOT_CONAFFINITY, ROBOT_CONTYPE, apply_g1_collision_overlay
 from .ladder_init import (
     LADDER_INITIAL_JOINT_POS,
@@ -63,14 +70,6 @@ _TRAIN_ONLY_EVENTS = (
     "randomize_rigid_body_mass",
 )
 
-_LADDER_NUM_RUNGS = 14
-_LADDER_HALF_BASE = 1.05
-_LADDER_HEIGHT = 2.80
-_LADDER_HALF_WIDTH = LADDER_RUNG.length / 2
-_LADDER_RAIL_RADIUS = 0.050
-_LADDER_RUNG_HALF_DEPTH = LADDER_RUNG.depth / 2
-_LADDER_RUNG_HALF_HEIGHT = LADDER_RUNG.height / 2
-_LADDER_GRIP_RADIUS = 0.075
 _LADDER_START_RUNG = 7
 _LADDER_INITIAL_FOOT_RUNG = 3
 _LADDER_FOOT_CONTACT_SENSOR = "ladder_foot_contact"
@@ -79,11 +78,7 @@ _LADDER_ARM_EFFORT_SCALE = 0.70
 _LADDER_SUCCESSES_PER_ROLLOUT = 4
 # Warp rejects a nonzero margin only for box/box, box/mesh, and mesh/mesh pairs.
 # Capsule rails keep a 2 mm skin. Box rungs stay at zero.
-_LADDER_RAIL_MARGIN = 0.002
-_LADDER_BOX_MARGIN = 0.0
 # Climb-face geoms advertise bit 0 and listen to nothing. See ROBOT_CONTYPE.
-_LADDER_CONTYPE = 1
-_LADDER_CONAFFINITY = 0
 # MuJoCo's default is (0, 0, -9.81). This run uses 1.0 of that.
 _LADDER_GRAVITY = (0.0, 0.0, -9.81 * 1.0)
 # Radius of ``left_hand_collision`` / ``right_hand_collision`` and of the
@@ -169,70 +164,8 @@ def _add_ladder_to_g1_spec(spec: mujoco.MjSpec) -> None:
         rgba=(0.0, 0.0, 1.0, 0.10),
     )
 
+    add_ladder(spec)
     world = spec.worldbody
-    # The robot stands on the negative-x face. The positive-x face is the back
-    # of the A-frame: keep it for rendering, and leave it out of collision.
-    for side, base_x in (("left", -_LADDER_HALF_BASE), ("right", _LADDER_HALF_BASE)):
-        collides = side == "left"
-        side_body = world.add_body(name=f"{side}_ladder_body")
-        for rail_index, y in enumerate(
-            (-_LADDER_HALF_WIDTH, _LADDER_HALF_WIDTH),
-            start=1,
-        ):
-            side_body.add_geom(
-                name=f"{side}_ladder_rail_{rail_index:02d}",
-                type=mujoco.mjtGeom.mjGEOM_CAPSULE,
-                fromto=(base_x, y, 0.0, 0.0, y, _LADDER_HEIGHT),
-                size=(_LADDER_RAIL_RADIUS,),
-                contype=_LADDER_CONTYPE if collides else 0,
-                conaffinity=_LADDER_CONAFFINITY,
-                condim=4,
-                friction=(1.4, 0.02, 0.002),
-                solref=(0.005, 1.0),
-                solimp=(0.99, 0.999, 0.001, 0.5, 2.0),
-                margin=_LADDER_RAIL_MARGIN,
-                rgba=(0.55, 0.55, 0.58, 1.0),
-            )
-
-        for rung_index in range(1, _LADDER_NUM_RUNGS + 1):
-            fraction = rung_index / (_LADDER_NUM_RUNGS + 1)
-            x = base_x * (1.0 - fraction)
-            z = _LADDER_HEIGHT * fraction
-            fromto = (
-                x,
-                -_LADDER_HALF_WIDTH,
-                z,
-                x,
-                _LADDER_HALF_WIDTH,
-                z,
-            )
-            rung_name = f"{side}_ladder_rung_{rung_index:02d}"
-            side_body.add_geom(
-                name=rung_name,
-                type=mujoco.mjtGeom.mjGEOM_BOX,
-                pos=(x, 0.0, z),
-                size=(
-                    _LADDER_RUNG_HALF_DEPTH,
-                    _LADDER_HALF_WIDTH,
-                    _LADDER_RUNG_HALF_HEIGHT,
-                ),
-                contype=_LADDER_CONTYPE if collides else 0,
-                conaffinity=_LADDER_CONAFFINITY,
-                condim=4,
-                friction=LADDER_RUNG.friction,
-                solref=LADDER_RUNG.solref,
-                solimp=LADDER_RUNG.solimp,
-                margin=_LADDER_BOX_MARGIN,
-                rgba=(0.55, 0.55, 0.58, 1.0),
-            )
-            side_body.add_site(
-                name=f"{rung_name}_grip",
-                type=mujoco.mjtGeom.mjGEOM_CAPSULE,
-                fromto=fromto,
-                size=(_LADDER_GRIP_RADIUS,),
-                group=3,
-                rgba=(0.15, 0.95, 0.25, 0.25),
-            )
 
     for hand, color in (
         ("left", (1.0, 0.5, 0.0, 0.8)),
