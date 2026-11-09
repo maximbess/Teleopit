@@ -12,9 +12,9 @@ from .run import run_trial
 
 def camera(cam):
     cam.lookat[:] = (-0.6, 0, 1.4)
-    cam.distance = 3.2
-    cam.azimuth = 150
-    cam.elevation = -15
+    cam.distance = 2.8
+    cam.azimuth = 60
+    cam.elevation = -12
 
 
 def show(config, output):
@@ -70,7 +70,7 @@ def record(config, output):
             nonlocal renderer, counter
             if renderer is None:
                 renderer = mujoco.Renderer(env.model, height=480, width=640)
-            if counter % 5 == 0:
+            if counter % 5 == 0 or env.phase in ("ABORT", "DONE"):
                 renderer.update_scene(env.data, camera=cam, scene_option=opt)
                 pixels = renderer.render()
                 pixels = label_frame(pixels, env, row)
