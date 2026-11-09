@@ -1,0 +1,884 @@
+{
+  "code_revision": "4fe09d98cacd802b23dc634f67ef4c56a47adfe2",
+  "reviewed_baseline": "9c7a16bd8c0c680dfc7aa1ba0cc151a829bfef1b",
+  "runtime": {
+    "python": "3.10.20",
+    "mujoco": "3.8.1",
+    "numpy": "2.2.6",
+    "scipy": "1.15.2"
+  },
+  "canonical_revision": "external asset distribution has no upstream commit; exact XML/mesh SHA256 recorded",
+  "asset_sha256": {
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\g1_29dof.xml": "512ccfe8b811e2bfaec0c2fc57960941371e189b365db5c1ff874474166800a3",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\omniretarget_collision\\manifest.json": "18978835d53560b9370d2895be10cc80f9ccebca08f8fd05e5c8cf65ac56586f",
+    "D:\\Westlake Internship\\teleopit\\teleopit\\sim\\o6_grasp\\assets\\manifest.json": "74f0cf1fd3083b8af3fa591800f640f05115a385d23f4368482c302d8e5347b9",
+    "D:\\Westlake Internship\\teleopit\\teleopit\\sim\\o6_grasp\\assets\\left\\manifest.json": "d2d11bcffc52b53b4d17c0a1cac516d290081d9af1369e2f0a37a42bfcfeb3da",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\head_link.STL": "005fb67fbd3eff94aa8bf4a6e83238174e9f91b6721f7111594322f223724411",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\left_ankle_pitch_link.STL": "d49e3abc6f5b12e532062cd575b87b5ef40cd2a3fc18f54a1ca5bba4f773d51d",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\left_ankle_roll_link.STL": "c4092af943141d4d9f74232f3cfa345afc6565f46a077793b8ae0e68b39dc33f",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\left_elbow_link.STL": "fa752198accd104d5c4c3a01382e45165b944fbbc5acce085059223324e5bed3",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\left_hip_pitch_link.STL": "4725168105ee768ee31638ef22b53f6be2d7641bfd7cfefe803488d884776fa4",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\left_hip_roll_link.STL": "91f25922ee8a7c3152790051bebad17b4d9cd243569c38fe340285ff93a97acf",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\left_hip_yaw_link.STL": "a16d88aa6ddac8083aa7ad55ed317bea44b1fa003d314fba88965b7ed0f3b55b",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\left_knee_link.STL": "8d92b9e3d3a636761150bb8025e32514c4602b91c7028d523ee42b3e632de477",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\left_rubber_hand.STL": "cff2221a690fa69303f61fce68f2d155c1517b52efb6ca9262dd56e0bc6e70fe",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\left_shoulder_pitch_link.STL": "f0d1cfd02fcf0d42f95e678eeca33da3afbcc366ffba5c052847773ec4f31d52",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\left_shoulder_roll_link.STL": "fb9df21687773522598dc384f1a2945c7519f11cbc8bd372a49170316d6eee88",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\left_shoulder_yaw_link.STL": "1aa97e9748e924336567992181f78c7cd0652fd52a4afcca3df6b2ef6f9e712e",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\left_wrist_pitch_link.STL": "b251d8e05047f695d0f536cd78c11973cfa4e78d08cfe82759336cc3471de3a9",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\left_wrist_roll_link.STL": "edc387c9a0ba8c2237e9b296d32531426fabeb6f53e58df45c76106bca74148c",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\left_wrist_yaw_link.STL": "83f8fb3a726bf9613d65dd14f0f447cb918c3c95b3938042a0c9c09749267d3b",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\logo_link.STL": "8571a0a19bc4916fa55f91449f51d5fdefd751000054865a842449429d5f155b",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\pelvis.STL": "5ba6bbc888e630550140d3c26763f10206da8c8bd30ed886b8ede41c61f57a31",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\pelvis_contour_link.STL": "5cc5c2c7a312329e3feeb2b03d3fc09fc29705bd01864f6767e51be959662420",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\right_ankle_pitch_link.STL": "15be426539ec1be70246d4d82a168806db64a41301af8b35c197a33348c787a9",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\right_ankle_roll_link.STL": "4b66222ea56653e627711b56d0a8949b4920da5df091da0ceb343f54e884e3a5",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\right_elbow_link.STL": "1be925d7aa268bb8fddf5362b9173066890c7d32092c05638608126e59d1e2ab",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\right_hip_pitch_link.STL": "e4f3c99d7f4a7d34eadbef9461fc66e3486cb5442db1ec50c86317d459f1a9c6",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\right_hip_roll_link.STL": "4c254ef66a356f492947f360dd931965477b631e3fcc841f91ccc46d945d54f6",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\right_hip_yaw_link.STL": "e479c2936ca2057e9eb2f7dff6c189b7419d7b8484dea0b298cbb36a2a6aa668",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\right_knee_link.STL": "63c4008449c9bbe701a6e2b557b7a252e90cf3a5abcf54cee46862b9a69f8ec8",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\right_rubber_hand.STL": "99533b778bca6246144fa511bb9d4e555e075c641f2a0251e04372869cd99d67",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\right_shoulder_pitch_link.STL": "24cdb387e0128dfe602770a81c56cdce3a0181d34d039a11d1aaf8819b7b8c02",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\right_shoulder_roll_link.STL": "962b97c48f9ce9e8399f45dd9522e0865d19aa9fd299406b2d475a8fc4a53e81",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\right_shoulder_yaw_link.STL": "a0b76489271da0c72461a344c9ffb0f0c6e64f019ea5014c1624886c442a2fe5",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\right_wrist_pitch_link.STL": "d22f8f3b3127f15a63e5be1ee273cd5075786c3142f1c3d9f76cbf43d2a26477",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\right_wrist_roll_link.STL": "a7ee9212ff5b94d6cb7f52bb1bbf3f352194d5b598acff74f4c77d340c5b344f",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\right_wrist_yaw_link.STL": "bc9dece2d12509707e0057ba2e48df8f3d56db0c79410212963a25e8a50f61a6",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\torso_link_rev_1_0.STL": "11ddb46f2098efbbd8816b1d65893632d8e78be936376c7cdcd6771899ccc723",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\waist_roll_link_rev_1_0.STL": "b67c347a05abc3e8ddae600d98a082bee273bb39f8e651647708b0a7140a8a97",
+    "D:\\Westlake Internship\\teleopit\\assets\\robots\\unitree_g1\\meshes\\g1\\waist_yaw_link_rev_1_0.STL": "ec6db442b11f25eed898b5add07940c85d804f300de24dcbd264ccd8be7d554c"
+  },
+  "hand_sources": [
+    {
+      "repository": "https://github.com/linker-bot/linkerhand-urdf",
+      "revision": "49f26021b0a91ff5c33150df22970c07bb548672",
+      "source_prefix": "O6/right",
+      "sha256": {
+        "linkerhand_o6_right.urdf": "6ad8cca6ff8a385086eb3b805cd9c8df3b05ee96edfcc8b6ab92fc6ce0ce1838",
+        "meshes/collision/rh_hand_base_link_col.obj": "8fa12e4df9812facda08688f490cc3b5b2f1bc61d98c952863887c1ba82f9391",
+        "meshes/collision/rh_index_distal_col.obj": "e9adc67731936b5b9aa3037923b986f57c73f03b3daf053ee9274d4a5624732d",
+        "meshes/collision/rh_index_proximal_col.obj": "04ca7beb9f362959912b2277369f5b7c425ca7154d4d91c9a554ba755321b646",
+        "meshes/collision/rh_middle_distal_col.obj": "d2236460a23133e1a87a94d9397629ec70a072e32399244a44531e8d23be7f1d",
+        "meshes/collision/rh_middle_proximal_col.obj": "276390b3f0e8884ab1ddb95337d45bd1fff8bf8ad70813edd8b3b0a536346170",
+        "meshes/collision/rh_pinky_distal_col.obj": "9e7bddf879ff6968e189d52979b5788c7ab7f93c2fa1d7a4abcf5d53f80cae1f",
+        "meshes/collision/rh_pinky_proximal_col.obj": "03dca4ef5618d2fafd44e31240e6ad4f9326ebfbf6bc68c78a46f0452356f071",
+        "meshes/collision/rh_ring_distal_col.obj": "d9509c5e4b2b6b7290978e1ce0d801102f6ad067c170654c7989a75b9034bc4d",
+        "meshes/collision/rh_ring_proximal_col.obj": "2830cad9c173b5088f8548a6bb33ee26f2d0d6dc0402241736a3c92270c90454",
+        "meshes/collision/rh_thumb_distal_col.obj": "ab4596610317477b388a6dc87ef74e6c1c56f9162ed41e3f8c0141fd68a5ab71",
+        "meshes/collision/rh_thumb_metacarpals_base2_col.obj": "a1bf0bca4e3f346dacfc33a52f08907ae970e512be3ac9e484effe83d81db3ea",
+        "meshes/collision/rh_thumb_metacarpals_col.obj": "4599b0641fafd2e60720317ee7b76fae0c13bfb1ba028daebacb449489e8e3ca"
+      }
+    },
+    {
+      "repository": "https://github.com/linker-bot/linkerhand-urdf",
+      "revision": "49f26021b0a91ff5c33150df22970c07bb548672",
+      "source_prefix": "O6/left",
+      "sha256": {
+        "linkerhand_o6_left.urdf": "e1e42ccd1ff55a28153acb025046f42d810ac97367f7bbfdaebe042d01cd75ba",
+        "meshes/collision/lh_hand_base_link_col.obj": "88f95d9bc1aa9690f6bfe4a1d00dd0ab307545aea37f569fae91413fd47deb95",
+        "meshes/collision/lh_index_distal_col.obj": "350dd8a432b04296743a751fb3b8955d30c63536c16ad08538189fa49963acba",
+        "meshes/collision/lh_index_proximal_col.obj": "a36d25be2513ba81e9ce13ca155f5fdaa6b5d1d99941b1ab66fd70befee37503",
+        "meshes/collision/lh_middle_distal_col.obj": "514d9fa4124ffe7121c1a9849c38f54c1831ab9d3c6317ee7823479ea16c80ed",
+        "meshes/collision/lh_middle_proximal_col.obj": "ed07c40c7fb1af17aa9e3183e8a1e663373e228aa9322c13d72793a6072a2254",
+        "meshes/collision/lh_pinky_distal_col.obj": "74e68c052cbd35b248217ceee6bab9800c5758133d7f5b27e99ceabfba99f663",
+        "meshes/collision/lh_pinky_proximal_col.obj": "9ea4869809981c6c445154cd25dfc515a0e708718f6d9ac703e0994b73878613",
+        "meshes/collision/lh_ring_distal_col.obj": "e93ec73f4d9a9b29ef854b5e9829f4fe7892def703769b6d7178f64b492a7424",
+        "meshes/collision/lh_ring_proximal_col.obj": "fa096fc099cd68350ffb370447078f194f3f70c7d0a0dc30ad4725beff25d5ef",
+        "meshes/collision/lh_thumb_distal_col.obj": "d7cdebf41a1074465a80a0700fc17f224dbb2e5ccc42af3f309f2d0d5303173a",
+        "meshes/collision/lh_thumb_metacarpals_base2_col.obj": "3ad2077d62c4216b8447eb46e895811cabf6c4ce6bb156f450e43422269b5322",
+        "meshes/collision/lh_thumb_metacarpals_col.obj": "e3310195ac506d3f8d43a25b1535004f0301b2b37fbf005f8a385e47fa283163"
+      }
+    }
+  ],
+  "collision_source": {
+    "repository": "amazon-far/holosoma",
+    "revision": "bccd4d7451640a2800ddc77e469d911a84f91994"
+  },
+  "inertia_and_mount": {
+    "com_reference": "canonical qpos0; identical G1 joint/base pose in both models",
+    "com_before_world_m": [
+      0.02033207842885566,
+      8.226090168117387e-05,
+      0.6713340731008917
+    ],
+    "com_after_world_m": [
+      0.02654791211078565,
+      8.058343312959717e-05,
+      0.6752289749843848
+    ],
+    "retained_wrist_inertia": {
+      "left": {
+        "mass_kg": 0.254576,
+        "principal_inertia_kg_m2": [
+          0.000646113,
+          0.000559993,
+          0.000147566
+        ],
+        "inertial_position_m": [
+          0.0708244,
+          0.000191745,
+          0.00161742
+        ],
+        "inertial_quaternion_wxyz": [
+          0.5105708492555107,
+          0.5262948446130489,
+          0.4680778618014359,
+          0.49318785438778706
+        ]
+      },
+      "right": {
+        "mass_kg": 0.254576,
+        "principal_inertia_kg_m2": [
+          0.000646113,
+          0.000559993,
+          0.000147566
+        ],
+        "inertial_position_m": [
+          0.0708244,
+          -0.000191745,
+          0.00161742
+        ],
+        "inertial_quaternion_wxyz": [
+          0.49318785438778706,
+          0.4680778618014359,
+          0.5262948446130489,
+          0.5105708492555107
+        ]
+      }
+    },
+    "mass_before_kg": 33.341142000000005,
+    "mass_after_kg": 34.081102,
+    "retained_wrist_mass_kg": {
+      "left": 0.254576,
+      "right": 0.254576
+    },
+    "mass_policy": "retain aggregated wrist/rubber-hand inertia: no separable source inertia available",
+    "mount_position": [
+      0.0415,
+      0,
+      0
+    ],
+    "mount_quaternion_wxyz": [
+      0.7071067811865476,
+      0,
+      0.7071067811865476,
+      0
+    ],
+    "hands": {
+      "left": {
+        "base": "left_o6_lh_hand_base_link",
+        "active": [
+          "left_o6_lh_thumb_cmc_pitch",
+          "left_o6_lh_thumb_cmc_yaw",
+          "left_o6_lh_index_mcp_pitch",
+          "left_o6_lh_middle_mcp_pitch",
+          "left_o6_lh_ring_mcp_pitch",
+          "left_o6_lh_pinky_mcp_pitch"
+        ],
+        "passive": [
+          [
+            "left_o6_lh_thumb_ip",
+            "left_o6_lh_thumb_cmc_pitch",
+            1.86
+          ],
+          [
+            "left_o6_lh_index_dip",
+            "left_o6_lh_index_mcp_pitch",
+            0.89
+          ],
+          [
+            "left_o6_lh_middle_dip",
+            "left_o6_lh_middle_mcp_pitch",
+            0.89
+          ],
+          [
+            "left_o6_lh_ring_dip",
+            "left_o6_lh_ring_mcp_pitch",
+            0.89
+          ],
+          [
+            "left_o6_lh_pinky_dip",
+            "left_o6_lh_pinky_mcp_pitch",
+            0.89
+          ]
+        ],
+        "limits": [
+          [
+            0.0,
+            0.58
+          ],
+          [
+            0.0,
+            1.36
+          ],
+          [
+            0.0,
+            1.6
+          ],
+          [
+            0.0,
+            1.6
+          ],
+          [
+            0.0,
+            1.6
+          ],
+          [
+            0.0,
+            1.6
+          ]
+        ],
+        "mount": "left_o6_wrist_mount",
+        "palm": "left_o6_palm_frame"
+      },
+      "right": {
+        "base": "right_o6_rh_hand_base_link",
+        "active": [
+          "right_o6_rh_thumb_cmc_pitch",
+          "right_o6_rh_thumb_cmc_yaw",
+          "right_o6_rh_index_mcp_pitch",
+          "right_o6_rh_middle_mcp_pitch",
+          "right_o6_rh_ring_mcp_pitch",
+          "right_o6_rh_pinky_mcp_pitch"
+        ],
+        "passive": [
+          [
+            "right_o6_rh_thumb_ip",
+            "right_o6_rh_thumb_cmc_pitch",
+            1.86
+          ],
+          [
+            "right_o6_rh_index_dip",
+            "right_o6_rh_index_mcp_pitch",
+            0.89
+          ],
+          [
+            "right_o6_rh_middle_dip",
+            "right_o6_rh_middle_mcp_pitch",
+            0.89
+          ],
+          [
+            "right_o6_rh_ring_dip",
+            "right_o6_rh_ring_mcp_pitch",
+            0.89
+          ],
+          [
+            "right_o6_rh_pinky_dip",
+            "right_o6_rh_pinky_mcp_pitch",
+            0.89
+          ]
+        ],
+        "limits": [
+          [
+            0.0,
+            0.58
+          ],
+          [
+            0.0,
+            1.36
+          ],
+          [
+            0.0,
+            1.6
+          ],
+          [
+            0.0,
+            1.6
+          ],
+          [
+            0.0,
+            1.6
+          ],
+          [
+            0.0,
+            1.6
+          ]
+        ],
+        "mount": "right_o6_wrist_mount",
+        "palm": "right_o6_palm_frame"
+      }
+    },
+    "initial_com_world": [
+      -0.7646753137510519,
+      8.002781207355597e-05,
+      1.4888250266496577
+    ]
+  },
+  "actuators": [
+    {
+      "name": "left_hip_pitch_joint",
+      "joint": "left_hip_pitch_joint",
+      "kp": 40.2,
+      "kv": 2.6,
+      "effort_Nm": [
+        -88.0,
+        88.0
+      ],
+      "joint_range_rad": [
+        -2.5307,
+        2.8798
+      ]
+    },
+    {
+      "name": "left_hip_roll_joint",
+      "joint": "left_hip_roll_joint",
+      "kp": 99.1,
+      "kv": 6.3,
+      "effort_Nm": [
+        -139.0,
+        139.0
+      ],
+      "joint_range_rad": [
+        -0.5236,
+        2.9671
+      ]
+    },
+    {
+      "name": "left_hip_yaw_joint",
+      "joint": "left_hip_yaw_joint",
+      "kp": 40.2,
+      "kv": 2.6,
+      "effort_Nm": [
+        -88.0,
+        88.0
+      ],
+      "joint_range_rad": [
+        -2.7576,
+        2.7576
+      ]
+    },
+    {
+      "name": "left_knee_joint",
+      "joint": "left_knee_joint",
+      "kp": 99.1,
+      "kv": 6.3,
+      "effort_Nm": [
+        -139.0,
+        139.0
+      ],
+      "joint_range_rad": [
+        -0.087267,
+        2.8798
+      ]
+    },
+    {
+      "name": "left_ankle_pitch_joint",
+      "joint": "left_ankle_pitch_joint",
+      "kp": 28.5,
+      "kv": 1.8,
+      "effort_Nm": [
+        -50.0,
+        50.0
+      ],
+      "joint_range_rad": [
+        -0.87267,
+        0.5236
+      ]
+    },
+    {
+      "name": "left_ankle_roll_joint",
+      "joint": "left_ankle_roll_joint",
+      "kp": 28.5,
+      "kv": 1.8,
+      "effort_Nm": [
+        -50.0,
+        50.0
+      ],
+      "joint_range_rad": [
+        -0.2618,
+        0.2618
+      ]
+    },
+    {
+      "name": "right_hip_pitch_joint",
+      "joint": "right_hip_pitch_joint",
+      "kp": 40.2,
+      "kv": 2.6,
+      "effort_Nm": [
+        -88.0,
+        88.0
+      ],
+      "joint_range_rad": [
+        -2.5307,
+        2.8798
+      ]
+    },
+    {
+      "name": "right_hip_roll_joint",
+      "joint": "right_hip_roll_joint",
+      "kp": 99.1,
+      "kv": 6.3,
+      "effort_Nm": [
+        -139.0,
+        139.0
+      ],
+      "joint_range_rad": [
+        -2.9671,
+        0.5236
+      ]
+    },
+    {
+      "name": "right_hip_yaw_joint",
+      "joint": "right_hip_yaw_joint",
+      "kp": 40.2,
+      "kv": 2.6,
+      "effort_Nm": [
+        -88.0,
+        88.0
+      ],
+      "joint_range_rad": [
+        -2.7576,
+        2.7576
+      ]
+    },
+    {
+      "name": "right_knee_joint",
+      "joint": "right_knee_joint",
+      "kp": 99.1,
+      "kv": 6.3,
+      "effort_Nm": [
+        -139.0,
+        139.0
+      ],
+      "joint_range_rad": [
+        -0.087267,
+        2.8798
+      ]
+    },
+    {
+      "name": "right_ankle_pitch_joint",
+      "joint": "right_ankle_pitch_joint",
+      "kp": 28.5,
+      "kv": 1.8,
+      "effort_Nm": [
+        -50.0,
+        50.0
+      ],
+      "joint_range_rad": [
+        -0.87267,
+        0.5236
+      ]
+    },
+    {
+      "name": "right_ankle_roll_joint",
+      "joint": "right_ankle_roll_joint",
+      "kp": 28.5,
+      "kv": 1.8,
+      "effort_Nm": [
+        -50.0,
+        50.0
+      ],
+      "joint_range_rad": [
+        -0.2618,
+        0.2618
+      ]
+    },
+    {
+      "name": "waist_yaw_joint",
+      "joint": "waist_yaw_joint",
+      "kp": 40.2,
+      "kv": 2.6,
+      "effort_Nm": [
+        -88.0,
+        88.0
+      ],
+      "joint_range_rad": [
+        -2.618,
+        2.618
+      ]
+    },
+    {
+      "name": "waist_roll_joint",
+      "joint": "waist_roll_joint",
+      "kp": 28.5,
+      "kv": 1.8,
+      "effort_Nm": [
+        -50.0,
+        50.0
+      ],
+      "joint_range_rad": [
+        -0.52,
+        0.52
+      ]
+    },
+    {
+      "name": "waist_pitch_joint",
+      "joint": "waist_pitch_joint",
+      "kp": 28.5,
+      "kv": 1.8,
+      "effort_Nm": [
+        -50.0,
+        50.0
+      ],
+      "joint_range_rad": [
+        -0.52,
+        0.52
+      ]
+    },
+    {
+      "name": "left_shoulder_pitch_joint",
+      "joint": "left_shoulder_pitch_joint",
+      "kp": 14.3,
+      "kv": 0.9,
+      "effort_Nm": [
+        -25.0,
+        25.0
+      ],
+      "joint_range_rad": [
+        -3.0892,
+        2.6704
+      ]
+    },
+    {
+      "name": "left_shoulder_roll_joint",
+      "joint": "left_shoulder_roll_joint",
+      "kp": 14.3,
+      "kv": 0.9,
+      "effort_Nm": [
+        -25.0,
+        25.0
+      ],
+      "joint_range_rad": [
+        -1.5882,
+        2.2515
+      ]
+    },
+    {
+      "name": "left_shoulder_yaw_joint",
+      "joint": "left_shoulder_yaw_joint",
+      "kp": 14.3,
+      "kv": 0.9,
+      "effort_Nm": [
+        -25.0,
+        25.0
+      ],
+      "joint_range_rad": [
+        -2.618,
+        2.618
+      ]
+    },
+    {
+      "name": "left_elbow_joint",
+      "joint": "left_elbow_joint",
+      "kp": 14.3,
+      "kv": 0.9,
+      "effort_Nm": [
+        -25.0,
+        25.0
+      ],
+      "joint_range_rad": [
+        -1.0472,
+        2.0944
+      ]
+    },
+    {
+      "name": "left_wrist_roll_joint",
+      "joint": "left_wrist_roll_joint",
+      "kp": 14.3,
+      "kv": 0.9,
+      "effort_Nm": [
+        -25.0,
+        25.0
+      ],
+      "joint_range_rad": [
+        -1.97222,
+        1.97222
+      ]
+    },
+    {
+      "name": "left_wrist_pitch_joint",
+      "joint": "left_wrist_pitch_joint",
+      "kp": 16.8,
+      "kv": 1.1,
+      "effort_Nm": [
+        -5.0,
+        5.0
+      ],
+      "joint_range_rad": [
+        -1.61443,
+        1.61443
+      ]
+    },
+    {
+      "name": "left_wrist_yaw_joint",
+      "joint": "left_wrist_yaw_joint",
+      "kp": 16.8,
+      "kv": 1.1,
+      "effort_Nm": [
+        -5.0,
+        5.0
+      ],
+      "joint_range_rad": [
+        -1.61443,
+        1.61443
+      ]
+    },
+    {
+      "name": "right_shoulder_pitch_joint",
+      "joint": "right_shoulder_pitch_joint",
+      "kp": 14.3,
+      "kv": 0.9,
+      "effort_Nm": [
+        -25.0,
+        25.0
+      ],
+      "joint_range_rad": [
+        -3.0892,
+        2.6704
+      ]
+    },
+    {
+      "name": "right_shoulder_roll_joint",
+      "joint": "right_shoulder_roll_joint",
+      "kp": 14.3,
+      "kv": 0.9,
+      "effort_Nm": [
+        -25.0,
+        25.0
+      ],
+      "joint_range_rad": [
+        -2.2515,
+        1.5882
+      ]
+    },
+    {
+      "name": "right_shoulder_yaw_joint",
+      "joint": "right_shoulder_yaw_joint",
+      "kp": 14.3,
+      "kv": 0.9,
+      "effort_Nm": [
+        -25.0,
+        25.0
+      ],
+      "joint_range_rad": [
+        -2.618,
+        2.618
+      ]
+    },
+    {
+      "name": "right_elbow_joint",
+      "joint": "right_elbow_joint",
+      "kp": 14.3,
+      "kv": 0.9,
+      "effort_Nm": [
+        -25.0,
+        25.0
+      ],
+      "joint_range_rad": [
+        -1.0472,
+        2.0944
+      ]
+    },
+    {
+      "name": "right_wrist_roll_joint",
+      "joint": "right_wrist_roll_joint",
+      "kp": 14.3,
+      "kv": 0.9,
+      "effort_Nm": [
+        -25.0,
+        25.0
+      ],
+      "joint_range_rad": [
+        -1.97222,
+        1.97222
+      ]
+    },
+    {
+      "name": "right_wrist_pitch_joint",
+      "joint": "right_wrist_pitch_joint",
+      "kp": 16.8,
+      "kv": 1.1,
+      "effort_Nm": [
+        -5.0,
+        5.0
+      ],
+      "joint_range_rad": [
+        -1.61443,
+        1.61443
+      ]
+    },
+    {
+      "name": "right_wrist_yaw_joint",
+      "joint": "right_wrist_yaw_joint",
+      "kp": 16.8,
+      "kv": 1.1,
+      "effort_Nm": [
+        -5.0,
+        5.0
+      ],
+      "joint_range_rad": [
+        -1.61443,
+        1.61443
+      ]
+    },
+    {
+      "name": "left_o6_lh_thumb_cmc_pitch_servo",
+      "joint": "left_o6_lh_thumb_cmc_pitch",
+      "kp": 3.0,
+      "kv": 0.02,
+      "effort_Nm": [
+        -0.35,
+        0.35
+      ],
+      "joint_range_rad": [
+        0.0,
+        0.58
+      ]
+    },
+    {
+      "name": "left_o6_lh_thumb_cmc_yaw_servo",
+      "joint": "left_o6_lh_thumb_cmc_yaw",
+      "kp": 3.0,
+      "kv": 0.02,
+      "effort_Nm": [
+        -0.35,
+        0.35
+      ],
+      "joint_range_rad": [
+        0.0,
+        1.36
+      ]
+    },
+    {
+      "name": "left_o6_lh_index_mcp_pitch_servo",
+      "joint": "left_o6_lh_index_mcp_pitch",
+      "kp": 3.0,
+      "kv": 0.02,
+      "effort_Nm": [
+        -0.35,
+        0.35
+      ],
+      "joint_range_rad": [
+        0.0,
+        1.6
+      ]
+    },
+    {
+      "name": "left_o6_lh_middle_mcp_pitch_servo",
+      "joint": "left_o6_lh_middle_mcp_pitch",
+      "kp": 3.0,
+      "kv": 0.02,
+      "effort_Nm": [
+        -0.35,
+        0.35
+      ],
+      "joint_range_rad": [
+        0.0,
+        1.6
+      ]
+    },
+    {
+      "name": "left_o6_lh_ring_mcp_pitch_servo",
+      "joint": "left_o6_lh_ring_mcp_pitch",
+      "kp": 3.0,
+      "kv": 0.02,
+      "effort_Nm": [
+        -0.35,
+        0.35
+      ],
+      "joint_range_rad": [
+        0.0,
+        1.6
+      ]
+    },
+    {
+      "name": "left_o6_lh_pinky_mcp_pitch_servo",
+      "joint": "left_o6_lh_pinky_mcp_pitch",
+      "kp": 3.0,
+      "kv": 0.02,
+      "effort_Nm": [
+        -0.35,
+        0.35
+      ],
+      "joint_range_rad": [
+        0.0,
+        1.6
+      ]
+    },
+    {
+      "name": "right_o6_rh_thumb_cmc_pitch_servo",
+      "joint": "right_o6_rh_thumb_cmc_pitch",
+      "kp": 3.0,
+      "kv": 0.02,
+      "effort_Nm": [
+        -0.35,
+        0.35
+      ],
+      "joint_range_rad": [
+        0.0,
+        0.58
+      ]
+    },
+    {
+      "name": "right_o6_rh_thumb_cmc_yaw_servo",
+      "joint": "right_o6_rh_thumb_cmc_yaw",
+      "kp": 3.0,
+      "kv": 0.02,
+      "effort_Nm": [
+        -0.35,
+        0.35
+      ],
+      "joint_range_rad": [
+        0.0,
+        1.36
+      ]
+    },
+    {
+      "name": "right_o6_rh_index_mcp_pitch_servo",
+      "joint": "right_o6_rh_index_mcp_pitch",
+      "kp": 3.0,
+      "kv": 0.02,
+      "effort_Nm": [
+        -0.35,
+        0.35
+      ],
+      "joint_range_rad": [
+        0.0,
+        1.6
+      ]
+    },
+    {
+      "name": "right_o6_rh_middle_mcp_pitch_servo",
+      "joint": "right_o6_rh_middle_mcp_pitch",
+      "kp": 3.0,
+      "kv": 0.02,
+      "effort_Nm": [
+        -0.35,
+        0.35
+      ],
+      "joint_range_rad": [
+        0.0,
+        1.6
+      ]
+    },
+    {
+      "name": "right_o6_rh_ring_mcp_pitch_servo",
+      "joint": "right_o6_rh_ring_mcp_pitch",
+      "kp": 3.0,
+      "kv": 0.02,
+      "effort_Nm": [
+        -0.35,
+        0.35
+      ],
+      "joint_range_rad": [
+        0.0,
+        1.6
+      ]
+    },
+    {
+      "name": "right_o6_rh_pinky_mcp_pitch_servo",
+      "joint": "right_o6_rh_pinky_mcp_pitch",
+      "kp": 3.0,
+      "kv": 0.02,
+      "effort_Nm": [
+        -0.35,
+        0.35
+      ],
+      "joint_range_rad": [
+        0.0,
+        1.6
+      ]
+    }
+  ]
+}

@@ -171,6 +171,11 @@ The recorder uses one environment and stops at the first fall, timeout, or
 Change it with `--camera_azimuth`, `--camera_elevation`,
 `--camera_distance`, `--camera_lookat X Y Z`, and `--camera_fovy`.
 
+The separate [physical G1 / O6 CPU prototype](docs/g1_o6/README.md) attaches two
+physical hands to the same ladder scene and logs wrist loads, support forces and
+guarded release attempts. Its current nominal run fails the unsupported hold
+gate; the report includes reproducible commands, measurements and limitations.
+
 ## Pico Motion Recording
 
 Record many Pico clips as training-ready G1 motion NPZ files:

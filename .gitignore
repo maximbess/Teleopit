@@ -115,3 +115,5 @@ assets/ladder_g1/
 assets/ladders/
 
 autoresearch/runs
+# MuJoCo writes numerical warning details in the process working directory.
+MUJOCO_LOG.TXT
