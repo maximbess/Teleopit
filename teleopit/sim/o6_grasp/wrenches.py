@@ -14,7 +14,7 @@ def bounded(vector, limit):
 
 def fixture_wrench(env, gain):
     cfg, data = env.config, env.data
-    palm = data.site("palm_frame")
+    palm = data.site(getattr(env, "palm_site_name", "palm_frame"))
     error = np.r_[
         env.fixture_position - palm.xpos,
         Rotation.from_matrix(
