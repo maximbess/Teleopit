@@ -17,7 +17,7 @@ def camera(cam):
     cam.elevation = -12
 
 
-def show(config, output):
+def show(config, output, posture="baseline"):
     paused = Event()
 
     def key(code):
@@ -48,10 +48,11 @@ def show(config, output):
                 env.abort(["viewer_closed"])
             time.sleep(max(0, config.control_dt - (time.monotonic() - start)))
 
-        return run_trial(config, output, frame)
+        options = {} if posture == "baseline" else {"posture": posture}
+        return run_trial(config, output, frame, **options)
 
 
-def record(config, output):
+def record(config, output, posture="baseline"):
     from pathlib import Path
 
     import imageio.v2 as imageio
@@ -81,7 +82,8 @@ def record(config, output):
             counter += 1
 
         try:
-            return run_trial(config, output, frame)
+            options = {} if posture == "baseline" else {"posture": posture}
+            return run_trial(config, output, frame, **options)
         finally:
             if renderer is not None:
                 renderer.close()

@@ -200,6 +200,7 @@ class Environment:
         self.transfer_targets(desired, elapsed)
         limits = self.model.jnt_range[self.model.actuator_trnid[:, 0]]
         desired = np.clip(desired, limits[:, 0], limits[:, 1])
+        self.desired_target = desired.copy()
         self.target += np.clip(desired - self.target, -cfg.control_dt, cfg.control_dt)
         self.queue.append(self.target.copy())
         self.data.ctrl[:] = self.queue.popleft()
@@ -273,18 +274,20 @@ class Environment:
             d.qfrc_applied,
         )
 
-    def step(self):
+    def step(self, physics_observer=None, *, advance_phase=True):
         if self.phase in ("ABORT", "DONE"):
             raise RuntimeError("trial finished")
         self.commands()
         for _ in range(round(self.config.control_dt / self.config.physics_dt)):
             self.apply_forces()
             mujoco.mj_step(self.model, self.data)
+            if physics_observer is not None:
+                physics_observer(self)
         mujoco.mj_forward(self.model, self.data)
         row = snapshot(self)
         if self.initial_errors:
             self.abort(self.initial_errors)
-        else:
+        elif advance_phase:
             self.advance(row)
         row["next_phase"] = self.phase
         return row

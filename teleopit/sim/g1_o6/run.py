@@ -17,10 +17,14 @@ def revision():
     return subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
 
 
-def run_trial(config, output, callback=None):
+def run_trial(config, output, callback=None, *, posture="baseline"):
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     env = Environment(config)
+    if posture == "thumb-below":
+        from teleopit.sim.o6_diagnostics.posture import install_candidate
+
+        install_candidate(env)
     initial = snapshot(env)
     metadata = {
         "code_revision": revision(),
@@ -35,6 +39,8 @@ def run_trial(config, output, callback=None):
         "model": env.audit,
         "ik": env.ik,
         "initial": initial,
+        "posture": posture,
+        "support_targets": getattr(env, "support_targets", None),
     }
     metadata["model"]["initial_com_world"] = initial["com"]
     (output / "resolved.json").write_text(json.dumps(metadata, indent=2) + "\n")

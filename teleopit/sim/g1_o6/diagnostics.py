@@ -83,7 +83,8 @@ def support(rows, name, target):
 def snapshot(env):
     m, d, _cfg = env.model, env.data, env.config
     rows, total = contacts(m, d)
-    supports = {name: support(rows, name, target) for name, target in TARGETS.items()}
+    targets = getattr(env, "support_targets", TARGETS)
+    supports = {name: support(rows, name, target) for name, target in targets.items()}
     wrist = {}
     poses = {}
     for side, h in env.hands.items():
@@ -93,7 +94,7 @@ def snapshot(env):
             rotation @ d.sensor(side + "_torque").data,
         ].tolist()
         palm = d.site(h["palm"])
-        rung = d.geom("left_ladder_rung_08")
+        rung = d.geom(targets[side + "_hand"])
         poses[side] = {
             "position": (palm.xpos - rung.xpos).tolist(),
             "rotation": palm.xmat.tolist(),
@@ -133,7 +134,7 @@ def snapshot(env):
         "assistance_world": env.assistance.tolist(),
         "assistance_gain": env.assistance_gain,
         "disturbance_world": env.disturbance.tolist(),
-        "unintended_support": unintended(rows),
+        "unintended_support": unintended(rows, targets),
     }
 
 
@@ -144,13 +145,13 @@ def joint_limit_errors(model, data):
     return {model.joint(j + 1).name: float(v) for j, v in enumerate(errors) if v > 1e-9}
 
 
-def unintended(rows):
+def unintended(rows, targets=TARGETS):
     bad = []
     for row in rows:
         if "environment" not in row["regions"] or row["normal_force"] < 1:
             continue
         robot = next((r for r in row["regions"] if r != "environment"), None)
-        if robot and TARGETS.get(robot) not in row["geoms"]:
+        if robot and targets.get(robot) not in row["geoms"]:
             bad.append(row["geoms"])
     return bad
 
