@@ -1,5 +1,7 @@
 # Physical G1 / O6 ladder prototype
 
+The subsequent [diagnostic study](diagnostics/README.md) preserves this baseline and adds a failure timeline, authentic both-hand free-closing tests, a signed wrist-load matrix, and an opt-in thumb-below posture with a pauseable viewer.
+
 This CPU prototype demonstrates load transmission through two physical O6 hands, but **does not pass unsupported whole-body holding**. The nominal run aborts after 0.50 s without assistance, against a 10 s target. Both hands and feet still carry load; finger saturation, thumb-limit deflection and body drift fail the acceptance gates. Release and reacquisition remain blocked. Do not treat this as successful physical climbing or readiness for learning.
 
 ## Reproduce

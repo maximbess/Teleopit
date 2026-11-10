@@ -1,0 +1,10 @@
+{
+  "schema": "o6_artifact_v1",
+  "path": "C:\\Users\\maxim\\Downloads\\G1_O6_Diagnostics_2026-11-11_9160225.zip",
+  "filename": "G1_O6_Diagnostics_2026-11-11_9160225.zip",
+  "sha256": "d340625f1b09351b10e60894c8246dded9415b661fad804b822a21202b37b4bd",
+  "size_bytes": 286371465,
+  "verified_files": 603,
+  "code_revision": "9160225267d66ae63a4a986277e1974d9ae2749d",
+  "location": "User Downloads directory; directly accessible in this workspace session. Copy the ZIP and SHA256 sidecar together for external review."
+}

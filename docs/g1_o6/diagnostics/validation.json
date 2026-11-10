@@ -1,0 +1,1285 @@
+{
+  "schema": "o6_validation_v1",
+  "code_revision": "9160225267d66ae63a4a986277e1974d9ae2749d",
+  "conda_environment": "teleopit",
+  "branch": "dex-hand-exp",
+  "existing_affected_tests_passed": 93,
+  "focused_diagnostic_tests_passed": 36,
+  "unique_checks_passed": 129,
+  "runs": [
+    {
+      "file": "tests_final.txt",
+      "passed": 112
+    },
+    {
+      "file": "tests_complete.txt",
+      "passed": 36
+    },
+    {
+      "file": "tests_export.txt",
+      "passed": 1
+    }
+  ],
+  "test_warning": "Installed anyio pytest plugin uses a deprecated CallSpec2 alias; no simulation warning in measured cases.",
+  "strict_comparison": {
+    "all_legacy_fields_equal": true,
+    "all_original_summary_fields_equal": true,
+    "samples": 278,
+    "max_qpos_difference_rad": 0.0
+  },
+  "hand_refactor_comparison": {
+    "all_hand_log_fields_equal": true,
+    "samples": 1002
+  },
+  "quality": {
+    "tools": "Radon + coverage.py; AST SequenceMatcher; seven isolated fault injections",
+    "limitations": "Named crapper/dryer/mutator are unavailable. CRAP uses statement-line coverage. Duplication scans function bodies with at least eight top-level statements; not a general semantic clone detector. Targeted mutations are not exhaustive.",
+    "functions": [
+      {
+        "file": "teleopit/sim/o6_diagnostics/config.py",
+        "name": "emergency",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/config.py",
+        "name": "state_guard",
+        "complexity": 6,
+        "line_coverage": 0.75,
+        "crap": 6.5625
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/config.py",
+        "name": "position_guard",
+        "complexity": 3,
+        "line_coverage": 0.8333333333333334,
+        "crap": 3.0416666666666665
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/config.py",
+        "name": "validate",
+        "complexity": 7,
+        "line_coverage": 1.0,
+        "crap": 7.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/config.py",
+        "name": "validate",
+        "complexity": 7,
+        "line_coverage": 1.0,
+        "crap": 7.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/events.py",
+        "name": "__init__",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/events.py",
+        "name": "update",
+        "complexity": 8,
+        "line_coverage": 1.0,
+        "crap": 8.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/events.py",
+        "name": "reset_persistence",
+        "complexity": 1,
+        "line_coverage": 0.5,
+        "crap": 1.125
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/events.py",
+        "name": "__init__",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/events.py",
+        "name": "update",
+        "complexity": 8,
+        "line_coverage": 1.0,
+        "crap": 8.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/events.py",
+        "name": "reset_persistence",
+        "complexity": 1,
+        "line_coverage": 0.5,
+        "crap": 1.125
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/events.py",
+        "name": "__init__",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/events.py",
+        "name": "update",
+        "complexity": 7,
+        "line_coverage": 1.0,
+        "crap": 7.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/events.py",
+        "name": "summary",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/events.py",
+        "name": "__init__",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/events.py",
+        "name": "update",
+        "complexity": 7,
+        "line_coverage": 1.0,
+        "crap": 7.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/events.py",
+        "name": "summary",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/experiments.py",
+        "name": "sides",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/experiments.py",
+        "name": "experiment",
+        "complexity": 1,
+        "line_coverage": 0.16666666666666666,
+        "crap": 1.5787037037037037
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/experiments.py",
+        "name": "save_experiment",
+        "complexity": 6,
+        "line_coverage": 1.0,
+        "crap": 6.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/experiments.py",
+        "name": "implicated",
+        "complexity": 8,
+        "line_coverage": 0.9230769230769231,
+        "crap": 8.029130632680928
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/experiments.py",
+        "name": "saturated_commands",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/experiments.py",
+        "name": "passive_commands",
+        "complexity": 4,
+        "line_coverage": 1.0,
+        "crap": 4.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/experiments.py",
+        "name": "free_close",
+        "complexity": 7,
+        "line_coverage": 0.8125,
+        "crap": 7.322998046875
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/experiments.py",
+        "name": "planned_cases",
+        "complexity": 4,
+        "line_coverage": 1.0,
+        "crap": 4.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/experiments.py",
+        "name": "qualification",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/experiments.py",
+        "name": "brackets",
+        "complexity": 5,
+        "line_coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/experiments.py",
+        "name": "execute",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/experiments.py",
+        "name": "skipped",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/experiments.py",
+        "name": "confirm",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/experiments.py",
+        "name": "refine_direction",
+        "complexity": 4,
+        "line_coverage": 1.0,
+        "crap": 4.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/experiments.py",
+        "name": "confirm_boundaries",
+        "complexity": 7,
+        "line_coverage": 1.0,
+        "crap": 7.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/experiments.py",
+        "name": "side_matrix",
+        "complexity": 9,
+        "line_coverage": 1.0,
+        "crap": 9.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/experiments.py",
+        "name": "confirm_other_references",
+        "complexity": 7,
+        "line_coverage": 1.0,
+        "crap": 7.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/experiments.py",
+        "name": "load_response",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_results.py",
+        "name": "maximum",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_results.py",
+        "name": "drift_peak",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_results.py",
+        "name": "contact_bodies",
+        "complexity": 6,
+        "line_coverage": 1.0,
+        "crap": 6.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_results.py",
+        "name": "metrics",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_results.py",
+        "name": "terminal_failure",
+        "complexity": 5,
+        "line_coverage": 0.7777777777777778,
+        "crap": 5.274348422496571
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_results.py",
+        "name": "outcome",
+        "complexity": 5,
+        "line_coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_results.py",
+        "name": "support_result",
+        "complexity": 8,
+        "line_coverage": 1.0,
+        "crap": 8.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_results.py",
+        "name": "contact_retained",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_results.py",
+        "name": "endpoint_errors",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_results.py",
+        "name": "peak_velocity",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_results.py",
+        "name": "closing_endpoints",
+        "complexity": 6,
+        "line_coverage": 1.0,
+        "crap": 6.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_results.py",
+        "name": "hand_summary",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_run.py",
+        "name": "free_schedule",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_run.py",
+        "name": "load_schedule",
+        "complexity": 8,
+        "line_coverage": 0.8888888888888888,
+        "crap": 8.087791495198903
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_run.py",
+        "name": "gate_values",
+        "complexity": 6,
+        "line_coverage": 0.9,
+        "crap": 6.036
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_run.py",
+        "name": "grasp_reasons",
+        "complexity": 9,
+        "line_coverage": 1.0,
+        "crap": 9.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_run.py",
+        "name": "run_hand",
+        "complexity": 6,
+        "line_coverage": 1.0,
+        "crap": 6.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_run.py",
+        "name": "hand_metadata",
+        "complexity": 5,
+        "line_coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_run.py",
+        "name": "integrate_hand",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_run.py",
+        "name": "physics_status",
+        "complexity": 3,
+        "line_coverage": 0.8,
+        "crap": 3.072
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_run.py",
+        "name": "qpos_layout",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_run.py",
+        "name": "__init__",
+        "complexity": 5,
+        "line_coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_run.py",
+        "name": "append",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_run.py",
+        "name": "physics_step",
+        "complexity": 5,
+        "line_coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_run.py",
+        "name": "latch_gates",
+        "complexity": 7,
+        "line_coverage": 1.0,
+        "crap": 7.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_run.py",
+        "name": "control_step",
+        "complexity": 5,
+        "line_coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_run.py",
+        "name": "terminal",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_run.py",
+        "name": "__init__",
+        "complexity": 5,
+        "line_coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_run.py",
+        "name": "append",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_run.py",
+        "name": "physics_step",
+        "complexity": 5,
+        "line_coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_run.py",
+        "name": "latch_gates",
+        "complexity": 7,
+        "line_coverage": 1.0,
+        "crap": 7.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_run.py",
+        "name": "control_step",
+        "complexity": 5,
+        "line_coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_run.py",
+        "name": "terminal",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/harness.py",
+        "name": "build_hand",
+        "complexity": 4,
+        "line_coverage": 1.0,
+        "crap": 4.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/harness.py",
+        "name": "copy_contact_settings",
+        "complexity": 4,
+        "line_coverage": 1.0,
+        "crap": 4.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/harness.py",
+        "name": "copy_actuators",
+        "complexity": 4,
+        "line_coverage": 1.0,
+        "crap": 4.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/harness.py",
+        "name": "add_source_rung",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/harness.py",
+        "name": "__init__",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/harness.py",
+        "name": "__init__",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/harness.py",
+        "name": "__init__",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/harness.py",
+        "name": "command",
+        "complexity": 2,
+        "line_coverage": 0.8571428571428571,
+        "crap": 2.011661807580175
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/harness.py",
+        "name": "apply",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/harness.py",
+        "name": "fixture_force",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/harness.py",
+        "name": "palm_velocity",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/harness.py",
+        "name": "sample",
+        "complexity": 4,
+        "line_coverage": 1.0,
+        "crap": 4.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/harness.py",
+        "name": "__init__",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/harness.py",
+        "name": "command",
+        "complexity": 2,
+        "line_coverage": 0.8571428571428571,
+        "crap": 2.011661807580175
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/harness.py",
+        "name": "apply",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/harness.py",
+        "name": "fixture_force",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/harness.py",
+        "name": "palm_velocity",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/harness.py",
+        "name": "sample",
+        "complexity": 4,
+        "line_coverage": 1.0,
+        "crap": 4.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/io.py",
+        "name": "write_json",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/io.py",
+        "name": "output_directory",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/io.py",
+        "name": "code_state",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/io.py",
+        "name": "manifest",
+        "complexity": 5,
+        "line_coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/io.py",
+        "name": "write_csv",
+        "complexity": 7,
+        "line_coverage": 1.0,
+        "crap": 7.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/io.py",
+        "name": "read_rows",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/loads.py",
+        "name": "select_references",
+        "complexity": 7,
+        "line_coverage": 1.0,
+        "crap": 7.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/mechanics.py",
+        "name": "shift_wrench",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/mechanics.py",
+        "name": "relative_pose",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/mechanics.py",
+        "name": "pose_change",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/mechanics.py",
+        "name": "subtree",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/mechanics.py",
+        "name": "momentum",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/mechanics.py",
+        "name": "contact_rows",
+        "complexity": 5,
+        "line_coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/mechanics.py",
+        "name": "contact_wrench",
+        "complexity": 5,
+        "line_coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/mechanics.py",
+        "name": "support_contacts",
+        "complexity": 5,
+        "line_coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/mechanics.py",
+        "name": "opposing_contacts",
+        "complexity": 4,
+        "line_coverage": 1.0,
+        "crap": 4.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/mechanics.py",
+        "name": "support_details",
+        "complexity": 6,
+        "line_coverage": 1.0,
+        "crap": 6.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/mechanics.py",
+        "name": "constraint_contributions",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/mechanics.py",
+        "name": "constraint_kind",
+        "complexity": 5,
+        "line_coverage": 0.8888888888888888,
+        "crap": 5.034293552812072
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/mechanics.py",
+        "name": "mimic_details",
+        "complexity": 3,
+        "line_coverage": 0.9166666666666666,
+        "crap": 3.0052083333333335
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/mechanics.py",
+        "name": "joint_details",
+        "complexity": 4,
+        "line_coverage": 1.0,
+        "crap": 4.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/mechanics.py",
+        "name": "actuator_details",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "name": "gate_measurements",
+        "complexity": 4,
+        "line_coverage": 1.0,
+        "crap": 4.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "name": "coupled_telemetry",
+        "complexity": 4,
+        "line_coverage": 1.0,
+        "crap": 4.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "name": "sample",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "name": "run_nominal",
+        "complexity": 6,
+        "line_coverage": 0.9259259259259259,
+        "crap": 6.014631915866484
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "name": "finish_summary",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "name": "__init__",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "name": "__call__",
+        "complexity": 7,
+        "line_coverage": 0.96,
+        "crap": 7.003136
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "name": "check_numerics",
+        "complexity": 4,
+        "line_coverage": 0.6,
+        "crap": 5.024
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "name": "wrist_peaks",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "name": "__init__",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "name": "__call__",
+        "complexity": 7,
+        "line_coverage": 0.96,
+        "crap": 7.003136
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "name": "check_numerics",
+        "complexity": 4,
+        "line_coverage": 0.6,
+        "crap": 5.024
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "name": "wrist_peaks",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "name": "__init__",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "name": "record",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "name": "strict_end",
+        "complexity": 7,
+        "line_coverage": 0.9230769230769231,
+        "crap": 7.022303140646335
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "name": "expired",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "name": "run",
+        "complexity": 5,
+        "line_coverage": 0.75,
+        "crap": 5.390625
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "name": "__init__",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "name": "record",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "name": "strict_end",
+        "complexity": 7,
+        "line_coverage": 0.9230769230769231,
+        "crap": 7.022303140646335
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "name": "expired",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "name": "run",
+        "complexity": 5,
+        "line_coverage": 0.75,
+        "crap": 5.390625
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/plots.py",
+        "name": "figure",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/plots.py",
+        "name": "save",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/plots.py",
+        "name": "curve",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/plots.py",
+        "name": "norm_or_missing",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/plots.py",
+        "name": "label_axes",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/plots.py",
+        "name": "support_curves",
+        "complexity": 4,
+        "line_coverage": 1.0,
+        "crap": 4.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/plots.py",
+        "name": "wrist_curves",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/plots.py",
+        "name": "drift_curves",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/plots.py",
+        "name": "base_speed",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/plots.py",
+        "name": "finger_curves",
+        "complexity": 5,
+        "line_coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/plots.py",
+        "name": "limit_curves",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/plots.py",
+        "name": "residual_part",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/plots.py",
+        "name": "residual_curves",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/plots.py",
+        "name": "phase_markers",
+        "complexity": 5,
+        "line_coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/plots.py",
+        "name": "nominal_plot",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/plots.py",
+        "name": "hand_tracking",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/plots.py",
+        "name": "hand_loads",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/plots.py",
+        "name": "hand_plot",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/plots.py",
+        "name": "load_group",
+        "complexity": 7,
+        "line_coverage": 1.0,
+        "crap": 7.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/plots.py",
+        "name": "load_plot",
+        "complexity": 5,
+        "line_coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/posture.py",
+        "name": "install_candidate",
+        "complexity": 4,
+        "line_coverage": 1.0,
+        "crap": 4.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/posture.py",
+        "name": "candidate_target",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/posture.py",
+        "name": "fit_candidate",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/posture.py",
+        "name": "elbow_alignment",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/signals.py",
+        "name": "joint_signals",
+        "complexity": 7,
+        "line_coverage": 1.0,
+        "crap": 7.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/signals.py",
+        "name": "hand_signals",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/telemetry.py",
+        "name": "__init__",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/telemetry.py",
+        "name": "reference",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/telemetry.py",
+        "name": "start_hold",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/telemetry.py",
+        "name": "sample",
+        "complexity": 4,
+        "line_coverage": 1.0,
+        "crap": 4.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/telemetry.py",
+        "name": "rate",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/telemetry.py",
+        "name": "supports",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/telemetry.py",
+        "name": "poses",
+        "complexity": 4,
+        "line_coverage": 1.0,
+        "crap": 4.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/telemetry.py",
+        "name": "__init__",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/telemetry.py",
+        "name": "reference",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/telemetry.py",
+        "name": "start_hold",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/telemetry.py",
+        "name": "sample",
+        "complexity": 4,
+        "line_coverage": 1.0,
+        "crap": 4.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/telemetry.py",
+        "name": "rate",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/telemetry.py",
+        "name": "supports",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/telemetry.py",
+        "name": "poses",
+        "complexity": 4,
+        "line_coverage": 1.0,
+        "crap": 4.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/__main__.py",
+        "name": "main",
+        "complexity": 4,
+        "line_coverage": 1.0,
+        "crap": 4.0
+      }
+    ],
+    "crap_ge_10": [],
+    "duplication_ge_0_8": [],
+    "mutations": [
+      {
+        "function": "shift_wrench",
+        "mutation": "moment + np.cross(np.asarray(point) - origin, force) -> moment",
+        "killed": true
+      },
+      {
+        "function": "contact_wrench",
+        "mutation": "inside[0] == inside[1] -> False",
+        "killed": true
+      },
+      {
+        "function": "contact_wrench",
+        "mutation": "row[\"couple_on_second_world_Nm\"] -> [0.,0.,0.]",
+        "killed": true
+      },
+      {
+        "function": "relative_pose",
+        "mutation": "axes.T @ -> axes @",
+        "killed": true
+      },
+      {
+        "function": "support_details",
+        "mutation": "default=None -> default=0.",
+        "killed": true
+      },
+      {
+        "function": "Events",
+        "mutation": "value < threshold -> value <= threshold",
+        "killed": true
+      },
+      {
+        "function": "Events",
+        "mutation": "self.active.pop(name, None) -> pass",
+        "killed": true
+      }
+    ],
+    "coverage_percent": 97.43801652892562
+  },
+  "scope_note": "Coverage combines focused behavioral tests and executed report generation; targeted mutations are bounded, not exhaustive."
+}
