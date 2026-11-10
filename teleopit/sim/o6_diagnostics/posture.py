@@ -12,9 +12,9 @@ from teleopit.sim.o6_grasp.presets import ladder_rung_config
 
 PRESET = {
     "hand_rung": 10,
-    "tilt_y_degrees": 60.0,
-    "offset_x_m": -0.025,
-    "offset_z_m": -0.025,
+    "tilt_y_degrees": 20.0,
+    "offset_x_m": -0.026,
+    "offset_z_m": -0.002,
     "joint_regularization": 0.003,
     "elbow_regularization": 0.03,
     "seeds": 8,
@@ -68,7 +68,7 @@ def fit_candidate(model, data, hand, side):
             10 * (site.xpos - target),
             Rotation.from_matrix(rotation @ site.xmat.reshape(3, 3).T).as_rotvec(),
             PRESET["joint_regularization"] * q,
-            PRESET["elbow_regularization"] * q[3],
+            PRESET["elbow_regularization"] * elbow_alignment(model, data, side),
         ]
 
     limits = model.jnt_range[joints]
@@ -91,6 +91,25 @@ def fit_candidate(model, data, hand, side):
     return {
         "position_error_m": float(np.linalg.norm(error[:3]) / 10),
         "angle_error_rad": float(np.linalg.norm(error[3:6])),
+        "physical_elbow_bend_deg": float(
+            np.degrees(
+                2
+                * np.arcsin(
+                    np.clip(
+                        np.linalg.norm(elbow_alignment(model, data, side)) / 2, 0, 1
+                    )
+                )
+            )
+        ),
         "target_mount_position": target.tolist(),
         "joints": {model.joint(j).name: float(v) for j, v in zip(joints, solution.x)},
     }
+
+
+def elbow_alignment(model, data, side):
+    ids = [
+        model.joint(side + "_" + name + "_joint").id
+        for name in ("shoulder_roll", "elbow", "wrist_roll")
+    ]
+    a, b, c = data.xanchor[ids]
+    return (b - a) / np.linalg.norm(b - a) - (c - b) / np.linalg.norm(c - b)
