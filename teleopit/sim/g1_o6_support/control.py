@@ -22,6 +22,15 @@ UNLOADED_PHASES = {
 }
 
 
+def loading_fraction(phase, fraction):
+    return {"LOAD_RAMP": fraction, "RETURN": 1 - fraction, "RECOVERY": 0}.get(phase, 1)
+
+
+def redistribute(targets, selected, fraction):
+    lost = targets[selected] * 0.9 * fraction
+    return {n: f - lost if n == selected else f + lost / 3 for n, f in targets.items()}
+
+
 def bounded_feedback(offset, jacobian, error, kp, effort, dt, cfg=CRITERIA):
     # Compliance solve regularizes predicted support displacement. There is no
     # force assignment counted as evidence: the error is measured external Fz.
@@ -132,7 +141,11 @@ class TransferController:
             selected = names.index(self.protocol.step.side + "_hand")
             jacobian[selected] = 0
             error[selected] = 0
-        effort = np.asarray(self.latest["effort_fraction"])[self.indices]
+        effort = np.asarray(self.latest["effort_fraction"])[self.indices].copy()
+        limits = env.model.jnt_range[env.model.actuator_trnid[self.indices, 0]]
+        commands = env.target[self.indices]
+        at_limit = np.minimum(commands - limits[:, 0], limits[:, 1] - commands) < 0.001
+        effort[at_limit] = 1  # Disable integration where physical clipping is active.
         self.offset = bounded_feedback(
             self.offset,
             jacobian,
@@ -148,27 +161,14 @@ class TransferController:
         weight = env.mass * abs(env.model.opt.gravity[2])
         increase = self.target_share * weight - base["left_hand"] - base["right_hand"]
         fraction = smooth(self.protocol.elapsed(env.data.time) / CRITERIA.ramp_s)
-        if phase == "LOAD_RAMP":
-            increase *= fraction
-        if phase in ("RETURN", "RECOVERY"):
-            increase *= 1 - fraction if phase == "RETURN" else 0
+        increase *= loading_fraction(phase, fraction)
         targets = {
             n: f + (increase / 2 if n.endswith("hand") else -increase / 2)
             for n, f in base.items()
         }
         if phase in UNLOADED_PHASES | {"RELOAD"}:
-            unload = (
-                fraction
-                if phase == "UNLOAD_RAMP"
-                else 1 - fraction
-                if phase == "RELOAD"
-                else 1
-            )
-            lost = targets[side + "_hand"] * 0.9 * unload
-            targets = {
-                n: f - lost if n == side + "_hand" else f + lost / 3
-                for n, f in targets.items()
-            }
+            unload = {"UNLOAD_RAMP": fraction, "RELOAD": 1 - fraction}.get(phase, 1)
+            targets = redistribute(targets, side + "_hand", unload)
         return targets
 
     def move_arm(self, env, desired, side, phase):

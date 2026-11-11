@@ -11,7 +11,7 @@ class Step:
     name: str
     minimum_s: float
     timeout_s: float
-    guard: str = "valid"
+    guard: str = "tick"  # Physical gates retain their own persistence in the runner.
     side: str = "left"
     hold: bool = False
 

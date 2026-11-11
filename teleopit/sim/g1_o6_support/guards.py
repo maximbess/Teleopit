@@ -54,8 +54,12 @@ def share_settled(row, target, weight, cfg=CRITERIA):
         row["supports"][s + "_hand"]["force_world"][2] / weight
         for s in ("left", "right")
     ]
-    return abs(sum(shares) - target) <= cfg.share_tolerance and all(
-        cfg.minimum_per_hand_share <= v <= cfg.maximum_per_hand_share for v in shares
+    return bool(
+        abs(sum(shares) - target) <= cfg.share_tolerance
+        and all(
+            cfg.minimum_per_hand_share <= v <= cfg.maximum_per_hand_share
+            for v in shares
+        )
     )
 
 

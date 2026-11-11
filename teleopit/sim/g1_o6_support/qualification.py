@@ -19,11 +19,25 @@ def identity(metadata):
         for k in ("grasp_pose", "controller", "support_targets", "assets")
     }
     value["config"] = config
+    value["assets"] = portable_assets(value["assets"])
     return hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
 
 
 def comparable_config(config):
     return {k: v for k, v in config.items() if k not in ("hold_seconds", "physics_dt")}
+
+
+def portable_assets(value):
+    if isinstance(value, dict):
+        return {portable_assets(k): portable_assets(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [portable_assets(v) for v in value]
+    if isinstance(value, str):
+        path = value.replace("\\", "/")
+        for anchor in ("/teleopit/sim/", "/assets/"):
+            if anchor in path and not path.startswith("https://"):
+                return path[path.index(anchor) + 1 :]
+    return value
 
 
 def read_run(path):
@@ -54,22 +68,28 @@ def capacity_wrenches(runs, source):
     passed = {side: [] for side in ("left", "right")}
     for run in runs:
         meta, result = run["metadata"], run["summary"]
-        matches = (
-            meta["source_grasp_pose"] == source["grasp_pose"]
-            and meta["controller"] == source["controller"]
-            and meta["assets"] == source["assets"]
-            and meta["source_support_targets"] == source["support_targets"]
-            and comparable_config(meta.get("source_config", {}))
-            == comparable_config(source["config"])
-        )
         if (
-            matches
+            capacity_matches(meta, source)
             and trial_passes(result)
             and not meta["fixed_base"]
             and meta["gravity_world_m_s2"] == [0, 0, -9.81]
         ):
             passed[meta["side"]].append(result["requested_wrench_world_at_mount"])
     return passed
+
+
+def capacity_matches(meta, source):
+    pairs = (
+        ("source_grasp_pose", "grasp_pose"),
+        ("controller", "controller"),
+        ("source_support_targets", "support_targets"),
+    )
+    return (
+        all(meta[a] == source[b] for a, b in pairs)
+        and portable_assets(meta["assets"]) == portable_assets(source["assets"])
+        and comparable_config(meta.get("source_config", {}))
+        == comparable_config(source["config"])
+    )
 
 
 def demands_covered(run, passed):
@@ -126,7 +146,7 @@ class Evidence:
 
 def transition_prerequisites(request, qualified):
     experiments = [r["metadata"]["experiment"] for r in qualified]
-    target, mode, side = request["target_share"], request["mode"], request["side"]
+    target, mode = request["target_share"], request["mode"]
 
     def has(kind, **criteria):
         return any(
@@ -138,15 +158,27 @@ def transition_prerequisites(request, qualified):
 
     checks = {}
     if mode == "load":
-        previous = {0.1: 0.05, 0.2: 0.1}.get(target)
-        if previous:
-            checks["previous_load_level"] = any(
-                e["mode"] == "load" and e["target_share"] == previous
-                for e in experiments
-            )
-        if request["plateau_seconds"] == 30:
-            checks["ten_second_load_plateau"] = has("load", plateau_seconds=10)
-        return [key for key, ok in checks.items() if not ok]
+        checks = load_prerequisites(request, experiments, has)
+    else:
+        checks = hand_prerequisites(request, has)
+    return [key for key, ok in checks.items() if not ok]
+
+
+def load_prerequisites(request, experiments, has):
+    checks = {}
+    previous = {0.1: 0.05, 0.2: 0.1}.get(request["target_share"])
+    if previous:
+        checks["previous_load_level"] = any(
+            e["mode"] == "load" and e["target_share"] == previous for e in experiments
+        )
+    if request["plateau_seconds"] == 30:
+        checks["ten_second_load_plateau"] = has("load", plateau_seconds=10)
+    return checks
+
+
+def hand_prerequisites(request, has):
+    mode, side = request["mode"], request["side"]
+    checks = {}
     checks["qualified_stage_3_target"] = has("load")
     if mode in ("release", "reacquire"):
         checks["both_sides_closed_unload_reload"] = all(
@@ -157,16 +189,23 @@ def transition_prerequisites(request, qualified):
             "release", side=side, three_seconds={3: 1, 10: 3}[request["three_seconds"]]
         )
     if mode == "reacquire":
-        checks["both_sides_ten_second_three_support"] = all(
+        checks.update(cycle_prerequisites(request, has))
+    return checks
+
+
+def cycle_prerequisites(request, has):
+    checks = {
+        "both_sides_ten_second_three_support": all(
             has("release", side=s, three_seconds=10) for s in ("left", "right")
         )
-        if request["cycles"] > 1:
-            checks["both_sides_one_cycle"] = all(
-                has("reacquire", side=s, cycles=1) for s in ("left", "right")
-            )
-        if request["alternating"]:
-            checks["both_sides_three_cycles"] = all(
-                has("reacquire", side=s, cycles=3, alternating=False)
-                for s in ("left", "right")
-            )
-    return [key for key, ok in checks.items() if not ok]
+    }
+    if request["cycles"] > 1:
+        checks["both_sides_one_cycle"] = all(
+            has("reacquire", side=s, cycles=1) for s in ("left", "right")
+        )
+    if request["alternating"]:
+        checks["both_sides_three_cycles"] = all(
+            has("reacquire", side=s, cycles=3, alternating=False)
+            for s in ("left", "right")
+        )
+    return checks

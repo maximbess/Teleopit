@@ -91,17 +91,21 @@ class TransferTrial:
         self.audit(env)
         if env.phase != "HOLD":
             return
-        if np.any(env.data.qfrc_applied) or np.any(env.data.xfrc_applied):
-            self.failures.setdefault("external_applied_force", float(env.data.time))
+        counts = {
+            "external_applied_force": self.audit.applied_steps,
+            "housing_contact": self.audit.housing_steps,
+            "unintended_support": self.audit.prohibited_steps,
+        }
+        for name, count in counts.items():
+            if count:
+                self.failures.setdefault(name, float(env.data.time))
         if self.protocol.phase == "THREE_SUPPORT_HOLD":
-            contacts = env.data.contact
-            geoms = self.controller.clearance[self.protocol.step.side].hand
-            if any(
-                (int(c.geom1) in geoms) != (int(c.geom2) in geoms) for c in contacts
-            ):
-                self.failures.setdefault(
-                    "released_hand_physics_contact", float(env.data.time)
-                )
+            self.check_detachment(env.data.contact, float(env.data.time))
+
+    def check_detachment(self, contacts, time):
+        geoms = self.controller.clearance[self.protocol.step.side].hand
+        if any((int(c.geom1) in geoms) != (int(c.geom2) in geoms) for c in contacts):
+            self.failures.setdefault("released_hand_physics_contact", time)
 
     def update(self, row):
         self.rows.append(row)
@@ -114,11 +118,13 @@ class TransferTrial:
         row["experiment_phase"] = phase
         self.controller.enter(self.env, row)
         reasons = self.strict_reasons(row)
+        row["failure_reasons"] = reasons
         self.bad = self.bad + self.env.config.control_dt if reasons else 0
         for reason in reasons:
             self.failures.setdefault(reason, row["time"])
         features = self.features(row)
         features["valid"] = not reasons
+        features["tick"] = True
         row["transfer"] = {
             "mode": self.request["mode"],
             "side": self.protocol.step.side,
@@ -137,27 +143,36 @@ class TransferTrial:
 
     def on_transition(self, previous, row):
         phase = self.protocol.phase
-        if phase == "ABORT":
+        if phase == previous or self.finish_phase():
+            return
+        if phase == "LOAD_RAMP":
+            self.capture_baseline()
+        if phase == "UNLOAD_RAMP":
+            self.controller.reference = mean_reference(self.rows)
+        self.controller.enter(self.env, row)
+
+    def finish_phase(self):
+        if self.failures:
+            self.env.abort(["full_interval_not_stable", *self.failures])
+            return True
+        if self.protocol.phase == "ABORT":
             self.env.abort([self.protocol.failure])
-        elif phase == "COMPLETE":
-            if self.failures:
-                self.env.abort(["full_interval_not_stable", *self.failures])
-            else:
-                self.env.hold_passed = True
-                self.env.transition("HOLD_COMPLETE")
-        elif phase != previous:
-            if phase == "LOAD_RAMP":
-                self.controller.baseline = mean_reference(self.rows)
-                self.positions = support_positions(self.env)
-                baseline = sum(
-                    self.controller.baseline["supports"][s + "_hand"]["force_world"][2]
-                    for s in ("left", "right")
-                ) / (self.env.mass * 9.81)
-                if self.request["target_share"] - baseline < 0.02:
-                    self.env.abort(["target_not_meaningful_above_baseline"])
-            if phase == "UNLOAD_RAMP":
-                self.controller.reference = mean_reference(self.rows)
-            self.controller.enter(self.env, row)
+            return True
+        if self.protocol.phase == "COMPLETE":
+            self.env.hold_passed = True
+            self.env.transition("HOLD_COMPLETE")
+            return True
+        return False
+
+    def capture_baseline(self):
+        self.controller.baseline = mean_reference(self.rows)
+        self.positions = support_positions(self.env)
+        baseline = sum(
+            self.controller.baseline["supports"][s + "_hand"]["force_world"][2]
+            for s in ("left", "right")
+        ) / (self.env.mass * 9.81)
+        if self.request["target_share"] - baseline < 0.02:
+            self.env.abort(["target_not_meaningful_above_baseline"])
 
     def strict_reasons(self, row):
         reasons = failure_reasons(row, self.env.config, self.required_supports())
@@ -169,6 +184,15 @@ class TransferTrial:
             for v in row["supports"].values()
         ):
             reasons.append("contact_slip")
+        return reasons + self.geometry_reasons(row)
+
+    def geometry_reasons(self, row):
+        reasons = []
+        if (
+            self.protocol.phase in {"UNLOAD_RAMP", "UNLOAD_SETTLE", "UNLOADED_HOLD"}
+            and not row["supports"][self.protocol.step.side + "_hand"]["opposing"]
+        ):
+            reasons.append("selected_grasp_geometry_lost")
         if self.positions is not None and self.protocol.phase in {
             "LOAD_RAMP",
             "LOAD_SETTLE",
@@ -195,15 +219,7 @@ class TransferTrial:
         }
         reference = self.controller.reference
         if reference is not None:
-            report = unloading(reference, row, side)
-            row["unloading_measurement"] = report
-            features["unloaded"] = report["passed"] and features["grasp"]
-            features["accepted_load"] = (
-                features["share"]
-                and features["grasp"]
-                and support["force_world"][2]
-                >= 0.8 * reference["supports"][side + "_hand"]["force_world"][2]
-            )
+            features.update(load_acceptance(reference, row, side, features))
         baseline = self.controller.baseline
         if baseline is not None:
             features["baseline_share"] = all(
@@ -234,8 +250,21 @@ class TransferTrial:
                 clearance["external_contact_count"],
                 clearance["clearance_m"],
             ),
-            "approached": opened and error < 0.001 and angle < 0.03,
+            "approached": bool(opened and error < 0.001 and angle < 0.03),
         }
+
+
+def load_acceptance(reference, row, side, features):
+    report = unloading(reference, row, side)
+    row["unloading_measurement"] = report
+    accepted = (
+        row["supports"][side + "_hand"]["force_world"][2]
+        >= 0.8 * reference["supports"][side + "_hand"]["force_world"][2]
+    )
+    return {
+        "unloaded": report["passed"] and features["grasp"],
+        "accepted_load": features["share"] and features["grasp"] and accepted,
+    }
 
 
 def run_transfer(
@@ -320,6 +349,16 @@ def execute_transfer(proof, path, request):
     write_json(path / "resolved.json", metadata)
     mujoco.mj_saveLastXML(str(path / "scene.xml"), env.model)
     trial = TransferTrial(env, request)
+    integrate_transfer(trial, initial, path)
+    result = transfer_result(trial, proof, path)
+    write_json(path / "summary.json", result)
+    write_csv(path / "physics_events.csv", trial.audit.events.rows)
+    manifest(path, "support_transfer", {})
+    return result
+
+
+def integrate_transfer(trial, initial, path):
+    env = trial.env
     telemetry = coupled_telemetry(env)
     with (path / "steps.jsonl").open("w") as stream:
         enrich(env, initial, telemetry, None)
@@ -329,6 +368,10 @@ def execute_transfer(proof, path, request):
             enrich(env, row, telemetry, trial.hold_start)
             trial.update(row)
             stream.write(json.dumps(row) + "\n")
+
+
+def transfer_result(trial, proof, path):
+    env, request = trial.env, trial.request
     audit = trial.audit.report()
     physical = (
         env.phase == "HOLD_COMPLETE"
@@ -355,7 +398,4 @@ def execute_transfer(proof, path, request):
         "maximum_reset_drift_m": max(r["base_drift_m"] for r in trial.rows),
         "final_reset_drift_m": trial.rows[-1]["base_drift_m"],
     }
-    write_json(path / "summary.json", result)
-    write_csv(path / "physics_events.csv", trial.audit.events.rows)
-    manifest(path, "support_transfer", {})
     return result

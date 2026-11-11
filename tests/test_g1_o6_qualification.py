@@ -22,6 +22,21 @@ def test_identity_invalidates_capacity_after_grasp_or_physics_change():
     assert identity(changed) != identity(meta)
 
 
+def test_identity_is_independent_of_checkout_location():
+    from teleopit.sim.g1_o6_support.qualification import identity
+
+    meta = {
+        "grasp_pose": {},
+        "controller": {},
+        "support_targets": {},
+        "config": {},
+        "assets": {"sha256": {"D:\\repo\\assets\\robots\\g1.xml": "abc"}},
+    }
+    relocated = deepcopy(meta)
+    relocated["assets"]["sha256"] = {"E:/other/assets/robots/g1.xml": "abc"}
+    assert identity(meta) == identity(relocated)
+
+
 def test_long_gate_requires_nominal_repeat_and_fine_distinct_runs():
     from teleopit.sim.g1_o6_support.qualification import long_hold_gate
 

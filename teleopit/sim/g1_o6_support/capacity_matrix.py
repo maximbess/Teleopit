@@ -1,6 +1,7 @@
 """Bounded sampled capacity; a failed zero-fixture settle blocks later loading."""
 
 from functools import partial
+from itertools import pairwise
 
 import numpy as np
 
@@ -65,7 +66,7 @@ def boundary_cases(trials):
     cases = []
     for group in groups.values():
         ordered = sorted(group, key=lambda c: c["scale"])
-        for low, high in zip(ordered, ordered[1:]):
+        for low, high in pairwise(ordered):
             if trial_passes(low["result"]) != trial_passes(high["result"]):
                 midpoint = {
                     **low,
@@ -124,6 +125,12 @@ def evaluate_side(source, side, path, references, dt, budget):
         raise ValueError("capacity matrix exceeds the declared trial budget")
     for case in cases:
         result["trials"].append(run_case(source, side, path, case, dt))
+    repeat_boundaries(source, side, path, dt, result, cases, budget)
+    summarize_matrix(result, references)
+    return result
+
+
+def repeat_boundaries(source, side, path, dt, result, cases, budget):
     followups = boundary_cases(result["trials"])
     if not followups and cases:
         selected = next(c for c in reversed(cases) if c["family"] == "combined")
@@ -144,6 +151,9 @@ def evaluate_side(source, side, path, references, dt, budget):
                 0.0005 if case["kind"] == "fine_repeat" else dt,
             )
         )
+
+
+def summarize_matrix(result, references):
     result["loading_status"] = (
         "PASS" if all(trial_passes(c["result"]) for c in result["trials"]) else "FAIL"
     )
@@ -152,7 +162,6 @@ def evaluate_side(source, side, path, references, dt, budget):
         trial_passes(c["result"]) for c in reserves
     )
     result["physical_status"] = result["loading_status"]
-    return result
 
 
 class ReplayTrial(CapacityTrial):

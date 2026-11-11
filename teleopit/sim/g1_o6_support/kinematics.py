@@ -50,20 +50,24 @@ def collision_pair(model, first, second):
         return False
     if (min(a, b) << 16) + max(a, b) in model.exclude_signature:
         return False
-    # Adjacent welded body groups form the structural hand/mount interface.
+    if structural_neighbors(model, a, b):
+        return False
+    return bool(
+        (model.geom_contype[first] & model.geom_conaffinity[second])
+        or (model.geom_contype[second] & model.geom_conaffinity[first])
+    )
+
+
+def structural_neighbors(model, a, b):
+    """Adjacent welded groups form the structural hand/mount interface."""
     wa, wb = int(model.body_weldid[a]), int(model.body_weldid[b])
-    if (
+    return (
         wa
         and wb
         and (
             model.body_weldid[model.body_parentid[wa]] == wb
             or model.body_weldid[model.body_parentid[wb]] == wa
         )
-    ):
-        return False
-    return bool(
-        (model.geom_contype[first] & model.geom_conaffinity[second])
-        or (model.geom_contype[second] & model.geom_conaffinity[first])
     )
 
 

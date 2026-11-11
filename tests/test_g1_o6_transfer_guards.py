@@ -20,7 +20,7 @@ def test_unload_needs_meaningful_reference_and_compensating_reactions():
     from teleopit.sim.g1_o6_support.guards import unloading
 
     assert unloading(row(), row(1, 19), "left")["passed"]
-    assert not unloading(row(1), row(0), "left")["passed"]
+    assert not unloading(row(1), row(0, 11), "left")["passed"]
     assert not unloading(row(), row(1), "left")["passed"]
     assert not unloading(row(), row(1, 19, wrist=9), "left")["passed"]
     assert not unloading(row(), row(-3, 23), "left")["passed"]

@@ -56,18 +56,23 @@ def assess_window(rows, start, end):
     ):
         return {"interval_s": [start, end], "status": "NOT RUN", "signals": {}}
     time = [r["hold_time_s"] for r in selected]
-    signals = {}
-    for name, (position, angle) in pose_vectors(selected).items():
-        item = {"translation": window_motion(time, position)}
-        if angle is not None:
-            item["rotation"] = window_motion(time, angle)
-        signals[name] = item
+    signals = motion_signals(time, pose_vectors(selected))
     passed = all(motion_passes(item) for item in signals.values())
     return {
         "interval_s": [start, end],
         "status": "PASS" if passed else "FAIL",
         "signals": signals,
     }
+
+
+def motion_signals(time, poses):
+    signals = {}
+    for name, (position, angle) in poses.items():
+        item = {"translation": window_motion(time, position)}
+        if angle is not None:
+            item["rotation"] = window_motion(time, angle)
+        signals[name] = item
+    return signals
 
 
 def motion_passes(item):
