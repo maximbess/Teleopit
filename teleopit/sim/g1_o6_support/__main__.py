@@ -24,6 +24,14 @@ def main():
         "--physics-dt", type=float, choices=(0.001, 0.0005), default=0.001
     )
     capacity.add_argument("--output", required=True)
+    matrix = commands.add_parser("capacity-matrix")
+    matrix.add_argument("--source-run", required=True)
+    matrix.add_argument("--state", choices=("initial", "settled"), default="settled")
+    matrix.add_argument(
+        "--physics-dt", type=float, choices=(0.001, 0.0005), default=0.001
+    )
+    matrix.add_argument("--prior-trials", type=int, choices=range(9), default=0)
+    matrix.add_argument("--output", required=True)
     args = parser.parse_args()
     if args.command == "long-hold":
         from teleopit.sim.g1_o6.settings import load_settings
@@ -31,6 +39,16 @@ def main():
         _, pose = load_settings(grasp_path=args.grasp_config)
         result = run_hold(
             args.output, seconds=args.seconds, physics_dt=args.physics_dt, pose=pose
+        )
+    elif args.command == "capacity-matrix":
+        from .capacity_matrix import run_matrix
+
+        result = run_matrix(
+            args.source_run,
+            args.output,
+            state=args.state,
+            dt=args.physics_dt,
+            prior_trials=args.prior_trials,
         )
     else:
         from .capacity import qualified_source, run_capacity
