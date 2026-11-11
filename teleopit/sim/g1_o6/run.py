@@ -1,8 +1,7 @@
 """Reproducible logs and replay traces, including failed trials."""
 
 import json
-import subprocess
-from dataclasses import asdict, replace
+from dataclasses import replace
 from pathlib import Path
 
 import mujoco
@@ -10,29 +9,8 @@ import numpy as np
 
 from .diagnostics import snapshot
 from .env import Environment
-from .model import provenance
-
-POSTURES = ("baseline", "thumb-below", "thumb-below-balanced")
-
-
-def revision():
-    return subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-
-
-def create_environment(config, posture, hold_only=False):
-    if posture not in POSTURES:
-        raise ValueError(f"unknown posture: {posture}")
-    pose = None
-    if posture == "thumb-below-balanced":
-        from .grasp_pose import GraspPose
-
-        pose = GraspPose()
-    env = Environment(config, pose=pose, hold_only=hold_only)
-    if posture == "thumb-below":
-        from teleopit.sim.o6_diagnostics.posture import install_candidate
-
-        install_candidate(env)
-    return env
+from .metadata import resolved
+from .posture_report import annotate, summarize_posture
 
 
 def run_trial(
@@ -40,58 +18,29 @@ def run_trial(
     output,
     callback=None,
     *,
-    posture="baseline",
-    hold_only=False,
+    pose=None,
     physics_observer=None,
 ):
-    env = create_environment(config, posture, hold_only)
-    pose = env.pose
+    env = Environment(config, pose=pose)
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     initial = snapshot(env)
-    if pose is not None:
-        from .posture_report import annotate
-
-        annotate(env, initial)
-    metadata = {
-        "code_revision": revision(),
-        "code_dirty": bool(
-            subprocess.check_output(
-                ["git", "status", "--porcelain", "--untracked-files=no"], text=True
-            ).strip()
-        ),
-        "config": asdict(config),
-        "mujoco_version": mujoco.__version__,
-        "assets": provenance(),
-        "model": env.audit,
-        "ik": env.ik,
-        "initial": initial,
-        "posture": posture,
-        "support_targets": getattr(env, "support_targets", None),
-    }
-    if pose is not None:
-        metadata["grasp_pose"] = asdict(pose)
-        metadata["hold_only"] = env.hold_only
-    metadata["model"]["initial_com_world"] = initial["com"]
+    annotate(env, initial)
+    metadata = resolved(env, initial)
     (output / "resolved.json").write_text(json.dumps(metadata, indent=2) + "\n")
     # Save actual compiled friction overrides, actuator limits, etc.
     mujoco.mj_saveLastXML(str(output / "scene.xml"), env.model)
     rows = [initial]
     with (output / "steps.jsonl").open("w") as stream:
         stream.write(json.dumps(initial) + "\n")
-        while env.phase not in ("DONE", "ABORT", "HOLD_COMPLETE"):
+        while env.phase not in ("ABORT", "HOLD_COMPLETE"):
             row = env.step(physics_observer)
-            if pose is not None:
-                annotate(env, row)
+            annotate(env, row)
             rows.append(row)
             stream.write(json.dumps(row) + "\n")
             if callback is not None:
                 callback(env, row)
     summary = summarize(env, rows)
-    if pose is not None:
-        from .posture_report import summarize_posture
-
-        summary["posture"] = summarize_posture(rows, config.control_dt)
     (output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     export_traces(rows, metadata, summary, output)
     return summary
@@ -101,7 +50,7 @@ def summarize(env, rows):
     holds = [r for r in rows if r["phase"] == "HOLD" and r["assistance_gain"] == 0]
     return {
         "static_hold_passed": env.hold_passed and not env.initial_errors,
-        "release_reacquire_passed": env.phase == "DONE" and not env.initial_errors,
+        "release_reacquire_passed": False,
         "final_phase": env.phase,
         "failure_reasons": env.abort_reasons,
         "events": env.events,
@@ -115,6 +64,7 @@ def summarize(env, rows):
         "ik": env.ik,
         "numerical_warnings": any(any(r["numerical_warnings"]) for r in rows),
         "ready_for_learning": False,
+        "posture": summarize_posture(rows, env.config.control_dt),
     }
 
 
@@ -176,5 +126,4 @@ def scenarios(cfg):
         "friction_low": replace(cfg, friction_scale=0.25 / 1.8),
         "disturbance": replace(cfg, disturbance_N=10.0),
         "delay": replace(cfg, delay_steps=2),
-        "right_release": replace(cfg, release_side="right"),
     }

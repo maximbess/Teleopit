@@ -3,6 +3,14 @@
 import mujoco
 import numpy as np
 
+COMMAND_RATE_RAD_S = 1.0
+FINGER_LAW = "o6_bounded_closing_v1"
+
+
+def finger_targets(amount, closed, measured, kp, preload):
+    """Desired angles before physical clipping, rate limiting and command delay."""
+    return np.minimum(amount * closed, measured + preload / kp)
+
 
 class HoldController:
     """Compute position targets; never apply an external supporting wrench."""
@@ -17,6 +25,10 @@ class HoldController:
             raise ValueError(
                 "finger preload must be positive and below the effort limit"
             )
+        limits = model.jnt_range[model.actuator_trnid[fingers, 0]]
+        closed = np.tile(self.closed, len(env.hands))
+        if np.any(closed < limits[:, 0]) or np.any(closed > limits[:, 1]):
+            raise ValueError("closing targets exceed physical joint ranges")
         dofs = model.jnt_dofadr[model.actuator_trnid[:, 0]]
         self.kp = model.actuator_gainprm[:, 0].copy()
         self.gravity = env.data.qfrc_bias[dofs].copy() / self.kp
@@ -26,8 +38,8 @@ class HoldController:
         desired = env.body_target + self.gravity - self.foot_load
         for indices in env.hand_act.values():
             measured = env.data.qpos[env.act_qpos[indices]]
-            desired[indices] = np.minimum(
-                amount * self.closed, measured + self.preload / self.kp[indices]
+            desired[indices] = finger_targets(
+                amount, self.closed, measured, self.kp[indices], self.preload
             )
         return desired
 

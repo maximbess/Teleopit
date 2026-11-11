@@ -1,4 +1,4 @@
-"""Phase authorization tests; these do not claim a physical release succeeds."""
+"""Strict hold gates on a controlled state, independent of the physics model."""
 
 from types import SimpleNamespace
 
@@ -16,7 +16,9 @@ def controller(phase):
     env.data = SimpleNamespace(time=0.0)
     env.phase = phase
     env.phase_start = env.stable = env.bad = 0.0
-    env.unloaded_time = env.confirm_time = 0.0
+    env.support_targets = {
+        s + "_" + p: "test_rung" for s in env.hands for p in ("hand", "foot")
+    }
     env.events = []
     env.abort_reasons = []
     env.hold_passed = False
@@ -48,7 +50,7 @@ def tick(env, row, seconds):
     for _ in range(round(seconds / env.config.control_dt)):
         env.data.time += env.config.control_dt
         env.advance(row)
-        if env.phase in ("ABORT", "DONE"):
+        if env.phase in ("ABORT", "HOLD_COMPLETE"):
             break
 
 
@@ -65,49 +67,26 @@ def test_static_gate_requires_entire_interval():
     assert env.abort_reasons == ["full_interval_not_stable"]
 
 
-@pytest.mark.parametrize("component,value", [(2, 9), (4, 0.5)])
-def test_force_or_moment_blocks_open_and_times_out(component, value):
-    env = controller("UNLOAD_SELECTED_HAND")
+@pytest.mark.parametrize(
+    "support", ["left_hand", "right_hand", "left_foot", "right_foot"]
+)
+def test_every_support_is_required_throughout_hold(support):
+    env = controller("HOLD")
     row = stable_row()
-    row["wrist_world_on_hand"]["left"][component] = value
-    tick(env, row, 5.2)
-    assert env.phase == "ABORT" and env.abort_reasons == ["unload_timeout"]
-    assert all(e["next"] != "OPEN" for e in env.events)
-
-
-def test_remaining_support_failure_blocks_release():
-    env = controller("UNLOAD_SELECTED_HAND")
-    row = stable_row()
-    row["supports"]["right_hand"]["loaded"] = False
-    tick(env, row, 0.6)
-    assert env.phase == "ABORT" and "right_hand" in env.abort_reasons
-
-
-def test_release_requires_persistent_unload_and_geometric_clearance():
-    env = controller("UNLOAD_SELECTED_HAND")
-    row = stable_row()
+    row["supports"][support]["loaded"] = False
     tick(env, row, 0.48)
-    assert env.phase == "UNLOAD_SELECTED_HAND"
+    assert env.phase == "HOLD"
     tick(env, row, 0.04)
-    assert env.phase == "OPEN"
-    tick(env, row, 2.1)
-    assert env.phase == "RETRACT"
-    env.clearance = lambda: False
-    tick(env, row, 3.1)
-    assert env.phase == "ABORT" and env.abort_reasons == ["retraction_clearance"]
+    assert env.phase == "ABORT" and support in env.abort_reasons
+    assert not env.hold_passed
 
 
-def test_reacquire_requires_sustained_opposing_contact():
-    env = controller("REACQUIRE")
+def test_nonopposing_hand_contact_cannot_complete_hold():
+    env = controller("HOLD")
     row = stable_row()
     row["supports"]["left_hand"]["opposing"] = False
-    tick(env, row, 3.2)
-    assert env.phase == "REACQUIRE"
-    row["supports"]["left_hand"]["opposing"] = True
-    tick(env, row, 0.48)
-    assert env.phase == "REACQUIRE"
-    tick(env, row, 0.04)
-    assert env.phase == "DONE"
+    tick(env, row, 0.6)
+    assert env.phase == "ABORT" and "left_hand" in env.abort_reasons
 
 
 @pytest.mark.parametrize(
@@ -116,7 +95,6 @@ def test_reacquire_requires_sustained_opposing_contact():
         {"physics_dt": 0.003},
         {"delay_steps": -1},
         {"friction_scale": 0},
-        {"release_side": "other"},
         {"assistance_force_N": -1},
         {"max_effort_fraction": 2},
         {"root_offset_x": float("nan")},
@@ -153,9 +131,8 @@ def test_internal_robot_contacts_do_not_enter_force_balance():
     np.testing.assert_array_equal(external, [0, 0, 0])
 
 
-def test_hold_only_finishes_without_authorizing_release():
+def test_success_finishes_without_authorizing_release():
     env = controller("HOLD")
-    env.hold_only = True
     tick(env, stable_row(), 10.04)
     assert env.phase == "HOLD_COMPLETE"
     assert env.hold_passed

@@ -44,7 +44,8 @@ def test_space_pause_and_close_use_the_logged_runner(monkeypatch, tmp_path):
         windows.append(window)
         return window
 
-    def run(config, output, callback):
+    def run(config, output, callback, *, pose):
+        assert pose is None
         assert output == tmp_path
         env = SimpleNamespace(model=None, data=None, abort=aborts.append)
         callback(env, {})

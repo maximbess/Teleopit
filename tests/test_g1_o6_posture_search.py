@@ -5,35 +5,32 @@ import numpy as np
 import pytest
 
 from teleopit.sim.g1_o6.env import Environment
-from teleopit.sim.o6_diagnostics.posture import install_candidate
 
 
 @pytest.fixture(scope="module")
-def old_candidate():
+def current():
     env = Environment()
-    install_candidate(env)
     return env
 
 
-def test_wrist_audit_identifies_old_pose_bend(old_candidate):
+def test_wrist_audit_measures_current_pose(current):
     from teleopit.sim.g1_o6.posture import posture_metrics
 
-    metrics = posture_metrics(old_candidate)
-    assert max(metrics["wrist_bend_deg"].values()) > 70
-    assert any(value < 0.02 for value in metrics["wrist_joint_margin_rad"].values())
+    metrics = posture_metrics(current)
+    assert max(metrics["wrist_bend_deg"].values()) < 30
+    assert all(value > 1.0 for value in metrics["wrist_joint_margin_rad"].values())
 
 
-def test_housing_clearance_uses_all_rungs(old_candidate):
+def test_housing_clearance_uses_all_rungs(current):
     from teleopit.sim.g1_o6.posture import housing_clearance
 
-    distances = housing_clearance(old_candidate.model, old_candidate.data)
+    distances = housing_clearance(current.model, current.data)
     assert set(distances) == {"left", "right"}
     assert all("rung" in row["obstacle"] for row in distances.values())
     assert all(np.isfinite(row["distance_m"]) for row in distances.values())
 
 
 def test_balanced_pose_clears_housings_and_preserves_physics():
-    from teleopit.sim.g1_o6.grasp_pose import install_balanced
     from teleopit.sim.g1_o6.posture import posture_metrics
 
     env = Environment()
@@ -56,7 +53,7 @@ def test_balanced_pose_clears_housings_and_preserves_physics():
     )
     original = {key: getattr(env.model, key).copy() for key in arrays}
     config = vars(env.config).copy()
-    install_balanced(env)
+    env.reset()
     assert env.initial_errors == []
     assert (
         env.support_targets["left_hand"]
@@ -130,8 +127,8 @@ def test_balanced_reset_is_repeatable_and_metrics_are_read_only():
     assert env.data.time == 0 and env.phase == "INITIALIZE"
 
 
-def test_waist_search_never_extends_physical_range(old_candidate):
+def test_waist_search_never_extends_physical_range(current):
     from teleopit.sim.g1_o6.grasp_pose import GraspPose, place_hands
 
     with pytest.raises(ValueError, match="original joint range"):
-        place_hands(old_candidate, GraspPose(waist_lean_rad=1.0))
+        place_hands(current, GraspPose(waist_lean_rad=1.0))

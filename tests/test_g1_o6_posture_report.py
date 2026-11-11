@@ -1,7 +1,7 @@
 """A full physical hold through the public runner, including its evidence."""
 
 
-def test_balanced_preset_completes_strict_hold_without_housing_support(tmp_path):
+def test_default_completes_strict_hold_without_housing_support(tmp_path):
     from teleopit.sim.g1_o6.config import Config
     from teleopit.sim.g1_o6.run import run_trial
 
@@ -13,9 +13,7 @@ def test_balanced_preset_completes_strict_hold_without_housing_support(tmp_path)
                 (abs(env.data.qfrc_applied).max(), abs(env.data.xfrc_applied).max())
             )
 
-    result = run_trial(
-        Config(), tmp_path, posture="thumb-below-balanced", physics_observer=observe
-    )
+    result = run_trial(Config(), tmp_path, physics_observer=observe)
     assert len(physics) >= 10000
     assert max(max(forces) for forces in physics) == 0
     assert result["static_hold_passed"]
@@ -75,11 +73,11 @@ def test_report_counts_wrist_housing_even_below_support_gate():
     assert not housing_contact({"contacts": [contact]})
 
 
-def test_unknown_posture_is_rejected_before_running(tmp_path):
+def test_removed_posture_argument_is_rejected_before_running(tmp_path):
     import pytest
 
     from teleopit.sim.g1_o6.config import Config
     from teleopit.sim.g1_o6.run import run_trial
 
-    with pytest.raises(ValueError, match="unknown posture"):
+    with pytest.raises(TypeError, match="posture"):
         run_trial(Config(), tmp_path, posture="typo")

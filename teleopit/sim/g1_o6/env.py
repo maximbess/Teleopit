@@ -1,4 +1,4 @@
-"""Bounded deterministic controller with explicit assistance and guarded release."""
+"""Bounded deterministic controller with explicit acquisition assistance and strict hold gates."""
 
 from collections import deque
 
@@ -7,19 +7,20 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 from teleopit.sim.o6_grasp.controller import smooth
-from teleopit.sim.o6_grasp.presets import ladder_rung_config
 
 from .config import Config
 from .diagnostics import failure_reasons, snapshot
-from .initialize import initial_state
+from .grasp_pose import GraspPose, place_hands
+from .holding import COMMAND_RATE_RAD_S, HoldController
+from .initialize import initial_stance
 from .model import build_model
 
 
 class Environment:
-    def __init__(self, config=None, *, pose=None, hold_only=False):
+    def __init__(self, config=None, *, pose=None):
         self.config = config or Config()
-        self.pose = pose
-        self.hold_only = hold_only or pose is not None
+        self.pose = pose if pose is not None else GraspPose()
+        self.pose.validate()
         self.model, self.xml, self.hands, self.audit = build_model(self.config)
         self.data = mujoco.MjData(self.model)
         self.mass = float(self.model.body_subtreemass[self.model.body("pelvis").id])
@@ -32,14 +33,8 @@ class Environment:
 
     def reset(self):
         mujoco.mj_resetData(self.model, self.data)
-        self.ik = initial_state(self.model, self.data, self.hands, self.config)
-        self.hold_controller = None
-        if hasattr(self, "support_targets"):
-            del self.support_targets
-        if self.pose is not None:
-            from .grasp_pose import place_hands
-
-            self.ik = place_hands(self, self.pose)
+        initial_stance(self.model, self.data, self.hands, self.config)
+        self.ik = place_hands(self, self.pose)
         self.initial_qpos = self.data.qpos.copy()
         self.body_target = self.data.qpos[self.act_qpos].copy()
         self.target = self.body_target.copy()
@@ -56,19 +51,14 @@ class Environment:
         self.abort_reasons = []
         self.events = []
         self.hold_passed = False
-        self.unloaded_time = 0.0
-        self.confirm_time = 0.0
         self.data.ctrl[:] = self.target
         mujoco.mj_forward(self.model, self.data)
-        if self.pose is not None:
-            from .holding import HoldController
-
-            self.hold_controller = HoldController(
-                self,
-                closed_pose=self.pose.closed_pose,
-                preload_Nm=self.pose.finger_preload_Nm,
-            )
-            self.initialize_preload()
+        self.hold_controller = HoldController(
+            self,
+            closed_pose=self.pose.closed_pose,
+            preload_Nm=self.pose.finger_preload_Nm,
+        )
+        self.initialize_preload()
         row = snapshot(self)
         self.initial_errors = initial_errors(row, self.ik)
         return row
@@ -98,17 +88,7 @@ class Environment:
         self.transition("ABORT")
 
     def required_supports(self):
-        names = [s + "_" + p for s in self.hands for p in ("hand", "foot")]
-        if self.phase in (
-            "UNLOAD_SELECTED_HAND",
-            "OPEN",
-            "RETRACT",
-            "HOLD_REMAINING_SUPPORTS",
-            "RETURN",
-            "REACQUIRE",
-        ):
-            names.remove(self.config.release_side + "_hand")
-        return names
+        return list(self.support_targets)
 
     def advance(self, row):
         cfg = self.config
@@ -121,8 +101,6 @@ class Environment:
             self.advance_acquisition(elapsed)
         elif self.phase == "HOLD":
             self.advance_hold(reasons, elapsed)
-        elif self.phase not in ("ACQUIRE", "REMOVE_ASSISTANCE", "ABORT", "DONE"):
-            self.advance_release(row, elapsed, reasons)
 
     def advance_acquisition(self, elapsed):
         duration, following = {
@@ -141,129 +119,24 @@ class Environment:
                 self.abort(["full_interval_not_stable"])
             else:
                 self.hold_passed = True
-                self.transition(
-                    "HOLD_COMPLETE"
-                    if getattr(self, "hold_only", False)
-                    else "UNLOAD_SELECTED_HAND"
-                )
-
-    def advance_release(self, row, elapsed, reasons):
-        if self.bad >= self.config.stability_seconds:
-            self.abort(reasons)
-            return
-        if self.phase == "UNLOAD_SELECTED_HAND":
-            load = row["wrist_world_on_hand"][self.config.release_side]
-            unloaded = (
-                np.linalg.norm(load[:3]) < self.config.unload_force_N
-                and np.linalg.norm(load[3:]) < self.config.unload_moment_Nm
-            )
-            self.unloaded_time = (
-                getattr(self, "unloaded_time", 0.0) + self.config.control_dt
-                if unloaded and not reasons
-                else 0.0
-            )
-            if self.unloaded_time >= self.config.stability_seconds:
-                self.transition("OPEN")
-            elif elapsed > 5:
-                self.abort(["unload_timeout"])
-        else:
-            self.advance_motion(row, elapsed)
-
-    def advance_motion(self, row, elapsed):
-        schedule = {
-            "OPEN": (2.0, "RETRACT"),
-            "RETRACT": (3.0, "HOLD_REMAINING_SUPPORTS"),
-            "HOLD_REMAINING_SUPPORTS": (3.0, "RETURN"),
-            "RETURN": (3.0, "REACQUIRE"),
-        }
-        if self.phase in schedule and elapsed >= schedule[self.phase][0]:
-            if self.phase == "RETRACT" and not self.clearance():
-                self.abort(["retraction_clearance"])
-                return
-            self.transition(schedule[self.phase][1])
-        elif self.phase == "REACQUIRE" and elapsed >= 3:
-            self.confirm_support(row, elapsed)
-
-    def confirm_support(self, row, elapsed):
-        item = row["supports"][self.config.release_side + "_hand"]
-        stable = (
-            item["loaded"]
-            and item["opposing"]
-            and item["max_slip"] < self.config.max_slip_m_s
-        )
-        self.confirm_time = (
-            self.confirm_time + self.config.control_dt if stable else 0.0
-        )
-        if self.confirm_time >= self.config.stability_seconds:
-            self.transition("DONE")
-        elif elapsed > 6:
-            self.abort(["reacquire_timeout"])
-
-    def clearance(self):
-        rung = self.model.geom("left_ladder_rung_08").id
-        for g in range(self.model.ngeom):
-            name = self.model.body(self.model.geom_bodyid[g]).name
-            if (
-                name.startswith(self.config.release_side + "_o6_")
-                and self.model.geom_group[g] == 3
-                and mujoco.mj_geomDistance(self.model, self.data, g, rung, 0.01, None)
-                < 0.01
-            ):
-                return False
-        return True
+                self.transition("HOLD_COMPLETE")
 
     def commands(self):
         cfg = self.config
         elapsed = self.data.time - self.phase_start
-        desired = self.body_target.copy()
         amount = (
             smooth(elapsed / cfg.acquire_seconds) if self.phase == "ACQUIRE" else 1.0
         )
         if self.phase == "INITIALIZE":
             amount = 0.0
-        for side, indices in self.hand_act.items():
-            desired[indices] = amount * np.array(ladder_rung_config().closed_pose)
-        if self.hold_controller is not None:
-            desired = self.hold_controller.desired(self, amount)
-        side = cfg.release_side
-        if self.phase in ("OPEN", "RETRACT", "HOLD_REMAINING_SUPPORTS", "RETURN"):
-            desired[self.hand_act[side]] *= (
-                1 - smooth(elapsed / 2) if self.phase == "OPEN" else 0
-            )
-        if self.phase == "REACQUIRE":
-            desired[self.hand_act[side]] *= smooth(elapsed / 2)
-        self.transfer_targets(desired, elapsed)
+        desired = self.hold_controller.desired(self, amount)
         limits = self.model.jnt_range[self.model.actuator_trnid[:, 0]]
         desired = np.clip(desired, limits[:, 0], limits[:, 1])
         self.desired_target = desired.copy()
-        self.target += np.clip(desired - self.target, -cfg.control_dt, cfg.control_dt)
+        delta = COMMAND_RATE_RAD_S * cfg.control_dt
+        self.target += np.clip(desired - self.target, -delta, delta)
         self.queue.append(self.target.copy())
         self.data.ctrl[:] = self.queue.popleft()
-
-    def transfer_targets(self, desired, elapsed):
-        if self.phase in (
-            "UNLOAD_SELECTED_HAND",
-            "OPEN",
-            "RETRACT",
-            "HOLD_REMAINING_SUPPORTS",
-            "RETURN",
-            "REACQUIRE",
-        ):
-            scale = smooth(elapsed / 3) if self.phase == "UNLOAD_SELECTED_HAND" else 1.0
-            # Small joint-space weight-shift candidate, never a support-state assignment.
-            desired[self.model.actuator("waist_roll_joint").id] += (
-                0.04 if self.config.release_side == "left" else -0.04
-            ) * scale
-        if self.phase in ("RETRACT", "HOLD_REMAINING_SUPPORTS", "RETURN"):
-            scale = {
-                "RETRACT": smooth(elapsed / 3),
-                "RETURN": 1 - smooth(elapsed / 3),
-            }.get(self.phase, 1.0)
-            desired[
-                self.model.actuator(
-                    self.config.release_side + "_shoulder_pitch_joint"
-                ).id
-            ] += 0.15 * scale
 
     def apply_forces(self):
         cfg = self.config
@@ -272,11 +145,7 @@ class Environment:
         if self.phase == "REMOVE_ASSISTANCE":
             gain = 1 - smooth((d.time - self.phase_start) / cfg.remove_seconds)
         rotation = Rotation.from_quat(d.qpos[3:7][[1, 2, 3, 0]])
-        force = (
-            3000 * (self.reference_position - d.qpos[:3])
-            - 150 * d.qvel[:3]
-            + [0, 0, self.mass * 9.81 if self.pose is None else 0.0]
-        )
+        force = 3000 * (self.reference_position - d.qpos[:3]) - 150 * d.qvel[:3]
         moment = 200 * (
             self.reference_rotation * rotation.inv()
         ).as_rotvec() - 20 * rotation.apply(d.qvel[3:6])
@@ -310,7 +179,7 @@ class Environment:
         )
 
     def step(self, physics_observer=None, *, advance_phase=True):
-        if self.phase in ("ABORT", "DONE", "HOLD_COMPLETE"):
+        if self.phase in ("ABORT", "HOLD_COMPLETE"):
             raise RuntimeError("trial finished")
         self.commands()
         for _ in range(round(self.config.control_dt / self.config.physics_dt)):

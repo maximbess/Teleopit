@@ -6,12 +6,6 @@ from scipy.spatial.transform import Rotation
 
 from teleopit.sim.o6_grasp.diagnostics import point_velocity
 
-TARGETS = {
-    s + "_" + part: "left_ladder_rung_" + rung
-    for s in ("left", "right")
-    for part, rung in (("hand", "08"), ("foot", "04"))
-}
-
 
 def region(model, body):
     name = model.body(body).name
@@ -83,7 +77,7 @@ def support(rows, name, target):
 def snapshot(env):
     m, d, _cfg = env.model, env.data, env.config
     rows, total = contacts(m, d)
-    targets = getattr(env, "support_targets", TARGETS)
+    targets = env.support_targets
     supports = {name: support(rows, name, target) for name, target in targets.items()}
     wrist = {}
     poses = {}
@@ -145,7 +139,7 @@ def joint_limit_errors(model, data):
     return {model.joint(j + 1).name: float(v) for j, v in enumerate(errors) if v > 1e-9}
 
 
-def unintended(rows, targets=TARGETS):
+def unintended(rows, targets):
     bad = []
     for row in rows:
         if "environment" not in row["regions"] or row["normal_force"] < 1:

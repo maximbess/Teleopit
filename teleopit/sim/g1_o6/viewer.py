@@ -17,7 +17,7 @@ def camera(cam):
     cam.elevation = -12
 
 
-def show(config, output, posture="baseline"):
+def show(config, output, pose=None):
     paused = Event()
 
     def key(code):
@@ -48,11 +48,10 @@ def show(config, output, posture="baseline"):
                 env.abort(["viewer_closed"])
             time.sleep(max(0, config.control_dt - (time.monotonic() - start)))
 
-        options = {} if posture == "baseline" else {"posture": posture}
-        return run_trial(config, output, frame, **options)
+        return run_trial(config, output, frame, pose=pose)
 
 
-def record(config, output, posture="baseline"):
+def record(config, output, pose=None):
     from pathlib import Path
 
     import imageio.v2 as imageio
@@ -71,7 +70,7 @@ def record(config, output, posture="baseline"):
             nonlocal renderer, counter
             if renderer is None:
                 renderer = mujoco.Renderer(env.model, height=480, width=640)
-            if counter % 5 == 0 or env.phase in ("ABORT", "DONE", "HOLD_COMPLETE"):
+            if counter % 5 == 0 or env.phase in ("ABORT", "HOLD_COMPLETE"):
                 renderer.update_scene(env.data, camera=cam, scene_option=opt)
                 pixels = renderer.render()
                 pixels = label_frame(pixels, env, row)
@@ -82,8 +81,7 @@ def record(config, output, posture="baseline"):
             counter += 1
 
         try:
-            options = {} if posture == "baseline" else {"posture": posture}
-            return run_trial(config, output, frame, **options)
+            return run_trial(config, output, frame, pose=pose)
         finally:
             if renderer is not None:
                 renderer.close()

@@ -7,6 +7,7 @@ import numpy as np
 from scipy.optimize import least_squares
 from scipy.spatial.transform import Rotation
 
+from teleopit.sim.o6_grasp.config import GraspConfig
 from teleopit.sim.o6_grasp.presets import ladder_rung_config
 
 from .initialize import arm_joints, fit_leg
@@ -22,13 +23,16 @@ class GraspPose:
     closed_pose: tuple = (0.05, 0.5, 1.35, 1.35, 1.35, 1.35)
     finger_preload_Nm: float = 0.12
 
+    def __post_init__(self):
+        for name in ("hand_rungs", "grip_offset_m", "closed_pose"):
+            value = getattr(self, name)
+            if not isinstance(value, (tuple, list)):
+                raise TypeError(f"{name} must be an array")
+            object.__setattr__(self, name, tuple(value))
+        self.validate()
+
     def validate(self):
-        if len(self.hand_rungs) != 2 or any(
-            not isinstance(r, int) or not 1 <= r <= 14 for r in self.hand_rungs
-        ):
-            raise ValueError("hand_rungs must contain two rung numbers in 1..14")
-        if len(self.grip_offset_m) != 3 or len(self.closed_pose) != 6:
-            raise ValueError("expected a three-axis offset and six finger targets")
+        self.validate_vectors()
         values = [
             self.waist_lean_rad,
             self.hand_tilt_deg,
@@ -37,15 +41,29 @@ class GraspPose:
             *self.grip_offset_m,
             *self.closed_pose,
         ]
+        if any(type(v) not in (int, float) for v in values):
+            raise ValueError("pose values must be numbers")
         if not np.all(np.isfinite(values)) or self.hand_spacing_m <= 0:
             raise ValueError("pose values must be finite and spacing positive")
+        if not 0 < self.finger_preload_Nm < GraspConfig().effort_limit:
+            raise ValueError(
+                "finger preload must be positive and below the effort limit"
+            )
 
+    def validate_vectors(self):
+        if len(self.hand_rungs) != 2 or any(
+            type(r) is not int or not 1 <= r <= 14 for r in self.hand_rungs
+        ):
+            raise ValueError("hand_rungs must contain two rung numbers in 1..14")
+        if len(self.grip_offset_m) != 3 or len(self.closed_pose) != 6:
+            raise ValueError("expected a three-axis offset and six finger targets")
 
-def install_balanced(env, pose=None):
-    """Select a repeatable reset posture, including subsequent env.reset calls."""
-    env.pose = pose or GraspPose()
-    env.hold_only = True
-    return env.reset()
+    def support_targets(self):
+        return {
+            side + "_" + part: f"left_ladder_rung_{r:02d}"
+            for side, rung in zip(("left", "right"), self.hand_rungs)
+            for part, r in (("hand", rung), ("foot", 4))
+        }
 
 
 def place_hands(env, pose):
@@ -66,11 +84,7 @@ def place_hands(env, pose):
     reports = {s + "_foot": fit_leg(model, data, s, *feet[s]) for s in env.hands}
     for side, rung in zip(env.hands, pose.hand_rungs):
         reports[side] = fit_arm(env, side, *mount_target(env, pose, side, rung))
-    env.support_targets = {
-        side + "_" + part: f"left_ladder_rung_{r:02d}"
-        for side, rung in zip(env.hands, pose.hand_rungs)
-        for part, r in (("hand", rung), ("foot", 4))
-    }
+    env.support_targets = pose.support_targets()
     return reports
 
 
@@ -82,6 +96,7 @@ def mount_target(env, pose, side, rung):
         + turn @ (np.array(bench.palm_pos) - bench.rung_pos)
         + pose.grip_offset_m
     )
+    position[0] += env.config.wrist_offset_x
     position[1] += (1 if side == "left" else -1) * pose.hand_spacing_m
     rotation = (
         turn @ Rotation.from_quat(np.array(bench.palm_quat)[[1, 2, 3, 0]]).as_matrix()
