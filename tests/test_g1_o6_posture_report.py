@@ -77,6 +77,7 @@ def test_report_counts_wrist_housing_even_below_support_gate():
 
 def test_unknown_posture_is_rejected_before_running(tmp_path):
     import pytest
+
     from teleopit.sim.g1_o6.config import Config
     from teleopit.sim.g1_o6.run import run_trial
 

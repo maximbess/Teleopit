@@ -1,0 +1,364 @@
+{
+  "environment": "conda teleopit; Python 3.10.20; MuJoCo 3.8.1",
+  "implementation_revision": "fa0a1d8",
+  "distinct_tests_passed": 154,
+  "regression_run": {
+    "passed": 150,
+    "duration_s": 233.18
+  },
+  "focused_followup": {
+    "passed": 6,
+    "additional_distinct_cases": 4
+  },
+  "baseline_comparison": {
+    "records_old": 278,
+    "records_new": 278,
+    "all_fields_equal": true,
+    "baseline_file": "outputs\\g1_o6\\diagnostics\\baseline\\steps.jsonl",
+    "final_file": "outputs\\g1_o6\\posture_search\\qualification\\baseline\\steps.jsonl"
+  },
+  "rendered_and_headless_logs_equal": true,
+  "quality": {
+    "tools": "Radon + coverage.py; AST SequenceMatcher; isolated fault injection",
+    "limitations": "Named crapper/dryer/mutator tools unavailable. CRAP uses statement coverage for new and changed functions, including nested functions. Duplication compares function bodies of at least eight top-level statements in changed/new modules; not semantic clone detection. Six targeted mutations are not exhaustive.",
+    "functions": [
+      {
+        "file": "teleopit/sim/g1_o6/env.py",
+        "function": "__init__",
+        "complexity": 5,
+        "line_coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/env.py",
+        "function": "reset",
+        "complexity": 5,
+        "line_coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/env.py",
+        "function": "initialize_preload",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/env.py",
+        "function": "advance_hold",
+        "complexity": 5,
+        "line_coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/env.py",
+        "function": "commands",
+        "complexity": 8,
+        "line_coverage": 0.9130434782608695,
+        "crap": 8.042081038875647
+      },
+      {
+        "file": "teleopit/sim/g1_o6/env.py",
+        "function": "apply_forces",
+        "complexity": 6,
+        "line_coverage": 1.0,
+        "crap": 6.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/env.py",
+        "function": "step",
+        "complexity": 6,
+        "line_coverage": 0.9411764705882353,
+        "crap": 6.007327498473438
+      },
+      {
+        "file": "teleopit/sim/g1_o6/env.py",
+        "function": "__init__",
+        "complexity": 5,
+        "line_coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/env.py",
+        "function": "reset",
+        "complexity": 5,
+        "line_coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/env.py",
+        "function": "initialize_preload",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/env.py",
+        "function": "advance_hold",
+        "complexity": 5,
+        "line_coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/env.py",
+        "function": "commands",
+        "complexity": 8,
+        "line_coverage": 0.9130434782608695,
+        "crap": 8.042081038875647
+      },
+      {
+        "file": "teleopit/sim/g1_o6/env.py",
+        "function": "apply_forces",
+        "complexity": 6,
+        "line_coverage": 1.0,
+        "crap": 6.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/env.py",
+        "function": "step",
+        "complexity": 6,
+        "line_coverage": 0.9411764705882353,
+        "crap": 6.007327498473438
+      },
+      {
+        "file": "teleopit/sim/g1_o6/grasp_pose.py",
+        "function": "install_balanced",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/grasp_pose.py",
+        "function": "place_hands",
+        "complexity": 7,
+        "line_coverage": 1.0,
+        "crap": 7.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/grasp_pose.py",
+        "function": "mount_target",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/grasp_pose.py",
+        "function": "fit_arm",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/grasp_pose.py",
+        "function": "residual",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/grasp_pose.py",
+        "function": "validate",
+        "complexity": 9,
+        "line_coverage": 1.0,
+        "crap": 9.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/grasp_pose.py",
+        "function": "validate",
+        "complexity": 9,
+        "line_coverage": 1.0,
+        "crap": 9.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/holding.py",
+        "function": "foot_weight_torque",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/holding.py",
+        "function": "__init__",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/holding.py",
+        "function": "desired",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/holding.py",
+        "function": "__init__",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/holding.py",
+        "function": "desired",
+        "complexity": 2,
+        "line_coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/posture.py",
+        "function": "direction_angle",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/posture.py",
+        "function": "posture_metrics",
+        "complexity": 4,
+        "line_coverage": 1.0,
+        "crap": 4.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/posture.py",
+        "function": "housing_clearance",
+        "complexity": 6,
+        "line_coverage": 1.0,
+        "crap": 6.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/posture.py",
+        "function": "housing_geoms",
+        "complexity": 4,
+        "line_coverage": 1.0,
+        "crap": 4.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/posture.py",
+        "function": "geom_clearance",
+        "complexity": 4,
+        "line_coverage": 1.0,
+        "crap": 4.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/posture.py",
+        "function": "world_vertices",
+        "complexity": 3,
+        "line_coverage": 0.9,
+        "crap": 3.009
+      },
+      {
+        "file": "teleopit/sim/g1_o6/posture.py",
+        "function": "separating_gap",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/posture_report.py",
+        "function": "annotate",
+        "complexity": 1,
+        "line_coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/posture_report.py",
+        "function": "grasp_ordering",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/posture_report.py",
+        "function": "ordered_contacts",
+        "complexity": 9,
+        "line_coverage": 1.0,
+        "crap": 9.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/posture_report.py",
+        "function": "housing_contact",
+        "complexity": 5,
+        "line_coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/posture_report.py",
+        "function": "summarize_posture",
+        "complexity": 9,
+        "line_coverage": 1.0,
+        "crap": 9.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/run.py",
+        "function": "create_environment",
+        "complexity": 4,
+        "line_coverage": 1.0,
+        "crap": 4.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/run.py",
+        "function": "run_trial",
+        "complexity": 7,
+        "line_coverage": 1.0,
+        "crap": 7.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/viewer.py",
+        "function": "frame",
+        "complexity": 5,
+        "line_coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/viewer.py",
+        "function": "record",
+        "complexity": 3,
+        "line_coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/viewer.py",
+        "function": "frame",
+        "complexity": 5,
+        "line_coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/__main__.py",
+        "function": "main",
+        "complexity": 6,
+        "line_coverage": 0.7391304347826086,
+        "crap": 6.639105777923893
+      }
+    ],
+    "crap_ge_10": [],
+    "duplication_ge_0_8": [],
+    "mutations": [
+      {
+        "name": "gravity_sign",
+        "killed": true
+      },
+      {
+        "name": "foot_load_sign",
+        "killed": true
+      },
+      {
+        "name": "finger_preload",
+        "killed": true
+      },
+      {
+        "name": "housing_contact",
+        "killed": true
+      },
+      {
+        "name": "ordered_contacts",
+        "killed": true
+      },
+      {
+        "name": "separating_gap",
+        "killed": true
+      }
+    ]
+  },
+  "physical_invariants": "Compiled masses/inertias, joint/actuator ranges, gains, damping/armature, contact masks/friction/solver parameters and mimic constraints checked unchanged; source model builder unchanged."
+}
