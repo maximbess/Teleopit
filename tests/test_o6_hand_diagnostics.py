@@ -8,8 +8,9 @@ import numpy as np
 import pytest
 
 from teleopit.sim.g1_o6.config import Config
-from teleopit.sim.g1_o6.diagnostics import TARGETS
+from teleopit.sim.g1_o6.diagnostics import snapshot
 from teleopit.sim.g1_o6.env import Environment
+from teleopit.sim.g1_o6.metadata import resolved
 from teleopit.sim.o6_diagnostics.config import DiagnosticConfig
 from teleopit.sim.o6_diagnostics.harness import HandHarness
 
@@ -21,8 +22,8 @@ def source():
         model=env.model,
         data=env.data,
         hands=env.hands,
-        targets=TARGETS,
-        metadata={"config": asdict(env.config)},
+        targets=env.support_targets,
+        metadata=resolved(env, snapshot(env)),
     )
 
 
@@ -240,3 +241,69 @@ def test_free_close_command_writes_both_hand_evidence(source, tmp_path, monkeypa
         run_hand(
             diagnostic_source, "left", tmp_path / "bad_wrench", wrench=[np.nan] * 6
         )
+
+
+def test_harness_uses_source_preload_targets_and_delay(source):
+    from teleopit.sim.g1_o6.grasp_pose import GraspPose
+    from teleopit.sim.g1_o6.holding import finger_targets
+    from teleopit.sim.g1_o6.metadata import controller_settings
+
+    altered = SimpleNamespace(**vars(source))
+    pose = GraspPose(
+        closed_pose=(0.04, 0.4, 1.2, 1.1, 1.0, 0.9), finger_preload_Nm=0.09
+    )
+    cfg = Config(delay_steps=2)
+    altered.metadata = {
+        **source.metadata,
+        "controller": controller_settings(pose, cfg),
+        "config": asdict(cfg),
+        "grasp_pose": asdict(pose),
+    }
+    h = HandHarness(altered, "left", fixed=True)
+    assert h.closed.tolist() == list(pose.closed_pose)
+    before = h.data.qpos.copy()
+    h.command(1)
+    expected = finger_targets(
+        1,
+        np.array(pose.closed_pose),
+        h.data.qpos[h.qpos],
+        h.model.actuator_gainprm[:, 0],
+        pose.finger_preload_Nm,
+    )
+    np.testing.assert_allclose(h.desired, expected, rtol=0, atol=0)
+    assert max(h.target) <= 0.02
+    np.testing.assert_array_equal(h.data.ctrl, np.zeros(6))
+    first = h.target.copy()
+    h.command(1)
+    np.testing.assert_array_equal(h.data.ctrl, np.zeros(6))
+    h.command(1)
+    np.testing.assert_array_equal(h.data.ctrl, first)
+    np.testing.assert_array_equal(h.data.qpos, before)
+
+
+@pytest.mark.parametrize(
+    "change", ["historical", "missing_controller", "mapping", "rung", "preload"]
+)
+def test_source_rejects_missing_or_inconsistent_controller_contract(
+    source, tmp_path, change
+):
+    import copy
+    import json
+
+    from teleopit.sim.o6_diagnostics.harness import Source
+
+    metadata = copy.deepcopy(source.metadata)
+    if change == "historical":
+        metadata["schema"] = "o6_diagnostic_v1"
+    elif change == "missing_controller":
+        del metadata["controller"]
+    elif change == "mapping":
+        metadata["command_joint_mapping"]["left"] = ["wrong"] * 6
+    elif change == "rung":
+        metadata["support_targets"]["left_hand"] = "left_ladder_rung_08"
+    else:
+        metadata["controller"]["finger_preload_Nm"] = 0.2
+    (tmp_path / "resolved.json").write_text(json.dumps(metadata))
+    # Contract validation precedes even loading scene.xml.
+    with pytest.raises(ValueError, match="source-run"):
+        Source(tmp_path)

@@ -167,12 +167,16 @@ def run_hand(
 
 def hand_metadata(source, h, cfg, protocol, only, wrench):
     return {
-        "schema": "o6_hand_diagnostic_v1",
+        "schema": "o6_hand_diagnostic_v2",
         **code_state(),
         "side": h.side,
         "config": asdict(cfg),
         "source_run": str(source.path),
         "source_code_revision": source.metadata.get("code_revision"),
+        "source_schema": source.metadata["schema"],
+        "source_grasp_pose": source.metadata["grasp_pose"],
+        "source_support_targets": source.targets,
+        "controller": h.controller,
         "assets": source.metadata["assets"],
         "physics_dt_s": h.dt,
         "control_dt_s": h.control_dt,
@@ -187,6 +191,7 @@ def hand_metadata(source, h, cfg, protocol, only, wrench):
         "differences_from_coupled": [
             "G1 and wrist housing removed",
             "no other ladder rungs/rails",
+            "no G1 body compensation; closing schedule is the diagnostic protocol",
             "fixed base, no rung"
             if h.fixed
             else "free wrist; explicit standalone acquisition fixture only",

@@ -8,9 +8,10 @@ from dataclasses import asdict
 import mujoco
 import numpy as np
 
-from teleopit.sim.g1_o6.diagnostics import TARGETS, failure_reasons, region, snapshot
+from teleopit.sim.g1_o6.diagnostics import failure_reasons, region, snapshot
 from teleopit.sim.g1_o6.env import Environment
-from teleopit.sim.g1_o6.model import provenance
+from teleopit.sim.g1_o6.metadata import resolved
+from teleopit.sim.g1_o6.posture_report import annotate
 from teleopit.sim.g1_o6.run import export_traces, summarize
 
 from .config import DiagnosticConfig, emergency
@@ -143,7 +144,7 @@ class Observer:
 
 
 def coupled_telemetry(env):
-    targets = getattr(env, "support_targets", TARGETS)
+    targets = env.support_targets
     groups = {
         name: [b for b in range(env.model.nbody) if region(env.model, b) == name]
         for name in targets
@@ -171,29 +172,19 @@ def sample(env, telemetry):
     return row
 
 
-def run_nominal(cfg, output, diagnostic=None, posture="baseline"):
+def run_nominal(cfg, output, diagnostic=None, *, pose=None):
     diagnostic = diagnostic or DiagnosticConfig()
     diagnostic.validate()
     path = output_directory(output)
-    env = Environment(cfg)
-    if posture == "thumb-below":
-        from .posture import install_candidate
-
-        install_candidate(env)
+    env = Environment(cfg, pose=pose)
     telemetry = coupled_telemetry(env)
     initial = snapshot(env)
+    annotate(env, initial)
     metadata = {
-        "schema": "o6_diagnostic_v1",
+        **resolved(env, initial),
         **code_state(),
-        "code_revision": code_state()["revision"],
-        "config": asdict(cfg),
+        "diagnostic_schema": "o6_diagnostic_v1",
         "diagnostic_config": asdict(diagnostic),
-        "posture": posture,
-        "assets": provenance(),
-        "model": env.audit,
-        "ik": env.ik,
-        "initial": initial,
-        "support_targets": telemetry.targets,
         "legacy_pose_note": "hand_in_target_rung remains world-axis difference and world orientation",
     }
     write_json(path / "resolved.json", metadata)
@@ -207,7 +198,9 @@ def run_nominal(cfg, output, diagnostic=None, posture="baseline"):
         trial.run(observer, stream)
     rows = trial.rows
     strict = trial.strict
-    summary = finish_summary(strict, observer, rows, trial.entry, trial.reason)
+    summary = finish_summary(
+        strict, observer, rows, trial.entry, trial.reason, cfg.control_dt
+    )
     write_json(path / "summary.json", summary)
     write_csv(
         path / "failure_events.csv",
@@ -252,6 +245,7 @@ class CoupledTrial:
             self.hold_start = float(env.data.time)
             self.telemetry.start_hold(env.data)
             self.entry = failure_reasons(row, env.config, env.required_supports())
+        annotate(env, row)
         row["diagnostic_unscored"] = observer.continuing
         row["diagnostic_v1"] = sample(env, self.telemetry)
         row["diagnostic_v1"]["saturation"] = observer.saturation.summary()
@@ -260,10 +254,7 @@ class CoupledTrial:
 
     def strict_end(self, row, observer):
         env = self.env
-        if (
-            env.phase not in ("ABORT", "UNLOAD_SELECTED_HAND")
-            or self.strict is not None
-        ):
+        if env.phase not in ("ABORT", "HOLD_COMPLETE") or self.strict is not None:
             return False
         self.strict = summarize(env, self.rows)
         self.strict["abort_time_s"] = (
@@ -306,7 +297,7 @@ class CoupledTrial:
                 break
 
 
-def finish_summary(strict, observer, rows, entry, reason):
+def finish_summary(strict, observer, rows, entry, reason, control_dt):
     return {
         "schema": "o6_nominal_diagnostic_v1",
         "original_strict_outcome": strict,
@@ -321,6 +312,6 @@ def finish_summary(strict, observer, rows, entry, reason):
         "continuation_unscored": observer.continuing,
         "physics_extrema": observer.events.extrema,
         "event_resolution_s": observer.events.dt,
-        "control_resolution_s": 0.02,
+        "control_resolution_s": control_dt,
         "event_order_note": "Events within one physics sample are unordered; per-gate persistence differs from global bad-time abort.",
     }

@@ -181,3 +181,51 @@ def test_continuation_keeps_original_failure_and_zero_assistance(tmp_path, monke
     assert result["diagnostic_end_reason"] == "continuation_time_limit"
     assert result["original_strict_outcome"]["static_hold_passed"] is False
     assert observed[-1]["base_pose"] != original[-1]["base_pose"]
+
+
+def test_successful_diagnostic_matches_ordinary_and_never_continues(
+    tmp_path, monkeypatch
+):
+    from teleopit.sim.g1_o6.config import Config
+    from teleopit.sim.g1_o6.run import run_trial
+    from teleopit.sim.o6_diagnostics import nominal, plots
+    from teleopit.sim.o6_diagnostics.config import DiagnosticConfig
+    from teleopit.sim.o6_diagnostics.io import read_rows
+
+    monkeypatch.setattr(plots, "nominal_plot", lambda *args: None)
+    cfg = Config(hold_seconds=0.04)
+    ordinary = run_trial(cfg, tmp_path / "ordinary")
+    result = nominal.run_nominal(
+        cfg, tmp_path / "diagnostic", DiagnosticConfig(continuation_s=0.06)
+    )
+    strict = result["original_strict_outcome"]
+    assert strict is not None and strict["final_phase"] == "HOLD_COMPLETE"
+    assert strict["static_hold_passed"] and not strict["release_reacquire_passed"]
+    assert strict["abort_time_s"] is None and result["would_abort_at"] is None
+    assert not result["continuation_unscored"]
+    assert all(strict[k] == v for k, v in ordinary.items())
+    before = read_rows(tmp_path / "ordinary/steps.jsonl")
+    after = read_rows(tmp_path / "diagnostic/steps.jsonl")
+    assert len(before) == len(after)
+    assert all(new[k] == v for old, new in zip(before, after) for k, v in old.items())
+
+
+def test_historical_reader_preserves_schema_axes_targets_and_failure(tmp_path):
+    import json
+
+    from teleopit.sim.o6_diagnostics.io import read_rows
+
+    # A v1 record is data, never input for reconstructing the current controller.
+    old = {
+        "time": 5.54,
+        "phase": "HOLD",
+        "next_phase": "ABORT",
+        "support_targets": {"left_hand": "left_ladder_rung_08"},
+        "wrist_world_on_hand": {"left": [-1.0, 2.0, -30.0, -0.3, 0.2, 0.1]},
+        "diagnostic_v1": {"from_hold": {"translation_m": 0.0947}},
+    }
+    path = tmp_path / "historical.jsonl"
+    path.write_text(json.dumps(old) + "\n")
+    original = path.read_bytes()
+    assert read_rows(path) == [old]
+    assert path.read_bytes() == original

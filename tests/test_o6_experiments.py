@@ -169,16 +169,19 @@ def test_documented_cli_dispatches_selected_experiment(
 
     calls = []
 
-    def run(*args):
+    def run(*args, **kwargs):
         calls.append(args)
+        if command == "nominal":
+            assert kwargs["pose"].hand_rungs == (11, 11)
         return {"experiment": command}
 
     monkeypatch.setattr(nominal, "run_nominal", run)
     monkeypatch.setattr(experiments, "free_close", run)
     monkeypatch.setattr(experiments, "load_response", run)
-    monkeypatch.setattr(
-        sys, "argv", ["o6_diagnostics", command, "--output", str(tmp_path)]
-    )
+    argv = ["o6_diagnostics", command, "--output", str(tmp_path)]
+    if command != "nominal":
+        argv += ["--source-run", "explicit_current_run"]
+    monkeypatch.setattr(sys, "argv", argv)
     cli.main()
     assert len(calls) == 1 and str(tmp_path) in calls[0]
     assert command in capsys.readouterr().out

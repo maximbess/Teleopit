@@ -2,19 +2,20 @@
 
 import json
 import xml.etree.ElementTree as ET
+from collections import deque
 from pathlib import Path
 
 import mujoco
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from teleopit.sim.g1_o6.diagnostics import TARGETS
+from teleopit.sim.g1_o6.holding import finger_targets
 from teleopit.sim.o6_grasp.config import GraspConfig
-from teleopit.sim.o6_grasp.presets import ladder_rung_config
 from teleopit.sim.o6_grasp.wrenches import fixture_wrench
 from teleopit.sim.o6_hand import attach_hand, numbers
 
 from .mechanics import subtree
+from .source import validate_contract
 from .telemetry import Telemetry
 
 
@@ -22,6 +23,7 @@ class Source:
     def __init__(self, path):
         self.path = Path(path)
         self.metadata = json.loads((self.path / "resolved.json").read_text())
+        validate_contract(self.metadata)
         self.model = mujoco.MjModel.from_xml_path(str(self.path / "scene.xml"))
         self.data = mujoco.MjData(self.model)
         initial = self.metadata["initial"]
@@ -29,7 +31,7 @@ class Source:
         self.data.qpos[7:] = initial["joint_positions"]
         mujoco.mj_forward(self.model, self.data)
         self.hands = self.metadata["model"]["hands"]
-        self.targets = self.metadata.get("support_targets") or TARGETS
+        self.targets = self.metadata["support_targets"]
 
 
 def build_hand(source, side, *, fixed=False, gravity=True, dt=None):
@@ -143,7 +145,13 @@ class HandHarness:
         self.limits = self.model.jnt_range[self.joints]
         self.target = np.zeros(6)
         self.desired = np.zeros(6)
-        self.closed = np.array(ladder_rung_config().closed_pose)
+        self.controller = source.metadata["controller"]
+        self.closed = np.array(self.controller["closed_pose_rad"])
+        self.preload = self.controller["finger_preload_Nm"]
+        self.kp = self.model.actuator_gainprm[:, 0].copy()
+        self.queue = deque(
+            [self.target.copy() for _ in range(self.controller["delay_steps"])]
+        )
         self.fixture_config = GraspConfig()
         self.config = self.fixture_config
         self.palm_site_name = self.hand["palm"]
@@ -167,14 +175,16 @@ class HandHarness:
         )
 
     def command(self, amount, only=None):
-        desired = amount * self.closed
+        desired = finger_targets(
+            amount, self.closed, self.data.qpos[self.qpos], self.kp, self.preload
+        )
         if only is not None:
             desired = np.where(np.arange(6) == only, desired, 0.0)
         self.desired = np.clip(desired, self.limits[:, 0], self.limits[:, 1])
-        self.target += np.clip(
-            self.desired - self.target, -self.control_dt, self.control_dt
-        )
-        self.data.ctrl[:] = self.target
+        delta = self.controller["command_rate_rad_s"] * self.control_dt
+        self.target += np.clip(self.desired - self.target, -delta, delta)
+        self.queue.append(self.target.copy())
+        self.data.ctrl[:] = self.queue.popleft()
 
     def apply(self, gain, wrench):
         m, d = self.model, self.data
