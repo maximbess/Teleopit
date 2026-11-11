@@ -71,7 +71,7 @@ def record(config, output, posture="baseline"):
             nonlocal renderer, counter
             if renderer is None:
                 renderer = mujoco.Renderer(env.model, height=480, width=640)
-            if counter % 5 == 0 or env.phase in ("ABORT", "DONE"):
+            if counter % 5 == 0 or env.phase in ("ABORT", "DONE", "HOLD_COMPLETE"):
                 renderer.update_scene(env.data, camera=cam, scene_option=opt)
                 pixels = renderer.render()
                 pixels = label_frame(pixels, env, row)

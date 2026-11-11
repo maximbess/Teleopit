@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from .config import Config
-from .run import run_trial, scenarios
+from .run import POSTURES, run_trial, scenarios
 
 
 def main():
@@ -13,7 +13,10 @@ def main():
     parser.add_argument("--config")
     parser.add_argument("--output", default="outputs/g1_o6/nominal")
     parser.add_argument(
-        "--posture", choices=["baseline", "thumb-below"], default="baseline"
+        "--posture",
+        choices=POSTURES,
+        default="baseline",
+        help="thumb-below-balanced finishes after the unsupported hold",
     )
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--viewer", action="store_true")

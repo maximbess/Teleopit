@@ -12,20 +12,47 @@ from .diagnostics import snapshot
 from .env import Environment
 from .model import provenance
 
+POSTURES = ("baseline", "thumb-below", "thumb-below-balanced")
+
 
 def revision():
     return subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
 
 
-def run_trial(config, output, callback=None, *, posture="baseline"):
-    output = Path(output)
-    output.mkdir(parents=True, exist_ok=True)
-    env = Environment(config)
+def create_environment(config, posture, hold_only=False):
+    if posture not in POSTURES:
+        raise ValueError(f"unknown posture: {posture}")
+    pose = None
+    if posture == "thumb-below-balanced":
+        from .grasp_pose import GraspPose
+
+        pose = GraspPose()
+    env = Environment(config, pose=pose, hold_only=hold_only)
     if posture == "thumb-below":
         from teleopit.sim.o6_diagnostics.posture import install_candidate
 
         install_candidate(env)
+    return env
+
+
+def run_trial(
+    config,
+    output,
+    callback=None,
+    *,
+    posture="baseline",
+    hold_only=False,
+    physics_observer=None,
+):
+    env = create_environment(config, posture, hold_only)
+    pose = env.pose
+    output = Path(output)
+    output.mkdir(parents=True, exist_ok=True)
     initial = snapshot(env)
+    if pose is not None:
+        from .posture_report import annotate
+
+        annotate(env, initial)
     metadata = {
         "code_revision": revision(),
         "code_dirty": bool(
@@ -42,6 +69,9 @@ def run_trial(config, output, callback=None, *, posture="baseline"):
         "posture": posture,
         "support_targets": getattr(env, "support_targets", None),
     }
+    if pose is not None:
+        metadata["grasp_pose"] = asdict(pose)
+        metadata["hold_only"] = env.hold_only
     metadata["model"]["initial_com_world"] = initial["com"]
     (output / "resolved.json").write_text(json.dumps(metadata, indent=2) + "\n")
     # Save actual compiled friction overrides, actuator limits, etc.
@@ -49,13 +79,19 @@ def run_trial(config, output, callback=None, *, posture="baseline"):
     rows = [initial]
     with (output / "steps.jsonl").open("w") as stream:
         stream.write(json.dumps(initial) + "\n")
-        while env.phase not in ("DONE", "ABORT"):
-            row = env.step()
+        while env.phase not in ("DONE", "ABORT", "HOLD_COMPLETE"):
+            row = env.step(physics_observer)
+            if pose is not None:
+                annotate(env, row)
             rows.append(row)
             stream.write(json.dumps(row) + "\n")
             if callback is not None:
                 callback(env, row)
     summary = summarize(env, rows)
+    if pose is not None:
+        from .posture_report import summarize_posture
+
+        summary["posture"] = summarize_posture(rows, config.control_dt)
     (output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     export_traces(rows, metadata, summary, output)
     return summary

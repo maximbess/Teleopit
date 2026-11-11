@@ -128,3 +128,10 @@ def test_balanced_reset_is_repeatable_and_metrics_are_read_only():
     np.testing.assert_array_equal(env.data.qpos, initial)
     np.testing.assert_array_equal(env.data.ctrl, controls)
     assert env.data.time == 0 and env.phase == "INITIALIZE"
+
+
+def test_waist_search_never_extends_physical_range(old_candidate):
+    from teleopit.sim.g1_o6.grasp_pose import GraspPose, place_hands
+
+    with pytest.raises(ValueError, match="original joint range"):
+        place_hands(old_candidate, GraspPose(waist_lean_rad=1.0))
