@@ -9,7 +9,7 @@ import mujoco
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from teleopit.sim.g1_o6.holding import finger_targets
+from teleopit.sim.g1_o6.holding import finger_targets, opening_targets
 from teleopit.sim.o6_grasp.config import GraspConfig
 from teleopit.sim.o6_grasp.wrenches import fixture_wrench
 from teleopit.sim.o6_hand import attach_hand, numbers
@@ -145,6 +145,7 @@ class HandHarness:
         self.limits = self.model.jnt_range[self.joints]
         self.target = np.zeros(6)
         self.desired = np.zeros(6)
+        self.open_start = None
         self.controller = source.metadata["controller"]
         self.closed = np.array(self.controller["closed_pose_rad"])
         self.preload = self.controller["finger_preload_Nm"]
@@ -174,10 +175,8 @@ class HandHarness:
             {side: self.hand},
         )
 
-    def command(self, amount, only=None):
-        desired = finger_targets(
-            amount, self.closed, self.data.qpos[self.qpos], self.kp, self.preload
-        )
+    def command(self, amount, only=None, *, opening=False):
+        desired = self.finger_command(amount, opening)
         if only is not None:
             desired = np.where(np.arange(6) == only, desired, 0.0)
         self.desired = np.clip(desired, self.limits[:, 0], self.limits[:, 1])
@@ -185,6 +184,15 @@ class HandHarness:
         self.target += np.clip(self.desired - self.target, -delta, delta)
         self.queue.append(self.target.copy())
         self.data.ctrl[:] = self.queue.popleft()
+
+    def finger_command(self, amount, opening):
+        measured = self.data.qpos[self.qpos]
+        if opening:
+            if self.open_start is None:
+                self.open_start = measured.copy()
+            return opening_targets(self.open_start, 1 - amount)
+        self.open_start = None
+        return finger_targets(amount, self.closed, measured, self.kp, self.preload)
 
     def apply(self, gain, wrench):
         m, d = self.model, self.data

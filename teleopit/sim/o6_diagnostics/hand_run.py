@@ -297,8 +297,8 @@ class HandTrial:
 
     def control_step(self, log, physics):
         h = self.h
-        _, amount, _, _ = self.schedule(self.clock, self.cfg)
-        h.command(amount, self.only)
+        phase, amount, _, _ = self.schedule(self.clock, self.cfg)
+        h.command(amount, self.only, opening=phase in ("REOPEN", "OPEN_SETTLE"))
         for _ in range(round(h.control_dt / h.dt)):
             if not self.physics_step(physics):
                 return False

@@ -1,0 +1,52 @@
+{
+  "schema": "g1_o6_support_spec_v1",
+  "declared_before_experiments": true,
+  "drift": {
+    "window_seconds": 30.0,
+    "translation_slope_m_s": 0.00005,
+    "translation_excursion_m": 0.002,
+    "rotation_slope_rad_s": 0.0005,
+    "rotation_excursion_rad": 0.01,
+    "signals": ["base", "com", "left_hand", "right_hand"],
+    "gate": "120 s nominal, fresh repeat and 0.5 ms strict holds plus final-window convergence"
+  },
+  "capacity": {
+    "scales": [0.0, 0.5, 1.0, 1.5, 2.0],
+    "reserve_factor": 1.2,
+    "maximum_scale": 2.0,
+    "maximum_force_N": 50.0,
+    "maximum_moment_Nm": 3.0,
+    "trial_budget_per_side": 48,
+    "settle_seconds": 2.0,
+    "ramp_seconds": 3.0,
+    "plateau_seconds": 10.0,
+    "ramp_down_seconds": 3.0,
+    "recovery_seconds": 10.0,
+    "correction_budget": 1,
+    "correction_scope": "Use the measured settled coupled reset geometry if the initial-frame isolated acquisition fails; no physical parameter or evaluator changes."
+  },
+  "transfer": {
+    "hand_share_targets": [0.05, 0.10, 0.20],
+    "share_tolerance": 0.01,
+    "minimum_per_hand_share": 0.005,
+    "maximum_per_hand_share": 0.15,
+    "feedback_offset_bound_rad": 0.08,
+    "feedback_offset_rate_rad_s": 0.005,
+    "ramp_seconds": 10.0,
+    "settle_timeout_seconds": 15.0,
+    "plateau_seconds": 10.0,
+    "return_seconds": 10.0,
+    "recovery_seconds": 10.0,
+    "guard_persistence_seconds": 0.5,
+    "unload_reference_seconds": 2.0,
+    "unload_floor_N": 5.0,
+    "unload_reduction_fraction": 0.8,
+    "unload_wrist_force_N": 8.0,
+    "unload_wrist_moment_Nm": 0.4,
+    "unloaded_hold_seconds": 2.0,
+    "clearance_m": 0.005,
+    "three_support_seconds": [1.0, 3.0, 10.0],
+    "cycle_counts": [1, 3],
+    "correction_budget_per_stage": 1
+  }
+}

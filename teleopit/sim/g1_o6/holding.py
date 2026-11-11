@@ -12,6 +12,11 @@ def finger_targets(amount, closed, measured, kp, preload):
     return np.minimum(amount * closed, measured + preload / kp)
 
 
+def opening_targets(start, progress):
+    """Open from the measured start; caller applies its physical/rate bounds."""
+    return (1 - np.clip(progress, 0.0, 1.0)) * np.asarray(start)
+
+
 class HoldController:
     """Compute position targets; never apply an external supporting wrench."""
 
