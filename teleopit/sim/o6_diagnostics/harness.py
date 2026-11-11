@@ -159,6 +159,9 @@ class HandHarness:
         self.fixture = np.zeros(6)
         self.external = np.zeros(6)
         self.gain = 0.0
+        self.source_sample = getattr(source, "sample_reference", None)
+        if self.source_sample is not None:
+            self.initialize_source_joints(source)
         mujoco.mj_forward(self.model, self.data)
         self.fixture_position = self.data.site(self.hand["palm"]).xpos.copy()
         self.fixture_rotation = (
@@ -174,6 +177,24 @@ class HandHarness:
             targets,
             {side: self.hand},
         )
+
+    def initialize_source_joints(self, source):
+        """Reset only: preserve the sampled grasp geometry, with zero velocity."""
+        names = [*self.hand["active"], *(p for p, _, _ in self.hand["passive"])]
+        for name in names:
+            self.data.joint(name).qpos[:] = source.data.joint(name).qpos
+        self.target = np.clip(
+            finger_targets(
+                1, self.closed, self.data.qpos[self.qpos], self.kp, self.preload
+            ),
+            self.limits[:, 0],
+            self.limits[:, 1],
+        )
+        self.desired = self.target.copy()
+        self.queue = deque(
+            [self.target.copy() for _ in range(self.controller["delay_steps"])]
+        )
+        self.data.ctrl[:] = self.target
 
     def command(self, amount, only=None, *, opening=False):
         desired = self.finger_command(amount, opening)

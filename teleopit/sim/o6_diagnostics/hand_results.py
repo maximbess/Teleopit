@@ -2,7 +2,7 @@
 
 import numpy as np
 
-SCORED_PHASES = ("SETTLE", "LOAD_RAMP", "PLATEAU")
+SCORED_PHASES = ("SETTLE", "LOAD_RAMP", "PLATEAU", "RAMP_DOWN", "RECOVERY")
 
 
 def maximum(rows, key):

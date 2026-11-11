@@ -15,8 +15,24 @@ def main():
         "--physics-dt", type=float, choices=(0.001, 0.0005), default=0.001
     )
     hold.add_argument("--output", required=True)
+    capacity = commands.add_parser("capacity-case")
+    capacity.add_argument("--source-run", required=True)
+    capacity.add_argument("--state", choices=("initial", "settled"), default="initial")
+    capacity.add_argument("--side", choices=("left", "right"), required=True)
+    capacity.add_argument(
+        "--physics-dt", type=float, choices=(0.001, 0.0005), default=0.001
+    )
+    capacity.add_argument("--output", required=True)
     args = parser.parse_args()
-    result = run_hold(args.output, seconds=args.seconds, physics_dt=args.physics_dt)
+    if args.command == "long-hold":
+        result = run_hold(args.output, seconds=args.seconds, physics_dt=args.physics_dt)
+    else:
+        from .capacity import qualified_source, run_capacity
+
+        source = qualified_source(args.source_run, args.state)
+        result = run_capacity(
+            source, args.side, args.output, physics_dt=args.physics_dt
+        )
     print(json.dumps(result, indent=2))
 
 

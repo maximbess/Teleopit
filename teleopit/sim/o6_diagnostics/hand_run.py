@@ -123,6 +123,8 @@ def run_hand(
     protocol="primary",
     only=None,
     config=None,
+    trial_factory=None,
+    load_reference=None,
 ):
     cfg = config or DiagnosticConfig()
     cfg.validate()
@@ -132,9 +134,12 @@ def run_hand(
     if wrench.shape != (6,) or not np.isfinite(wrench).all():
         raise ValueError("wrench must contain six finite SI components")
     metadata = hand_metadata(source, h, cfg, protocol, only, wrench)
+    metadata["test_load_reference"] = load_reference
     write_json(path / "resolved.json", metadata)
     mujoco.mj_saveLastXML(str(path / "scene.xml"), h.model)
-    result, rows = integrate_hand(h, cfg, wrench, protocol, only, path)
+    result, rows = integrate_hand(
+        h, cfg, wrench, protocol, only, path, trial_factory=trial_factory
+    )
     result.update(
         side=side,
         physics_dt_s=h.dt,
@@ -177,6 +182,9 @@ def hand_metadata(source, h, cfg, protocol, only, wrench):
         "source_grasp_pose": source.metadata["grasp_pose"],
         "source_support_targets": source.targets,
         "controller": h.controller,
+        "source_sample": h.source_sample,
+        "initial_qpos": h.data.qpos.tolist(),
+        "initial_ctrl": h.data.ctrl.tolist(),
         "assets": source.metadata["assets"],
         "physics_dt_s": h.dt,
         "control_dt_s": h.control_dt,
@@ -271,6 +279,10 @@ class HandTrial:
                     "time_s": self.clock,
                     "phase": self.phase,
                     "fixture_gain": gain,
+                    "fixture_wrench_world_at_palm": h.fixture.tolist(),
+                    "test_wrench_world_at_mount": h.external.tolist(),
+                    "qfrc_applied": h.data.qfrc_applied.tolist(),
+                    "xfrc_applied_max": float(np.abs(h.data.xfrc_applied).max()),
                     "effort_Nm": h.data.actuator_force.tolist(),
                     "generalized_position_qpos": h.data.qpos.tolist(),
                     "signals": values,
@@ -320,8 +332,8 @@ class HandTrial:
         }
 
 
-def integrate_hand(h, cfg, wrench, protocol, only, path):
-    trial = HandTrial(h, cfg, wrench, protocol, only)
+def integrate_hand(h, cfg, wrench, protocol, only, path, *, trial_factory=None):
+    trial = (trial_factory or HandTrial)(h, cfg, wrench, protocol, only)
     with (
         (path / "steps.jsonl").open("w") as log,
         gzip.open(path / "physics.jsonl.gz", "wt") as physics,
