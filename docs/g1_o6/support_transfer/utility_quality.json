@@ -1,0 +1,218 @@
+{
+  "scope": "Three reporting, video and archive utilities; actual artifact execution coverage",
+  "tools": "Radon + statement coverage; AST SequenceMatcher (>=50 nodes)",
+  "functions": [
+    {
+      "file": "scripts/g1_o6_support_report.py",
+      "function": "read",
+      "complexity": 1,
+      "coverage": 1.0,
+      "crap": 1.0
+    },
+    {
+      "file": "scripts/g1_o6_support_report.py",
+      "function": "digest",
+      "complexity": 1,
+      "coverage": 1.0,
+      "crap": 1.0
+    },
+    {
+      "file": "scripts/g1_o6_support_report.py",
+      "function": "rows",
+      "complexity": 2,
+      "coverage": 1.0,
+      "crap": 2.0
+    },
+    {
+      "file": "scripts/g1_o6_support_report.py",
+      "function": "coupled_trace",
+      "complexity": 8,
+      "coverage": 1.0,
+      "crap": 8.0
+    },
+    {
+      "file": "scripts/g1_o6_support_report.py",
+      "function": "palm_translation",
+      "complexity": 3,
+      "coverage": 1.0,
+      "crap": 3.0
+    },
+    {
+      "file": "scripts/g1_o6_support_report.py",
+      "function": "save_figure",
+      "complexity": 1,
+      "coverage": 1.0,
+      "crap": 1.0
+    },
+    {
+      "file": "scripts/g1_o6_support_report.py",
+      "function": "long_plot",
+      "complexity": 4,
+      "coverage": 1.0,
+      "crap": 4.0
+    },
+    {
+      "file": "scripts/g1_o6_support_report.py",
+      "function": "capacity_paths",
+      "complexity": 1,
+      "coverage": 1.0,
+      "crap": 1.0
+    },
+    {
+      "file": "scripts/g1_o6_support_report.py",
+      "function": "capacity_trace",
+      "complexity": 7,
+      "coverage": 1.0,
+      "crap": 7.0
+    },
+    {
+      "file": "scripts/g1_o6_support_report.py",
+      "function": "capacity_plot",
+      "complexity": 4,
+      "coverage": 1.0,
+      "crap": 4.0
+    },
+    {
+      "file": "scripts/g1_o6_support_report.py",
+      "function": "long_result",
+      "complexity": 1,
+      "coverage": 1.0,
+      "crap": 1.0
+    },
+    {
+      "file": "scripts/g1_o6_support_report.py",
+      "function": "report",
+      "complexity": 7,
+      "coverage": 1.0,
+      "crap": 7.0
+    },
+    {
+      "file": "scripts/g1_o6_state_video.py",
+      "function": "samples",
+      "complexity": 3,
+      "coverage": 1.0,
+      "crap": 3.0
+    },
+    {
+      "file": "scripts/g1_o6_state_video.py",
+      "function": "replay_frame",
+      "complexity": 2,
+      "coverage": 1.0,
+      "crap": 2.0
+    },
+    {
+      "file": "scripts/g1_o6_state_video.py",
+      "function": "video",
+      "complexity": 6,
+      "coverage": 0.96,
+      "crap": 6.002304
+    },
+    {
+      "file": "scripts/package_g1_o6_support.py",
+      "function": "sha_stream",
+      "complexity": 2,
+      "coverage": 1.0,
+      "crap": 2.0
+    },
+    {
+      "file": "scripts/package_g1_o6_support.py",
+      "function": "sha_file",
+      "complexity": 1,
+      "coverage": 1.0,
+      "crap": 1.0
+    },
+    {
+      "file": "scripts/package_g1_o6_support.py",
+      "function": "directory_files",
+      "complexity": 6,
+      "coverage": 1.0,
+      "crap": 6.0
+    },
+    {
+      "file": "scripts/package_g1_o6_support.py",
+      "function": "check_artifacts",
+      "complexity": 4,
+      "coverage": 1.0,
+      "crap": 4.0
+    },
+    {
+      "file": "scripts/package_g1_o6_support.py",
+      "function": "collect_files",
+      "complexity": 5,
+      "coverage": 1.0,
+      "crap": 5.0
+    },
+    {
+      "file": "scripts/package_g1_o6_support.py",
+      "function": "portable_scene",
+      "complexity": 5,
+      "coverage": 0.9166666666666666,
+      "crap": 5.014467592592593
+    },
+    {
+      "file": "scripts/package_g1_o6_support.py",
+      "function": "compare_numeric_fields",
+      "complexity": 6,
+      "coverage": 1.0,
+      "crap": 6.0
+    },
+    {
+      "file": "scripts/package_g1_o6_support.py",
+      "function": "compare_models",
+      "complexity": 1,
+      "coverage": 1.0,
+      "crap": 1.0
+    },
+    {
+      "file": "scripts/package_g1_o6_support.py",
+      "function": "Archive.__init__",
+      "complexity": 1,
+      "coverage": 1.0,
+      "crap": 1.0
+    },
+    {
+      "file": "scripts/package_g1_o6_support.py",
+      "function": "Archive.file",
+      "complexity": 2,
+      "coverage": 1.0,
+      "crap": 2.0
+    },
+    {
+      "file": "scripts/package_g1_o6_support.py",
+      "function": "Archive.data",
+      "complexity": 2,
+      "coverage": 1.0,
+      "crap": 2.0
+    },
+    {
+      "file": "scripts/package_g1_o6_support.py",
+      "function": "add_files",
+      "complexity": 5,
+      "coverage": 1.0,
+      "crap": 5.0
+    },
+    {
+      "file": "scripts/package_g1_o6_support.py",
+      "function": "add_manifests",
+      "complexity": 6,
+      "coverage": 1.0,
+      "crap": 6.0
+    },
+    {
+      "file": "scripts/package_g1_o6_support.py",
+      "function": "verify",
+      "complexity": 3,
+      "coverage": 1.0,
+      "crap": 3.0
+    },
+    {
+      "file": "scripts/package_g1_o6_support.py",
+      "function": "package",
+      "complexity": 4,
+      "coverage": 0.9444444444444444,
+      "crap": 4.002743484224966
+    }
+  ],
+  "crap_ge_10": [],
+  "duplication_ge_0_8": []
+}

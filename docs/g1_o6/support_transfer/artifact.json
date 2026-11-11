@@ -1,0 +1,16 @@
+{
+  "path": "C:\\Users\\maxim\\Downloads\\G1_O6_Support_Validation_2026-11-12.zip",
+  "bytes": 436141254,
+  "sha256": "7ba554292f94a72184c8f75201184129c61d530effb3f27a14751195ad598aa0",
+  "implementation_revision": "abdd28c32a5ab9c6e09f4871860c3aeace252c0c",
+  "verified_files": 776,
+  "physical_assets_included": true,
+  "portable_scene_count": 24,
+  "publication_status": "published and public download SHA256 verified",
+  "release_url": "https://github.com/maximbess/Teleopit/releases/tag/g1-o6-support-2026-11-12",
+  "download_url": "https://github.com/maximbess/Teleopit/releases/download/g1-o6-support-2026-11-12/G1_O6_Support_Validation_2026-11-12.zip",
+  "checksum_url": "https://github.com/maximbess/Teleopit/releases/download/g1-o6-support-2026-11-12/G1_O6_Support_Validation_2026-11-12.zip.sha256",
+  "public_download_bytes": 436141254,
+  "public_download_sha256": "7ba554292f94a72184c8f75201184129c61d530effb3f27a14751195ad598aa0",
+  "release_id": 442200052
+}

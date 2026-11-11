@@ -1,0 +1,15 @@
+{
+  "portable_source_compiled": true,
+  "source_nq": 58,
+  "source_nv": 57,
+  "relocated_evidence_valid": true,
+  "reasons": [
+    "stage_1_requires_120s_nominal_repeat_fine_and_convergence",
+    "stage_2_requires_both_hand_tested_wrench_reserve"
+  ],
+  "extracted_integrity_files": 122,
+  "portable_scenes": 24,
+  "numeric_fields_per_scene": [
+    585
+  ]
+}
