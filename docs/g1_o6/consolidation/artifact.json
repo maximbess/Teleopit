@@ -1,0 +1,11 @@
+{
+  "schema": "g1_o6_consolidation_archive_v1",
+  "path": "C:\\Users\\maxim\\Downloads\\G1_O6_Consolidation_2026-11-11_959624f.zip",
+  "sha256": "a7678ef773b8c97c851757b25cec5190f689012190098cc41bff46fa4728d7a7",
+  "bytes": 197334823,
+  "verified_files": 233,
+  "implementation_revision": "959624fd92a1c467dc3c51c2cc5def8f0d2e1138",
+  "location": "Local Downloads; verified here, not a public download URL.",
+  "mesh_assets_included": false,
+  "file_hash_scope": "Evidence manifest hashes describe the snapshots inside this ZIP, before subsequent publication-log entries."
+}

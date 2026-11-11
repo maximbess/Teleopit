@@ -1,0 +1,637 @@
+{
+  "schema": "g1_o6_consolidation_validation_v1",
+  "reference_revision": "b34ba73683986ef4252d953def71569b77a22eac",
+  "implementation_revision": "959624fd92a1c467dc3c51c2cc5def8f0d2e1138",
+  "qualified_revision": "ac5b96702ed7cafaa6f08b8f9ef31e2d656c4b29",
+  "later_changes": "39f36f5 changes XML comparison only; 959624f validates incomplete source geometry before loading. Coupled physics/controller unchanged.",
+  "runtime": {
+    "python": "3.10.20",
+    "mujoco": "3.8.1",
+    "numpy": "2.2.6",
+    "scipy": "1.15.2"
+  },
+  "comparison": {
+    "tolerances": {
+      "schema": "g1_o6_consolidation_comparison_v1",
+      "declared_before_refactor": true,
+      "default_and_fine_reset_qpos_atol": 0.0,
+      "initial_ctrl_atol": 0.0,
+      "compiled_arrays_atol": 0.0,
+      "shared_physics_log_fields_atol": 0.0,
+      "phase_times_atol_s": 0.0,
+      "comparison": "Exact JSON scalar/list equality for all pre-existing physical log fields. New metadata/schema fields and revision are excluded. Any tolerance change must be justified and recorded before comparison; PASS alone is insufficient."
+    },
+    "arrays": {
+      "default": {
+        "count": 472,
+        "changed": []
+      },
+      "fine": {
+        "count": 472,
+        "changed": []
+      }
+    },
+    "runs": {
+      "nominal": {
+        "files_equal": {
+          "steps.jsonl": true,
+          "summary.json": true,
+          "scene_structure": true
+        },
+        "metadata_equal": {
+          "assets": true,
+          "model": true,
+          "ik": true,
+          "initial": true,
+          "support_targets": true,
+          "grasp_pose": true,
+          "retained_config": true
+        },
+        "wrist_samples_equal": {
+          "left": true,
+          "right": true
+        },
+        "hold_physics": {
+          "steps": 10020,
+          "nonzero_applied_steps": 0,
+          "housing_contact_steps": 0
+        },
+        "final_phase": "HOLD_COMPLETE",
+        "hold_seconds": 10.02,
+        "max_hold_drift_m": 0.009955490594836391,
+        "max_hold_wrist_bend_deg": 22.132430333385976,
+        "min_hold_housing_clearance_m": 0.018598123855820825,
+        "peak_effort_fraction": 0.5658056344203548,
+        "scene_bytes_equal": false
+      },
+      "repeat": {
+        "files_equal": {
+          "steps.jsonl": true,
+          "summary.json": true,
+          "scene_structure": true
+        },
+        "metadata_equal": {
+          "assets": true,
+          "model": true,
+          "ik": true,
+          "initial": true,
+          "support_targets": true,
+          "grasp_pose": true,
+          "retained_config": true
+        },
+        "wrist_samples_equal": {
+          "left": true,
+          "right": true
+        },
+        "hold_physics": {
+          "steps": 10020,
+          "nonzero_applied_steps": 0,
+          "housing_contact_steps": 0
+        },
+        "final_phase": "HOLD_COMPLETE",
+        "hold_seconds": 10.02,
+        "max_hold_drift_m": 0.009955490594836391,
+        "max_hold_wrist_bend_deg": 22.132430333385976,
+        "min_hold_housing_clearance_m": 0.018598123855820825,
+        "peak_effort_fraction": 0.5658056344203548,
+        "scene_bytes_equal": false
+      },
+      "long": {
+        "files_equal": {
+          "steps.jsonl": true,
+          "summary.json": true,
+          "scene_structure": true
+        },
+        "metadata_equal": {
+          "assets": true,
+          "model": true,
+          "ik": true,
+          "initial": true,
+          "support_targets": true,
+          "grasp_pose": true,
+          "retained_config": true
+        },
+        "wrist_samples_equal": {
+          "left": true,
+          "right": true
+        },
+        "hold_physics": {
+          "steps": 30000,
+          "nonzero_applied_steps": 0,
+          "housing_contact_steps": 0
+        },
+        "final_phase": "HOLD_COMPLETE",
+        "hold_seconds": 30.0,
+        "max_hold_drift_m": 0.015721970189816727,
+        "max_hold_wrist_bend_deg": 22.132430333385976,
+        "min_hold_housing_clearance_m": 0.018598123855820825,
+        "peak_effort_fraction": 0.5658056344203548,
+        "scene_bytes_equal": false
+      },
+      "fine": {
+        "files_equal": {
+          "steps.jsonl": true,
+          "summary.json": true,
+          "scene_structure": true
+        },
+        "metadata_equal": {
+          "assets": true,
+          "model": true,
+          "ik": true,
+          "initial": true,
+          "support_targets": true,
+          "grasp_pose": true,
+          "retained_config": true
+        },
+        "wrist_samples_equal": {
+          "left": true,
+          "right": true
+        },
+        "hold_physics": {
+          "steps": 60040,
+          "nonzero_applied_steps": 0,
+          "housing_contact_steps": 0
+        },
+        "final_phase": "HOLD_COMPLETE",
+        "hold_seconds": 30.02,
+        "max_hold_drift_m": 0.015718745406243885,
+        "max_hold_wrist_bend_deg": 22.12034147811085,
+        "min_hold_housing_clearance_m": 0.01863718170388008,
+        "peak_effort_fraction": 0.5657982053616388,
+        "scene_bytes_equal": false
+      }
+    },
+    "xml_export_note": "Only 180 redundant asset/mesh content_type=model/obj attributes differ because of the warm MuJoCo mesh cache. All other XML nodes/attributes and all captured compiled arrays match exactly. Numerical tolerances remain zero."
+  },
+  "nominal_diagnostic": {
+    "strict_summary_exact": true,
+    "final_phase": "HOLD_COMPLETE",
+    "abort_time_s": null,
+    "continuation_unscored": false
+  },
+  "free_close": [
+    {
+      "case": "left_gravity",
+      "side": "left",
+      "gravity": true,
+      "fixed_base": true,
+      "outcome": "pass",
+      "strict_pass": true,
+      "only_active_joint": null
+    },
+    {
+      "case": "left_no_gravity",
+      "side": "left",
+      "gravity": false,
+      "fixed_base": true,
+      "outcome": "pass",
+      "strict_pass": true,
+      "only_active_joint": null
+    },
+    {
+      "case": "right_gravity",
+      "side": "right",
+      "gravity": true,
+      "fixed_base": true,
+      "outcome": "pass",
+      "strict_pass": true,
+      "only_active_joint": null
+    },
+    {
+      "case": "right_no_gravity",
+      "side": "right",
+      "gravity": false,
+      "fixed_base": true,
+      "outcome": "pass",
+      "strict_pass": true,
+      "only_active_joint": null
+    }
+  ],
+  "loaded_smoke": {
+    "left": {
+      "outcome": "grasp_loss",
+      "strict_pass": false,
+      "zero_load_qualified": false,
+      "plateau_achieved_s": 2.52,
+      "diagnostic_end": {
+        "time_s": 12.5199999999985,
+        "simulator_time_s": 12.5199999999985,
+        "reason": "persistent_physical_failure",
+        "warnings": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "right": {
+      "outcome": "grasp_loss",
+      "strict_pass": false,
+      "zero_load_qualified": false,
+      "plateau_achieved_s": 2.46,
+      "diagnostic_end": {
+        "time_s": 12.459999999998534,
+        "simulator_time_s": 12.459999999998534,
+        "reason": "persistent_physical_failure",
+        "warnings": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    }
+  },
+  "native_viewer": {
+    "paused_time_s": [
+      0.1400000000000001,
+      0.1400000000000001
+    ],
+    "resumed_time_s": 0.2800000000000002,
+    "contact_force_flag": false
+  },
+  "tests": {
+    "affected_passed": 118,
+    "standalone_component_training_passed": 74,
+    "preexisting_training_failure": "test_refined_initial_contacts_and_mesh_budget: knee/rung overlap up to 0.0004535838434230498 m; test, training config and collision asset code unchanged from b34ba73"
+  },
+  "quality": {
+    "scope": "Functions changed from b34ba73 in the two coupled/diagnostic packages",
+    "tools": "Radon + measured statement coverage; AST SequenceMatcher (>=50 nodes)",
+    "functions": [
+      {
+        "file": "teleopit/sim/g1_o6/config.py",
+        "function": "Config.validate",
+        "complexity": 3,
+        "coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/config.py",
+        "function": "Config.validate_values",
+        "complexity": 5,
+        "coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/diagnostics.py",
+        "function": "snapshot",
+        "complexity": 7,
+        "coverage": 1.0,
+        "crap": 7.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/diagnostics.py",
+        "function": "unintended",
+        "complexity": 8,
+        "coverage": 1.0,
+        "crap": 8.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/env.py",
+        "function": "Environment.__init__",
+        "complexity": 5,
+        "coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/env.py",
+        "function": "Environment.reset",
+        "complexity": 2,
+        "coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/env.py",
+        "function": "Environment.required_supports",
+        "complexity": 1,
+        "coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/env.py",
+        "function": "Environment.advance",
+        "complexity": 5,
+        "coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/env.py",
+        "function": "Environment.advance_hold",
+        "complexity": 4,
+        "coverage": 1.0,
+        "crap": 4.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/env.py",
+        "function": "Environment.commands",
+        "complexity": 3,
+        "coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/env.py",
+        "function": "Environment.apply_forces",
+        "complexity": 5,
+        "coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/env.py",
+        "function": "Environment.step",
+        "complexity": 6,
+        "coverage": 0.9411764705882353,
+        "crap": 6.007327498473438
+      },
+      {
+        "file": "teleopit/sim/g1_o6/grasp_pose.py",
+        "function": "GraspPose.__post_init__",
+        "complexity": 3,
+        "coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/grasp_pose.py",
+        "function": "GraspPose.validate",
+        "complexity": 6,
+        "coverage": 0.8888888888888888,
+        "crap": 6.049382716049383
+      },
+      {
+        "file": "teleopit/sim/g1_o6/grasp_pose.py",
+        "function": "GraspPose.validate_vectors",
+        "complexity": 7,
+        "coverage": 1.0,
+        "crap": 7.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/grasp_pose.py",
+        "function": "GraspPose.support_targets",
+        "complexity": 3,
+        "coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/grasp_pose.py",
+        "function": "place_hands",
+        "complexity": 5,
+        "coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/grasp_pose.py",
+        "function": "mount_target",
+        "complexity": 3,
+        "coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/holding.py",
+        "function": "finger_targets",
+        "complexity": 1,
+        "coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/holding.py",
+        "function": "HoldController.__init__",
+        "complexity": 4,
+        "coverage": 1.0,
+        "crap": 4.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/holding.py",
+        "function": "HoldController.desired",
+        "complexity": 2,
+        "coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/initialize.py",
+        "function": "initial_stance",
+        "complexity": 8,
+        "coverage": 1.0,
+        "crap": 8.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/metadata.py",
+        "function": "revision",
+        "complexity": 1,
+        "coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/metadata.py",
+        "function": "controller_settings",
+        "complexity": 1,
+        "coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/metadata.py",
+        "function": "resolved",
+        "complexity": 2,
+        "coverage": 1.0,
+        "crap": 2.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/run.py",
+        "function": "run_trial",
+        "complexity": 3,
+        "coverage": 0.9565217391304348,
+        "crap": 3.000739705761486
+      },
+      {
+        "file": "teleopit/sim/g1_o6/run.py",
+        "function": "summarize",
+        "complexity": 8,
+        "coverage": 1.0,
+        "crap": 8.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/run.py",
+        "function": "scenarios",
+        "complexity": 1,
+        "coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/settings.py",
+        "function": "load_settings",
+        "complexity": 1,
+        "coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/settings.py",
+        "function": "load_config",
+        "complexity": 5,
+        "coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/viewer.py",
+        "function": "show",
+        "complexity": 1,
+        "coverage": 1.0,
+        "crap": 1.0
+      },
+      {
+        "file": "teleopit/sim/g1_o6/viewer.py",
+        "function": "record",
+        "complexity": 2,
+        "coverage": 0.03571428571428571,
+        "crap": 5.586552478134111
+      },
+      {
+        "file": "teleopit/sim/g1_o6/__main__.py",
+        "function": "main",
+        "complexity": 6,
+        "coverage": 0.84,
+        "crap": 6.147456
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/hand_run.py",
+        "function": "hand_metadata",
+        "complexity": 5,
+        "coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/harness.py",
+        "function": "Source.__init__",
+        "complexity": 1,
+        "coverage": 0.3333333333333333,
+        "crap": 1.2962962962962963
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/harness.py",
+        "function": "HandHarness.__init__",
+        "complexity": 4,
+        "coverage": 1.0,
+        "crap": 4.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/harness.py",
+        "function": "HandHarness.command",
+        "complexity": 2,
+        "coverage": 0.8888888888888888,
+        "crap": 2.0054869684499312
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "function": "coupled_telemetry",
+        "complexity": 4,
+        "coverage": 1.0,
+        "crap": 4.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "function": "run_nominal",
+        "complexity": 5,
+        "coverage": 1.0,
+        "crap": 5.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "function": "CoupledTrial.record",
+        "complexity": 3,
+        "coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "function": "CoupledTrial.strict_end",
+        "complexity": 7,
+        "coverage": 1.0,
+        "crap": 7.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/nominal.py",
+        "function": "finish_summary",
+        "complexity": 3,
+        "coverage": 1.0,
+        "crap": 3.0
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/source.py",
+        "function": "validate_contract",
+        "complexity": 8,
+        "coverage": 0.9333333333333333,
+        "crap": 8.018962962962963
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/source.py",
+        "function": "resolved_settings",
+        "complexity": 3,
+        "coverage": 0.875,
+        "crap": 3.017578125
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/source.py",
+        "function": "geometry_fields",
+        "complexity": 9,
+        "coverage": 0.7857142857142857,
+        "crap": 9.79701166180758
+      },
+      {
+        "file": "teleopit/sim/o6_diagnostics/__main__.py",
+        "function": "main",
+        "complexity": 5,
+        "coverage": 0.9285714285714286,
+        "crap": 5.009110787172012
+      }
+    ],
+    "crap_ge_10": [],
+    "duplication_ge_0_8": []
+  },
+  "mutations": [
+    {
+      "name": "finger_bound",
+      "test": "tests/test_g1_o6_holding.py::test_gravity_preload_moves_targets_without_external_support",
+      "exit_code": 1,
+      "killed": true
+    },
+    {
+      "name": "whole_interval_gate",
+      "test": "tests/test_g1_o6_controller.py::test_static_gate_requires_entire_interval",
+      "exit_code": 1,
+      "killed": true
+    },
+    {
+      "name": "success_terminal",
+      "test": "tests/test_g1_o6_controller.py::test_success_finishes_without_authorizing_release",
+      "exit_code": 1,
+      "killed": true
+    },
+    {
+      "name": "diagnostic_terminal",
+      "test": "tests/test_o6_diagnostics.py::test_successful_diagnostic_matches_ordinary_and_never_continues",
+      "exit_code": 1,
+      "killed": true
+    },
+    {
+      "name": "source_contract",
+      "test": "tests/test_o6_hand_diagnostics.py::test_source_rejects_missing_or_inconsistent_controller_contract[preload]",
+      "exit_code": 1,
+      "killed": true
+    },
+    {
+      "name": "command_rate",
+      "exit_code": 1,
+      "killed": true
+    }
+  ],
+  "archive_availability": {
+    "diagnostics": "available; SHA256 verified",
+    "balanced": "available; SHA256 verified"
+  },
+  "unresolved_consolidation_blockers": []
+}

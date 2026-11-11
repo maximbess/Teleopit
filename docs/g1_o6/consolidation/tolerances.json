@@ -1,0 +1,10 @@
+{
+  "schema": "g1_o6_consolidation_comparison_v1",
+  "declared_before_refactor": true,
+  "default_and_fine_reset_qpos_atol": 0.0,
+  "initial_ctrl_atol": 0.0,
+  "compiled_arrays_atol": 0.0,
+  "shared_physics_log_fields_atol": 0.0,
+  "phase_times_atol_s": 0.0,
+  "comparison": "Exact JSON scalar/list equality for all pre-existing physical log fields. New metadata/schema fields and revision are excluded. Any tolerance change must be justified and recorded before comparison; PASS alone is insufficient."
+}

@@ -1,3 +1,5 @@
+> Historical study at 919bbc6b26b8a99e56232b0dcfb33c644ded73ec (measured implementation 9160225267d66ae63a4a986277e1974d9ae2749d). Commands below require that revision; the removed controller cannot be replayed by the current harness. See the [current quickstart](../README.md) and [history index](../HISTORY.md).
+
 # G1/O6 diagnostic study
 
 The diagnostic experiments are complete. **The prototype still fails unsupported whole-body holding.** Both authentic O6 hands close successfully without a rung and hold the isolated rung under gravity, but none of the tested nonzero wrist loads completes the required plateau. The new thumb-below candidate is available separately; it also fails the original whole-body gates.

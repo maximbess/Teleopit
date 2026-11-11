@@ -1,3 +1,5 @@
+> Historical qualification report at b34ba73683986ef4252d953def71569b77a22eac (implementation fa0a1d8f333779188b26e10a99ed89498b91be6e). Commands with the old posture selector require that revision. The same working grasp is now the default. See the [current quickstart](../README.md) and [history index](../HISTORY.md).
+
 # Balanced thumb-below G1 / O6 grasp
 
 The opt-in `thumb-below-balanced` preset uses both hands on rung 11 and both feet on rung 04. The thumbs contact the underside and all four fingers contact the upper face. It keeps the wrists near 22 degrees of physical bend, away from their joint stops. The historical `baseline` and `thumb-below` presets are unchanged.
