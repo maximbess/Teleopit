@@ -110,7 +110,12 @@ def qualified_source(path, state="initial"):
     source = Source(path)
     summary = json.loads((source.path / "summary.json").read_text())
     strict = summary.get("strict", summary.get("original_strict_outcome", summary))
-    if not strict.get("static_hold_passed", False):
+    complete = strict.get("final_phase") == "HOLD_COMPLETE"
+    passed = (
+        strict.get("static_hold_passed", False)
+        or summary.get("physical_status") == "PASS"
+    )
+    if not complete or not passed:
         raise ValueError("capacity source must contain a qualified coupled hold")
     if state == "settled":
         rows = read_rows(source.path / "steps.jsonl")

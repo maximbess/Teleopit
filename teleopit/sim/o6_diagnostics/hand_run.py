@@ -180,6 +180,7 @@ def hand_metadata(source, h, cfg, protocol, only, wrench):
         "source_code_revision": source.metadata.get("code_revision"),
         "source_schema": source.metadata["schema"],
         "source_grasp_pose": source.metadata["grasp_pose"],
+        "source_config": source.metadata["config"],
         "source_support_targets": source.targets,
         "controller": h.controller,
         "source_sample": h.source_sample,

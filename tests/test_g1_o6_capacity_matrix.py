@@ -40,3 +40,32 @@ def test_failed_zero_blocks_loading_instead_of_claiming_retention(
     assert result["physical_status"] == "FAIL"
     assert result["loading_status"] == "BLOCKED"
     assert not result["reserve_qualified"]
+
+
+def test_refinement_uses_observed_local_boundaries_without_monotonic_assumption():
+    from teleopit.sim.g1_o6_support.capacity_matrix import boundary_cases
+
+    reference = {
+        "time_s": 1,
+        "selection": ["settled"],
+        "wrench_world_at_mount": [1, 0, 0, 0, 0, 0],
+    }
+    trials = [
+        {
+            "name": str(scale),
+            "family": "combined",
+            "scale": scale,
+            "reference": reference,
+            "wrench": [scale, 0, 0, 0, 0, 0],
+            "result": {
+                "strict_pass": passed,
+                "physical_retention": passed,
+                "plateau_complete": passed,
+            },
+        }
+        for scale, passed in [(0.5, True), (1, False), (1.5, True), (2, False)]
+    ]
+    cases = boundary_cases(trials)
+    midpoints = [c["scale"] for c in cases if c["kind"] == "midpoint"]
+    assert midpoints == [0.75, 1.25, 1.75]
+    assert any(c["kind"] == "fine_repeat" and c["scale"] == 0.5 for c in cases)

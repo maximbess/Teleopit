@@ -37,3 +37,21 @@ def test_measured_references_are_simultaneous_and_settled():
             ref["wrench_world_at_mount"], original["wrist_world_on_hand"]["left"]
         )
     assert any("settled" in ref["selection"] for ref in refs)
+
+
+def test_failed_transfer_cannot_supply_a_qualified_capacity_source(
+    tmp_path, monkeypatch
+):
+    import json
+    from types import SimpleNamespace
+
+    import pytest
+
+    from teleopit.sim.g1_o6_support import capacity
+
+    (tmp_path / "summary.json").write_text(
+        json.dumps({"static_hold_passed": True, "final_phase": "ABORT"})
+    )
+    monkeypatch.setattr(capacity, "Source", lambda path: SimpleNamespace(path=path))
+    with pytest.raises(ValueError, match="qualified coupled hold"):
+        capacity.qualified_source(tmp_path)

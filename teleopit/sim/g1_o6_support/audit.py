@@ -9,10 +9,10 @@ from teleopit.sim.o6_diagnostics.nominal import gate_measurements
 
 
 class PhysicsAudit:
-    def __init__(self, env, stream=None):
+    def __init__(self, env):
         self.events = Events(env.config.physics_dt, env.config.stability_seconds)
         self.all_events = Events(env.config.physics_dt, env.config.stability_seconds)
-        self.stream = stream
+        self.optional_supports = set()
         self.scored_steps = 0
         self.applied_steps = 0
         self.prohibited_steps = 0
@@ -34,6 +34,9 @@ class PhysicsAudit:
         phase = self.phase or env.phase
         self.all_events.update(row["time"], phase, values, thresholds)
         if env.phase == "HOLD":
+            for name in self.optional_supports:
+                for prefix in ("contact_loss:", "opposition_loss:"):
+                    values.pop(prefix + name, None)
             self.scored(env, row, values, thresholds, phase)
 
     def scored(self, env, row, values, thresholds, phase):

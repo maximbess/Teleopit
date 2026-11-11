@@ -1,0 +1,18 @@
+{
+  "source_run": "../../../outputs/g1_o6/support_transfer/control_before",
+  "long_holds": [
+    "../../../outputs/g1_o6/support_transfer/hold_60s",
+    "../../../outputs/g1_o6/support_transfer/hold_120s"
+  ],
+  "capacity_runs": [
+    "../../../outputs/g1_o6/support_transfer/capacity_initial/left_zero",
+    "../../../outputs/g1_o6/support_transfer/capacity_initial/right_zero",
+    "../../../outputs/g1_o6/support_transfer/capacity_settled/left_zero",
+    "../../../outputs/g1_o6/support_transfer/capacity_settled/right_zero",
+    "../../../outputs/g1_o6/support_transfer/capacity_repeat/left/zero",
+    "../../../outputs/g1_o6/support_transfer/capacity_repeat/right/zero",
+    "../../../outputs/g1_o6/support_transfer/capacity_fine/left/zero",
+    "../../../outputs/g1_o6/support_transfer/capacity_fine/right/zero"
+  ],
+  "transfers": []
+}

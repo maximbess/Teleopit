@@ -32,6 +32,23 @@ def main():
     )
     matrix.add_argument("--prior-trials", type=int, choices=range(9), default=0)
     matrix.add_argument("--output", required=True)
+    transfer = commands.add_parser("transfer")
+    transfer.add_argument("--evidence", required=True)
+    transfer.add_argument(
+        "--mode", choices=("load", "unload", "release", "reacquire"), default="load"
+    )
+    transfer.add_argument("--side", choices=("left", "right"), default="left")
+    transfer.add_argument(
+        "--target-share", type=float, choices=(0.05, 0.1, 0.2), default=0.05
+    )
+    transfer.add_argument("--cycles", type=int, choices=(1, 3), default=1)
+    transfer.add_argument("--alternating", action="store_true")
+    transfer.add_argument("--three-seconds", type=int, choices=(1, 3, 10), default=1)
+    transfer.add_argument("--plateau-seconds", type=int, choices=(10, 30), default=10)
+    transfer.add_argument(
+        "--physics-dt", type=float, choices=(0.001, 0.0005), default=0.001
+    )
+    transfer.add_argument("--output", required=True)
     args = parser.parse_args()
     if args.command == "long-hold":
         from teleopit.sim.g1_o6.settings import load_settings
@@ -49,6 +66,21 @@ def main():
             state=args.state,
             dt=args.physics_dt,
             prior_trials=args.prior_trials,
+        )
+    elif args.command == "transfer":
+        from .transfer import run_transfer
+
+        result = run_transfer(
+            args.evidence,
+            args.output,
+            mode=args.mode,
+            side=args.side,
+            target_share=args.target_share,
+            cycles=args.cycles,
+            alternating=args.alternating,
+            three_seconds=args.three_seconds,
+            plateau_seconds=args.plateau_seconds,
+            physics_dt=args.physics_dt,
         )
     else:
         from .capacity import qualified_source, run_capacity

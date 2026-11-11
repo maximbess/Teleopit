@@ -55,6 +55,55 @@ def trial_passes(result):
     )
 
 
+def boundary_cases(trials):
+    groups = {}
+    for trial in trials:
+        if "family" in trial:
+            groups.setdefault(
+                (trial["reference"]["time_s"], trial["family"]), []
+            ).append(trial)
+    cases = []
+    for group in groups.values():
+        ordered = sorted(group, key=lambda c: c["scale"])
+        for low, high in zip(ordered, ordered[1:]):
+            if trial_passes(low["result"]) != trial_passes(high["result"]):
+                midpoint = {
+                    **low,
+                    "scale": (low["scale"] + high["scale"]) / 2,
+                    "wrench": ((np.array(low["wrench"]) + high["wrench"]) / 2).tolist(),
+                }
+                for kind, case in (
+                    ("midpoint", midpoint),
+                    ("repeat", low),
+                    ("repeat", high),
+                    ("fine_repeat", low),
+                    ("fine_repeat", high),
+                ):
+                    cases.append(
+                        {**case, "kind": kind, "name": f"boundary_{len(cases)}_{kind}"}
+                    )
+    return cases
+
+
+def run_case(source, side, path, case, dt):
+    return {
+        **case,
+        "result": run_capacity(
+            source,
+            side,
+            path / case["name"],
+            wrench=case["wrench"],
+            physics_dt=dt,
+            reference={
+                **{k: v for k, v in case.items() if k != "result"},
+                "axes": "world",
+                "origin": "wrist_mount",
+                "follower": False,
+            },
+        ),
+    }
+
+
 def evaluate_side(source, side, path, references, dt, budget):
     zero = run_capacity(source, side, path / "zero", physics_dt=dt)
     result = {
@@ -74,25 +123,32 @@ def evaluate_side(source, side, path, references, dt, budget):
     if len(cases) + 1 > budget:
         raise ValueError("capacity matrix exceeds the declared trial budget")
     for case in cases:
-        outcome = run_capacity(
-            source,
-            side,
-            path / case["name"],
-            wrench=case["wrench"],
-            physics_dt=dt,
-            reference={
-                **case,
-                "axes": "world",
-                "origin": "wrist_mount",
-                "follower": False,
-            },
+        result["trials"].append(run_case(source, side, path, case, dt))
+    followups = boundary_cases(result["trials"])
+    if not followups and cases:
+        selected = next(c for c in reversed(cases) if c["family"] == "combined")
+        followups = [
+            {**selected, "name": "selected_repeat", "kind": "repeat"},
+            {**selected, "name": "selected_fine", "kind": "fine_repeat"},
+        ]
+    result["unrun_boundary_cases"] = max(
+        0, len(followups) - (budget - len(result["trials"]))
+    )
+    for case in followups[: budget - len(result["trials"])]:
+        result["trials"].append(
+            run_case(
+                source,
+                side,
+                path,
+                case,
+                0.0005 if case["kind"] == "fine_repeat" else dt,
+            )
         )
-        result["trials"].append({**case, "result": outcome})
     result["loading_status"] = (
         "PASS" if all(trial_passes(c["result"]) for c in result["trials"]) else "FAIL"
     )
     reserves = [c for c in result["trials"] if c.get("scale") == 1.2]
-    result["reserve_qualified"] = bool(reserves) and all(
+    result["reserve_qualified"] = len(reserves) >= len(references) > 0 and all(
         trial_passes(c["result"]) for c in reserves
     )
     result["physical_status"] = result["loading_status"]
