@@ -81,7 +81,8 @@ def portable_scene(path):
     for element in tree.iter():
         name = element.get("file")
         if name:
-            asset = Path(name).resolve()
+            asset = Path(name)
+            asset = (asset if asset.is_absolute() else path.parent / asset).resolve()
             asset.relative_to(Path.cwd())  # Do not collect unrelated external paths.
             if not asset.is_file():
                 raise FileNotFoundError(asset)
@@ -91,18 +92,24 @@ def portable_scene(path):
     return ET.tostring(tree.getroot(), encoding="utf-8", xml_declaration=True)
 
 
+def compare_numeric_fields(before, after, ignored=()):
+    checked = []
+    for name in dir(before):
+        if name.startswith("_") or name.endswith("pathadr") or name in ignored:
+            continue
+        value = getattr(before, name)
+        if isinstance(value, (np.ndarray, int, float)):
+            np.testing.assert_array_equal(value, getattr(after, name), err_msg=name)
+            checked.append(name)
+    return len(checked)
+
+
 def compare_models(original, portable):
     before = mujoco.MjModel.from_xml_path(str(original))
     after = mujoco.MjModel.from_xml_path(str(portable))
-    checked = []
-    for name in dir(before):
-        value = getattr(before, name)
-        if isinstance(value, np.ndarray) and not name.endswith("pathadr"):
-            np.testing.assert_array_equal(value, getattr(after, name), err_msg=name)
-            checked.append(name)
-    for name in ("timestep", "tolerance", "integrator", "cone", "solver", "iterations"):
-        assert getattr(before.opt, name) == getattr(after.opt, name), name
-    return len(checked)
+    # Rewriting filenames changes the path string table and its buffer allocation.
+    fields = compare_numeric_fields(before, after, ("npaths", "nbuffer"))
+    return fields + compare_numeric_fields(before.opt, after.opt)
 
 
 class Archive:
@@ -136,7 +143,8 @@ def add_files(archive, files, staging):
             scenes.append(
                 {
                     "scene": path.as_posix(),
-                    "identical_numeric_arrays": fields,
+                    "identical_numeric_fields": fields,
+                    "excluded_bookkeeping": "private fields, filename offsets, npaths, nbuffer",
                     "original_scene": "scene_original.xml",
                 }
             )
@@ -160,7 +168,7 @@ def add_manifests(archive, paths):
         }
         value["portable_archive"] = {
             "original_manifest": "manifest_original.json",
-            "scene_rewrite": "file references only; all compiled numeric model arrays identical",
+            "scene_rewrite": "file references only; compiled public numeric physics fields identical",
         }
         for child in value.get("child_runs", {}).values():
             child["sha256"] = archive.hashes[parent + child["manifest"]]

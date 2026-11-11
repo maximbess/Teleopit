@@ -54,4 +54,4 @@ $testFiles = rg --files tests | Where-Object { $_ -match 'test_(g1_o6|o6).*\.py$
 conda run --no-capture-output -n teleopit python -m pytest @testFiles -q --basetemp outputs/g1_o6/reproduction/pytest
 ```
 
-Video replays recorded positions on separate display data, without physics stepping or new qualification. Packaging verifies every archived file hash and exact equality of compiled numeric scene arrays after replacing absolute file references with relative paths. Keep the original asset/model licenses distributed with the files.
+Video replays recorded positions on separate display data, without physics stepping or new qualification. Packaging verifies every archived file hash and exact equality of public numeric model/solver fields after replacing absolute file references with relative paths; filename offsets and path/buffer storage sizes are excluded. Keep the original asset/model licenses distributed with the files.
