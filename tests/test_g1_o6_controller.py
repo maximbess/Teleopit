@@ -151,3 +151,12 @@ def test_internal_robot_contacts_do_not_enter_force_balance():
     assert len(rows) == 1 and rows[0]["normal_force"] > 0
     assert rows[0]["regions"] == ["left_hand", "right_hand"]
     np.testing.assert_array_equal(external, [0, 0, 0])
+
+
+def test_hold_only_finishes_without_authorizing_release():
+    env = controller("HOLD")
+    env.hold_only = True
+    tick(env, stable_row(), 10.04)
+    assert env.phase == "HOLD_COMPLETE"
+    assert env.hold_passed
+    assert all(e["next"] != "UNLOAD_SELECTED_HAND" for e in env.events)

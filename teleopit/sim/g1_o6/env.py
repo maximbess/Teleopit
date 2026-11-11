@@ -16,8 +16,10 @@ from .model import build_model
 
 
 class Environment:
-    def __init__(self, config=None):
+    def __init__(self, config=None, *, pose=None, hold_only=False):
         self.config = config or Config()
+        self.pose = pose
+        self.hold_only = hold_only or pose is not None
         self.model, self.xml, self.hands, self.audit = build_model(self.config)
         self.data = mujoco.MjData(self.model)
         self.mass = float(self.model.body_subtreemass[self.model.body("pelvis").id])
@@ -31,6 +33,13 @@ class Environment:
     def reset(self):
         mujoco.mj_resetData(self.model, self.data)
         self.ik = initial_state(self.model, self.data, self.hands, self.config)
+        self.hold_controller = None
+        if hasattr(self, "support_targets"):
+            del self.support_targets
+        if self.pose is not None:
+            from .grasp_pose import place_hands
+
+            self.ik = place_hands(self, self.pose)
         self.initial_qpos = self.data.qpos.copy()
         self.body_target = self.data.qpos[self.act_qpos].copy()
         self.target = self.body_target.copy()
@@ -51,9 +60,29 @@ class Environment:
         self.confirm_time = 0.0
         self.data.ctrl[:] = self.target
         mujoco.mj_forward(self.model, self.data)
+        if self.pose is not None:
+            from .holding import HoldController
+
+            self.hold_controller = HoldController(
+                self,
+                closed_pose=self.pose.closed_pose,
+                preload_Nm=self.pose.finger_preload_Nm,
+            )
+            self.initialize_preload()
         row = snapshot(self)
         self.initial_errors = initial_errors(row, self.ik)
         return row
+
+    def initialize_preload(self):
+        # A reset may initialize a static servo preload. All subsequent target
+        # updates still obey the existing 1 rad/s limiter and actuator bounds.
+        limits = self.model.jnt_range[self.model.actuator_trnid[:, 0]]
+        self.target = np.clip(
+            self.hold_controller.desired(self, 0.0), limits[:, 0], limits[:, 1]
+        )
+        self.queue = deque([self.target.copy() for _ in range(self.config.delay_steps)])
+        self.data.ctrl[:] = self.target
+        mujoco.mj_forward(self.model, self.data)
 
     def transition(self, phase):
         self.events.append(
@@ -112,7 +141,11 @@ class Environment:
                 self.abort(["full_interval_not_stable"])
             else:
                 self.hold_passed = True
-                self.transition("UNLOAD_SELECTED_HAND")
+                self.transition(
+                    "HOLD_COMPLETE"
+                    if getattr(self, "hold_only", False)
+                    else "UNLOAD_SELECTED_HAND"
+                )
 
     def advance_release(self, row, elapsed, reasons):
         if self.bad >= self.config.stability_seconds:
@@ -190,6 +223,8 @@ class Environment:
             amount = 0.0
         for side, indices in self.hand_act.items():
             desired[indices] = amount * np.array(ladder_rung_config().closed_pose)
+        if self.hold_controller is not None:
+            desired = self.hold_controller.desired(self, amount)
         side = cfg.release_side
         if self.phase in ("OPEN", "RETRACT", "HOLD_REMAINING_SUPPORTS", "RETURN"):
             desired[self.hand_act[side]] *= (
@@ -240,7 +275,7 @@ class Environment:
         force = (
             3000 * (self.reference_position - d.qpos[:3])
             - 150 * d.qvel[:3]
-            + [0, 0, self.mass * 9.81]
+            + [0, 0, self.mass * 9.81 if self.pose is None else 0.0]
         )
         moment = 200 * (
             self.reference_rotation * rotation.inv()
@@ -275,7 +310,7 @@ class Environment:
         )
 
     def step(self, physics_observer=None, *, advance_phase=True):
-        if self.phase in ("ABORT", "DONE"):
+        if self.phase in ("ABORT", "DONE", "HOLD_COMPLETE"):
             raise RuntimeError("trial finished")
         self.commands()
         for _ in range(round(self.config.control_dt / self.config.physics_dt)):
