@@ -282,7 +282,17 @@ def test_harness_uses_source_preload_targets_and_delay(source):
 
 
 @pytest.mark.parametrize(
-    "change", ["historical", "missing_controller", "mapping", "rung", "preload"]
+    "change",
+    [
+        "historical",
+        "missing_controller",
+        "mapping",
+        "rung",
+        "preload",
+        "initial",
+        "mount",
+        "nonfinite",
+    ],
 )
 def test_source_rejects_missing_or_inconsistent_controller_contract(
     source, tmp_path, change
@@ -301,8 +311,14 @@ def test_source_rejects_missing_or_inconsistent_controller_contract(
         metadata["command_joint_mapping"]["left"] = ["wrong"] * 6
     elif change == "rung":
         metadata["support_targets"]["left_hand"] = "left_ladder_rung_08"
-    else:
+    elif change == "preload":
         metadata["controller"]["finger_preload_Nm"] = 0.2
+    elif change == "initial":
+        del metadata["initial"]["base_pose"]
+    elif change == "mount":
+        del metadata["model"]["hands"]["left"]["mount"]
+    else:
+        metadata["initial"]["joint_positions"][0] = float("nan")
     (tmp_path / "resolved.json").write_text(json.dumps(metadata))
     # Contract validation precedes even loading scene.xml.
     with pytest.raises(ValueError, match="source-run"):
