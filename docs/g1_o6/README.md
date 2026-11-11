@@ -4,6 +4,8 @@ The default CPU MuJoCo experiment uses both authentic O6 hands on rung 11, thumb
 
 The consolidation preserves the successful trajectory exactly. See the [before/after validation](consolidation/README.md), [work log](consolidation/WORK_LOG.md) and [historical experiments](HISTORY.md).
 
+The [support validation and hand-transfer experiments](support_transfer/README.md) add opt-in long holds, free-wrist capacity measurements and gated load/unload/release/reacquisition commands. Long-hold and isolated-grasp qualification currently fail, so physical hand transfer remains blocked. The ordinary 30 s holding trajectory remains byte-identical.
+
 ## Run
 
 Use conda `teleopit` from the repository root on `dex-hand-exp`. Install missing canonical assets with `python scripts/setup/install_climb_assets.py`. Choose fresh output paths for each experiment.

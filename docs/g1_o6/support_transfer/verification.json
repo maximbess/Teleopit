@@ -1,0 +1,141 @@
+{
+  "schema": "g1_o6_support_verification_v1",
+  "runtime_revision": "b4daebd",
+  "environment": "teleopit",
+  "tests": {
+    "passed": 235,
+    "warnings": 1,
+    "log": "tests_checked.txt"
+  },
+  "changed_runtime_functions": 112,
+  "crap_ge_10": [],
+  "duplication_ge_0_8": [],
+  "tools": "Radon + measured statement coverage; AST SequenceMatcher (>=50 nodes)",
+  "named_quality_tools_available": false,
+  "behavioral_mutations": [
+    {
+      "name": "signed_share",
+      "test": "tests/test_g1_o6_support.py::test_signed_hand_share_uses_weight_and_excludes_internal_wrist_loads",
+      "exit_code": 1,
+      "killed": true
+    },
+    {
+      "name": "continuous_guard",
+      "test": "tests/test_g1_o6_transfer_guards.py::test_guard_requires_continuous_elapsed_time_and_resets_on_bad_sample",
+      "exit_code": 1,
+      "killed": true
+    },
+    {
+      "name": "unload_floor",
+      "test": "tests/test_g1_o6_transfer_guards.py::test_unload_needs_meaningful_reference_and_compensating_reactions",
+      "exit_code": 1,
+      "killed": true
+    },
+    {
+      "name": "actual_clearance",
+      "test": "tests/test_g1_o6_transfer_guards.py::test_release_requires_actual_open_motion_contacts_and_clearance",
+      "exit_code": 1,
+      "killed": true
+    },
+    {
+      "name": "wrench_sign",
+      "test": "tests/test_g1_o6_transfer_guards.py::test_capacity_coverage_preserves_wrench_direction_and_tested_reserve",
+      "exit_code": 1,
+      "killed": true
+    },
+    {
+      "name": "timeout",
+      "test": "tests/test_g1_o6_transfer_protocol.py::test_protocol_timeout_is_terminal_and_cannot_be_overwritten",
+      "exit_code": 1,
+      "killed": true
+    },
+    {
+      "name": "failed_source",
+      "test": "tests/test_g1_o6_capacity.py::test_failed_transfer_cannot_supply_a_qualified_capacity_source",
+      "exit_code": 1,
+      "killed": true
+    },
+    {
+      "name": "joint_limit_windup",
+      "test": "tests/test_g1_o6_transfer_observations.py::test_load_integrator_freezes_at_physical_command_limits",
+      "exit_code": 1,
+      "killed": true
+    },
+    {
+      "name": "applied_array",
+      "test": "tests/test_g1_o6_transfer_control.py::test_read_only_audit_detects_actual_applied_arrays_and_optional_contact_loss",
+      "exit_code": 1,
+      "killed": true
+    }
+  ],
+  "default_control_byte_identical": true,
+  "control_sha256": {
+    "control_before": {
+      "steps.jsonl": "f161214491e70e997f68df0af43972848dbd9175c91c8b9d4c0d7e92a771d45d",
+      "summary.json": "aa8c62074084971e551f4e78e16dae9ce5c3e758050fb634ef892bcec01265a2"
+    },
+    "control_after": {
+      "steps.jsonl": "f161214491e70e997f68df0af43972848dbd9175c91c8b9d4c0d7e92a771d45d",
+      "summary.json": "aa8c62074084971e551f4e78e16dae9ce5c3e758050fb634ef892bcec01265a2"
+    },
+    "control_final": {
+      "steps.jsonl": "f161214491e70e997f68df0af43972848dbd9175c91c8b9d4c0d7e92a771d45d",
+      "summary.json": "aa8c62074084971e551f4e78e16dae9ce5c3e758050fb634ef892bcec01265a2"
+    }
+  },
+  "free_close_reopen": {
+    "left_gravity": "PASS",
+    "left_no_gravity": "PASS",
+    "right_gravity": "PASS",
+    "right_no_gravity": "PASS"
+  },
+  "fresh_cli_prerequisite_checks": {
+    "load_left": [
+      "stage_1_requires_120s_nominal_repeat_fine_and_convergence",
+      "stage_2_requires_both_hand_tested_wrench_reserve"
+    ],
+    "reacquire_left": [
+      "stage_1_requires_120s_nominal_repeat_fine_and_convergence",
+      "stage_2_requires_both_hand_tested_wrench_reserve",
+      "qualified_stage_3_target",
+      "both_sides_closed_unload_reload",
+      "both_sides_ten_second_three_support"
+    ],
+    "reacquire_right": [
+      "stage_1_requires_120s_nominal_repeat_fine_and_convergence",
+      "stage_2_requires_both_hand_tested_wrench_reserve",
+      "qualified_stage_3_target",
+      "both_sides_closed_unload_reload",
+      "both_sides_ten_second_three_support"
+    ],
+    "release_left": [
+      "stage_1_requires_120s_nominal_repeat_fine_and_convergence",
+      "stage_2_requires_both_hand_tested_wrench_reserve",
+      "qualified_stage_3_target",
+      "both_sides_closed_unload_reload"
+    ],
+    "release_right": [
+      "stage_1_requires_120s_nominal_repeat_fine_and_convergence",
+      "stage_2_requires_both_hand_tested_wrench_reserve",
+      "qualified_stage_3_target",
+      "both_sides_closed_unload_reload"
+    ],
+    "unload_left": [
+      "stage_1_requires_120s_nominal_repeat_fine_and_convergence",
+      "stage_2_requires_both_hand_tested_wrench_reserve",
+      "qualified_stage_3_target"
+    ],
+    "unload_right": [
+      "stage_1_requires_120s_nominal_repeat_fine_and_convergence",
+      "stage_2_requires_both_hand_tested_wrench_reserve",
+      "qualified_stage_3_target"
+    ]
+  },
+  "artifact_sha256": {
+    "tests_checked.txt": "7e0997e60a3cd9d8a73098c18acfa4d4ffd2e036253dc1cd7c0f1265dacb1513",
+    "quality.json": "9806efb57e1124ab1d3a68cc059a35a20483dba9ec8ef0db5742cbe56b97877e",
+    "mutations.json": "0665d578378d59a55527f829ac85e2b531bea5d55be36f5d874091a76fcc1618",
+    "coverage.json": "4711e61601a707fc0f196d11f3720b3884db56ef768f7ff5d2322e532a5fadad"
+  },
+  "limits": "Scoped software checks; blocked physical maneuvers remain unvalidated."
+}
