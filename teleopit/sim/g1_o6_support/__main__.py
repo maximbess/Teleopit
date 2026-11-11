@@ -15,6 +15,7 @@ def main():
         "--physics-dt", type=float, choices=(0.001, 0.0005), default=0.001
     )
     hold.add_argument("--output", required=True)
+    hold.add_argument("--grasp-config")
     capacity = commands.add_parser("capacity-case")
     capacity.add_argument("--source-run", required=True)
     capacity.add_argument("--state", choices=("initial", "settled"), default="initial")
@@ -25,7 +26,12 @@ def main():
     capacity.add_argument("--output", required=True)
     args = parser.parse_args()
     if args.command == "long-hold":
-        result = run_hold(args.output, seconds=args.seconds, physics_dt=args.physics_dt)
+        from teleopit.sim.g1_o6.settings import load_settings
+
+        _, pose = load_settings(grasp_path=args.grasp_config)
+        result = run_hold(
+            args.output, seconds=args.seconds, physics_dt=args.physics_dt, pose=pose
+        )
     else:
         from .capacity import qualified_source, run_capacity
 
