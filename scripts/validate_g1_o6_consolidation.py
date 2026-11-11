@@ -7,6 +7,7 @@ Output must be new: this command never replaces an earlier experiment.
 import argparse
 import hashlib
 import json
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import numpy as np
@@ -22,6 +23,19 @@ def read(path):
 
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def scene_structure(path):
+    root = ET.parse(path).getroot()
+    # MuJoCo's warm mesh cache omits this redundant MIME hint on XML export.
+    # Compare every other attribute and node exactly, including asset paths.
+    for mesh in root.findall("asset/mesh"):
+        if (
+            mesh.get("file", "").endswith(".obj")
+            and mesh.get("content_type") == "model/obj"
+        ):
+            del mesh.attrib["content_type"]
+    return [(node.tag, node.attrib, (node.text or "").strip()) for node in root.iter()]
 
 
 def compare_arrays(config, archive):
@@ -86,8 +100,11 @@ def compare_run(reference, current):
     # Every logged physical field, phase event and summary must match, not just PASS.
     files = {
         name: digest(reference / name) == digest(current / name)
-        for name in ("steps.jsonl", "summary.json", "scene.xml")
+        for name in ("steps.jsonl", "summary.json")
     }
+    files["scene_structure"] = scene_structure(
+        reference / "scene.xml"
+    ) == scene_structure(current / "scene.xml")
     before, after = [read(path / "resolved.json") for path in (reference, current)]
     metadata = {
         name: before[name] == after[name]
@@ -109,6 +126,8 @@ def compare_run(reference, current):
         for s in ("left", "right")
     }
     return {
+        "scene_bytes_equal": digest(reference / "scene.xml")
+        == digest(current / "scene.xml"),
         "files_equal": files,
         "metadata_equal": metadata,
         "wrist_samples_equal": traces,
