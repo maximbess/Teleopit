@@ -127,10 +127,9 @@ def fit_arm(env, side, target, rotation):
             0.015 * q[-2:],
         ]
 
-    starts = [
-        np.clip(data.qpos[addresses], bounds[:, 0], bounds[:, 1]),
-        np.random.default_rng(0).uniform(bounds[:, 0], bounds[:, 1]),
-    ]
+    starts = arm_starts(
+        data.qpos[addresses], bounds, getattr(env, "reset_arm_seed", None)
+    )
     solutions = [
         least_squares(residual, q, bounds=(bounds[:, 0], bounds[:, 1]), max_nfev=120)
         for q in starts
@@ -141,3 +140,12 @@ def fit_arm(env, side, target, rotation):
         "position_error_m": float(np.linalg.norm(error[:3]) / 10),
         "angle_error_rad": float(np.linalg.norm(error[3:6])),
     }
+
+
+def arm_starts(current, bounds, seed=None):
+    if seed is not None:
+        return [np.random.default_rng(seed).uniform(bounds[:, 0], bounds[:, 1])]
+    return [
+        np.clip(current, bounds[:, 0], bounds[:, 1]),
+        np.random.default_rng(0).uniform(bounds[:, 0], bounds[:, 1]),
+    ]
