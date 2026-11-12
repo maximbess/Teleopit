@@ -81,3 +81,45 @@ def test_infeasible_candidate_is_rejected_without_stepping(tmp_path, monkeypatch
     )
     assert result["reset_status"] == "INFEASIBLE"
     assert result["physics_steps"] == 0 and not result["progression_justified"]
+
+
+def test_parallel_workers_have_one_ledger_writer_and_resume_completed_jobs(
+    tmp_path, monkeypatch
+):
+    from concurrent.futures import ThreadPoolExecutor
+
+    from teleopit.sim.g1_o6_support import pose_campaign
+
+    calls = []
+
+    def simulated_result(candidate, output, **kwargs):
+        calls.append(candidate.id)
+        return {"strict_status": "PASS", "progression_justified": False}
+
+    monkeypatch.setattr(pose_campaign, "ProcessPoolExecutor", ThreadPoolExecutor)
+    monkeypatch.setattr(pose_campaign, "run_candidate", simulated_result)
+    campaign = pose_campaign.Campaign(tmp_path)
+    jobs = [("reference", "screen"), ("rung10", "screen")]
+    campaign.run_many(jobs, workers=2)
+    campaign.run_many(jobs, workers=2)
+    assert sorted(calls) == ["reference", "rung10"]
+    assert len(campaign.state["runs"]) == 2
+    assert all(r["status"] == "COMPLETE" for r in campaign.state["runs"])
+
+
+def test_failed_registration_leaves_frozen_candidates_unchanged(tmp_path):
+    import copy
+    from dataclasses import replace
+
+    from teleopit.sim.g1_o6_support.pose_campaign import Campaign
+
+    campaign = Campaign(tmp_path)
+    before = copy.deepcopy(campaign.state)
+    with pytest.raises(ValueError, match="budget"):
+        campaign.register(
+            [
+                replace(campaign.candidate("reference"), id=f"overflow_{i}")
+                for i in range(33)
+            ]
+        )
+    assert campaign.state == before

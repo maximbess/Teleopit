@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import traceback
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -169,13 +170,17 @@ class Campaign:
             record.update(status="ERROR", error=traceback.format_exc())
             self.save()
             raise
+        self.complete(record, result)
+        return result
+
+    def complete(self, record, result):
         record.update(status="COMPLETE", result=result)
         self.save()
         print(
             json.dumps(
                 {
-                    "candidate": name,
-                    "stage": stage,
+                    "candidate": record["candidate"],
+                    "stage": record["stage"],
                     "strict": result["strict_status"],
                     "contact": result.get("contact_quality", {}).get("status"),
                     "late_motion": result.get("drift_assessment", {}).get("status"),
@@ -184,7 +189,55 @@ class Campaign:
             ),
             flush=True,
         )
-        return result
+
+    def run_many(self, requests, workers=3):
+        records = self.reserve_many(requests)
+        errors = []
+        with ProcessPoolExecutor(max_workers=workers) as pool:
+            jobs = {
+                pool.submit(
+                    run_candidate,
+                    self.candidate(r["candidate"]),
+                    self.root / r["output"],
+                    seconds=STAGES[r["stage"]][0],
+                    physics_dt=STAGES[r["stage"]][1],
+                ): r
+                for r in records
+            }
+            for future in as_completed(jobs):
+                record = jobs[future]
+                error = future.exception()
+                if error is None:
+                    self.complete(record, future.result())
+                else:
+                    record.update(
+                        status="ERROR",
+                        error="".join(
+                            traceback.format_exception(
+                                type(error), error, error.__traceback__
+                            )
+                        ),
+                    )
+                    errors.append(record["id"])
+                    self.save()
+        if errors:
+            raise RuntimeError("technical errors preserved: " + ", ".join(errors))
+
+    def reserve_many(self, requests):
+        pending = []
+        preview = list(self.state["runs"])
+        for name, stage in requests:
+            previous = self.previous(name, stage)
+            if previous is not None:
+                if previous["status"] != "COMPLETE":
+                    raise ValueError(
+                        "unfinished/error batch attempt requires explicit retry"
+                    )
+                continue
+            validate_trial(preview, name, stage, self.state["specification"]["budgets"])
+            pending.append((name, stage))
+            preview.append({"candidate": name, "stage": stage, "status": "RESERVED"})
+        return [self.reserve(name, stage, None, None) for name, stage in pending]
 
     def reserve(self, name, stage, previous, reason):
         suffix = "_retry_" + str(len(self.state["runs"])) if previous else ""
@@ -222,5 +275,8 @@ def mandatory(campaign):
 
 
 def initial_screen(campaign):
-    for candidate in initial_geometry():
-        campaign.run(candidate.id, "screen")
+    requests = [(c.id, "screen") for c in initial_geometry()]
+    previous = campaign.previous("reference", "60s")
+    if previous and previous.get("result", {}).get("strict_status") == "PASS":
+        requests.insert(0, ("reference", "120s"))
+    campaign.run_many(requests)

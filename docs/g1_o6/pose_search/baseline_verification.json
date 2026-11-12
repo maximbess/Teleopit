@@ -1,0 +1,8 @@
+{
+  "physical_fields_exact": true,
+  "strict_summary_exact": true,
+  "control_rows": 1753,
+  "original_run": "outputs\\g1_o6\\pose_search\\control_before",
+  "enhanced_run": "outputs\\g1_o6\\pose_search\\runs\\reference_screen",
+  "enhanced_contact_quality": "PASS"
+}
