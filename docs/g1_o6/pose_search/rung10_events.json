@@ -1,0 +1,17 @@
+[
+  [
+    "hold_entry",
+    0,
+    "HOLD entry"
+  ],
+  [
+    "first_0",
+    0.001000000000000334,
+    "joint_limits"
+  ],
+  [
+    "first_1",
+    -0.2150000000000718,
+    "joint_limits before HOLD"
+  ]
+]

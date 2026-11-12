@@ -97,7 +97,10 @@ def campaign_lock(path):
 
 
 class Campaign:
-    def __init__(self, root):
+    def __init__(self, root, workers=3):
+        if type(workers) is not int or not 1 <= workers <= 6:
+            raise ValueError("workers must be an integer from 1 to 6")
+        self.workers = workers
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
         self.path = self.root / "campaign_state.json"
@@ -196,11 +199,11 @@ class Campaign:
             flush=True,
         )
 
-    def run_many(self, requests, workers=3):
+    def run_many(self, requests, workers=None):
         records = self.reserve_many(requests)
         records = self.preflight(records)
         errors = []
-        with ProcessPoolExecutor(max_workers=workers) as pool:
+        with ProcessPoolExecutor(max_workers=workers or self.workers) as pool:
             jobs = {
                 pool.submit(
                     run_candidate,

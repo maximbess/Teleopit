@@ -21,6 +21,12 @@ def main():
     parser.add_argument(
         "--output", type=Path, default=Path("outputs/g1_o6/pose_search")
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=3,
+        help="1–6 independent trial processes; one ledger writer",
+    )
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("init")
     register = commands.add_parser("register")
@@ -42,7 +48,7 @@ def main():
     trial.add_argument("--retry-reason")
     args = parser.parse_args()
     with campaign_lock(args.output):
-        campaign = Campaign(args.output)
+        campaign = Campaign(args.output, workers=args.workers)
         if args.command == "register":
             campaign.register(
                 [Candidate.from_dict(json.loads(args.candidate_config.read_text()))]

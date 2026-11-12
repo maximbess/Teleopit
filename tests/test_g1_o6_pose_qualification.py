@@ -86,3 +86,34 @@ def test_finalist_cannot_disagree_with_its_contact_verdict():
         },
     }
     assert finalists([result]) == []
+
+
+def test_transfer_long_hold_gate_preserves_new_contact_failure():
+    from copy import deepcopy
+
+    from teleopit.sim.g1_o6_support.qualification import long_hold_gate
+
+    result = {
+        "strict_status": "PASS",
+        "drift_assessment": {"status": "PASS"},
+        "contact_quality": {"status": "PASS"},
+        "physics_audit": {
+            "no_external_support": True,
+            "unintended_support_steps": 0,
+            "housing_contact_steps": 0,
+        },
+    }
+    runs = [
+        {
+            "path": str(i),
+            "metadata": {
+                "experiment": {"requested_hold_s": 120},
+                "config": {"physics_dt": dt},
+            },
+            "summary": deepcopy(result),
+        }
+        for i, dt in enumerate((0.001, 0.001, 0.0005))
+    ]
+    assert long_hold_gate(runs)
+    runs[-1]["summary"]["contact_quality"]["status"] = "FAIL"
+    assert not long_hold_gate(runs)

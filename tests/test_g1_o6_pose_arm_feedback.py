@@ -1,4 +1,3 @@
-import mujoco
 import numpy as np
 
 
@@ -30,8 +29,18 @@ def test_arm_feedback_uses_scratch_state_and_preserves_fingers_feet_and_forces()
     np.testing.assert_allclose(first, original, atol=1e-14)
     # A synthetic tracking error for the command-law test; no physics evidence.
     env.data.qpos[0] += 0.002
-    mujoco.mj_forward(env.model, env.data)
-    arrays = ("qpos", "qvel", "ctrl", "qfrc_applied", "xfrc_applied")
+    # Leave derived arrays stale deliberately: only scratch forward may refresh them.
+    arrays = (
+        "qpos",
+        "qvel",
+        "ctrl",
+        "qfrc_applied",
+        "xfrc_applied",
+        "qacc",
+        "qacc_warmstart",
+        "site_xpos",
+        "actuator_force",
+    )
     before = {n: getattr(env.data, n).copy() for n in arrays}
     next_target = controller.desired(env, 1)
     for name, value in before.items():

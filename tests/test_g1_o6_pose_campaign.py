@@ -141,3 +141,22 @@ def test_frozen_choices_resume_without_reselecting_and_batches_are_atomic(tmp_pa
     with pytest.raises(ValueError, match="preceding strict"):
         again.reserve_many([("reference", "screen"), ("rung10", "60s")])
     assert again.state == before
+
+
+def test_requested_worker_count_preserves_the_single_writer(tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+
+    from teleopit.sim.g1_o6_support import pose_campaign
+
+    counts = []
+
+    def pool(max_workers):
+        counts.append(max_workers)
+        return ThreadPoolExecutor(max_workers=max_workers)
+
+    monkeypatch.setattr(pose_campaign, "ProcessPoolExecutor", pool)
+    campaign = pose_campaign.Campaign(tmp_path, workers=4)
+    campaign.run_many([])
+    assert counts == [4] and campaign.state["runs"] == []
+    with pytest.raises(ValueError, match="workers"):
+        pose_campaign.Campaign(tmp_path, workers=0)

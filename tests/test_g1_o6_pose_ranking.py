@@ -2,7 +2,7 @@ def test_unloaded_hands_are_flagged_per_side_without_absolute_force_substitution
     from teleopit.sim.g1_o6_support.pose_results import load_flag
 
     assert load_flag(
-        {"left": -0.002, "right": 0.012}, {"left": 0.01, "right": 0.01}
+        {"left": -0.02, "right": 0.012}, {"left": 0.01, "right": 0.01}
     ) == {"left": True, "right": False}
     assert load_flag(None, {"left": 0.01}) is None
 

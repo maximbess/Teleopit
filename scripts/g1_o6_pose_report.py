@@ -52,6 +52,8 @@ def hand_lines(axes, rows, side, color):
         (6, "share", "share", "-", 100),
         (7, "wrist_bend_deg", "wrist", "-", 1),
         (7, "elbow_bend_deg", "elbow", "--", 1),
+        (8, "wrist_moment_Nm", "|wrist M|", "-", 1),
+        (9, "arm_effort_fraction", "peak arm effort", "-", 1),
     )
     for panel, field, label, style, scale in signals:
         axes[panel].plot(
@@ -103,7 +105,7 @@ def failure_times(root, result):
 
 def plot_run(root, result, output, label):
     rows = series(root / result["path"])
-    figure, grid = plt.subplots(4, 2, figsize=(15, 14), sharex=True)
+    figure, grid = plt.subplots(5, 2, figsize=(15, 17), sharex=True)
     axes = grid.flatten()
     time = [r["hold_s"] for r in rows]
     axes[0].plot(
@@ -129,6 +131,8 @@ def plot_run(root, result, output, label):
         "Parent-on-hand force at mount (N)",
         "Signed vertical hand share (%)",
         "Physical arm bends (degrees)",
+        "Parent-on-hand moment at mount (Nm)",
+        "Arm actuator effort / physical limit",
     )
     events = failure_times(root, result)
     for ax, title in zip(axes, labels):
@@ -151,13 +155,18 @@ def plot_run(root, result, output, label):
 def save_views(figure, axes, output, label, time, events):
     figure.savefig(output / (label + ".png"), dpi=140)
     figure.savefig(output / (label + ".pdf"))
-    windows = [("hold_entry", 0)] + [
-        ("first_" + str(i), t) for i, (_, t) in enumerate(events)
+    windows = [("hold_entry", 0, "HOLD entry")] + [
+        ("first_" + str(i), t, name) for i, (name, t) in enumerate(events)
     ]
-    for name, moment in windows:
+    title = figure._suptitle.get_text()
+    for name, moment, event in windows:
+        figure.suptitle(
+            title + f"\nWindow: {event} at HOLD {moment:.3f} s", fontsize=10
+        )
         for ax in axes:
             ax.set_xlim(max(min(time), moment - 2), min(max(time), moment + 2))
         figure.savefig(output / (label + "_" + name + ".png"), dpi=140)
+    (output / (label + "_events.json")).write_text(json.dumps(windows, indent=2) + "\n")
 
 
 def representative_runs(results):

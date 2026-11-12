@@ -23,7 +23,7 @@ def test_reference_latches_actual_side_targets_without_jump_and_clears(env, mode
         if mode != "cap_thumb":
             assert first[index] == env.data.ctrl[index]
     latch = {s: v.copy() for s, v in controller.latch.items()}
-    env.data.qpos[env.act_qpos[list(indices.values())]] += 0.2
+    env.data.qpos[env.act_qpos[list(indices.values())]] += 0.4
     second = controller.desired(env, 1)
     for side, index in indices.items():
         expected = latch[side][list(env.hand_act[side]).index(index)]
