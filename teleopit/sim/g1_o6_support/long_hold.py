@@ -45,7 +45,7 @@ def experiment_metadata(env, initial, experiment):
     return metadata
 
 
-def enrich(env, row, telemetry, hold_start):
+def enrich(env, row, telemetry, hold_start, observer=None):
     annotate(env, row)
     if hold_start is not None:
         telemetry.start_hold(env.data)
@@ -56,32 +56,49 @@ def enrich(env, row, telemetry, hold_start):
     row["hold_time_s"] = (
         float(env.data.time - hold_start) if hold_start is not None else None
     )
+    hook = getattr(observer, "enrich", None)
+    if hook is not None:
+        hook(env, row)
 
 
-def run_hold(output, *, seconds=60, physics_dt=0.001, pose=None):
+def run_hold(
+    output,
+    *,
+    seconds=60,
+    physics_dt=0.001,
+    pose=None,
+    environment=None,
+    observer_factory=None,
+    metadata_extra=None,
+):
     import mujoco
 
     cfg = Config(hold_seconds=seconds, physics_dt=physics_dt)
-    env = Environment(cfg, pose=pose)
+    env = environment if environment is not None else Environment(cfg, pose=pose)
+    if env.config.hold_seconds != seconds or env.config.physics_dt != physics_dt:
+        raise ValueError(
+            "environment duration/timestep differs from requested experiment"
+        )
     path = output_directory(output)
     initial = snapshot(env)
     annotate(env, initial)
     metadata = experiment_metadata(
         env, initial, {"mode": "long-hold", "requested_hold_s": seconds}
     )
+    metadata.update(metadata_extra or {})
     write_json(path / "resolved.json", metadata)
     mujoco.mj_saveLastXML(str(path / "scene.xml"), env.model)
     telemetry = coupled_telemetry(env)
     rows, hold_start = [initial], None
-    audit = PhysicsAudit(env)
+    audit = observer_factory(env, path) if observer_factory else PhysicsAudit(env)
     with (path / "steps.jsonl").open("w") as stream:
-        enrich(env, initial, telemetry, hold_start)
+        enrich(env, initial, telemetry, hold_start, audit)
         stream.write(json.dumps(initial) + "\n")
         while env.phase not in ("ABORT", "HOLD_COMPLETE"):
             row = env.step(audit)
             if env.phase == "HOLD" and hold_start is None:
                 hold_start = float(env.data.time)
-            enrich(env, row, telemetry, hold_start)
+            enrich(env, row, telemetry, hold_start, audit)
             rows.append(row)
             stream.write(json.dumps(row) + "\n")
     strict = summarize(env, rows)
@@ -96,6 +113,7 @@ def run_hold(output, *, seconds=60, physics_dt=0.001, pose=None):
         "maximum_reset_drift_m": max(r["base_drift_m"] for r in rows),
         "final_reset_drift_m": rows[-1]["base_drift_m"],
     }
+    finish_observer(audit, result)
     result["progression_justified"] = long_qualified(result, seconds)
     write_json(path / "summary.json", result)
     write_csv(path / "physics_events.csv", audit.events.rows)
@@ -105,12 +123,19 @@ def run_hold(output, *, seconds=60, physics_dt=0.001, pose=None):
     return result
 
 
+def finish_observer(observer, result):
+    if hasattr(observer, "contact_report"):
+        result["contact_quality"] = observer.contact_report()
+        observer.close()
+
+
 def long_qualified(result, seconds):
     audit = result["physics_audit"]
     return (
         seconds >= 120
         and result["strict_status"] == "PASS"
         and result["drift_assessment"]["status"] == "PASS"
+        and result.get("contact_quality", {"status": "PASS"})["status"] == "PASS"
         and audit["no_external_support"]
         and not audit["unintended_support_steps"]
         and not audit["housing_contact_steps"]

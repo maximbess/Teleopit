@@ -1,0 +1,38 @@
+{
+  "schema": "g1_o6_pose_campaign_v1",
+  "starting_revision": "6e5b3c9db0838ef5c7722a420cce7bbcc3d98ed6",
+  "frozen_before_candidate_dynamics": true,
+  "budgets": {"geometry": 32, "controller": 12, "screen_per_candidate": 1, "promoted_60s": 12, "first_120s": 6, "finalists": 2, "boundary_diagnostics": 6, "robustness": 4},
+  "first_comparison": "rung10",
+  "geometry": {
+    "parents": {"reference": [11, 11], "rung10": [10, 10]},
+    "split_rungs": [[10, 11], [11, 10]],
+    "pairs_per_symmetric_parent": {"hand_tilt_deg": [40, 60], "waist_lean_rad": [0.2, 0.4], "hand_spacing_m": [0.16, 0.20]},
+    "offset_slots": {"parents": 2, "axis_delta_m": [[0, -0.005], [0, 0.005], [2, -0.005], [2, 0.005]]},
+    "ik_slots": {"parents": 2, "seeds": [17, 23], "total": 4},
+    "combination_slots": {"maximum": 4, "rule": "Only combine nonconflicting one-factor changes that individually improve the same parent's strict/contact-valid screen rank."},
+    "selection": "Rank strict/contact-valid geometry screens lexicographically; select up to two distinct parents. Resolve adaptive slots once and save decisions before running them.",
+    "duplicate_tolerance_max_joint_rad": 0.001
+  },
+  "controllers": {
+    "parents": 2,
+    "modes_per_parent": ["freeze_thumb", "freeze_all", "cap_thumb", "preload_0.10", "preload_0.14", "thumb_yaw_0.40"],
+    "thumb_cap_rad": 0.03,
+    "conditional_arm_feedback": "Only replace a listed candidate if arm motion/tracking error precedes degradation; otherwise NOT RUN.",
+    "selection": "Use the best strict/contact-valid geometry and one contrasting informative parent; no combination of new laws in a first trial."
+  },
+  "promotion": {
+    "mandatory_rung10": "30 then 60 then first 120 if preceding strict duration passes, regardless of early convergence score",
+    "baseline_120": "One enhanced diagnostic reproduction; archived nominal 60 s supplies its preceding duration. Counts against first_120s.",
+    "geometry_60_slots_including_rung10": 6,
+    "controller_60_slots": 6,
+    "remaining_120_selection": "After mandatory/baseline attempts, rank eligible 60 s candidates across families; prefer evidence from distinct mechanisms. Maximum six first attempts overall.",
+    "finalists": "Only single-run 120 s strict/contact/late-motion passes; freeze identity before repeat/fine."
+  },
+  "reset_criteria": {"max_ik_position_error_m": 0.005, "max_ik_angle_error_rad": 0.1, "max_initial_penetration_m": 0.000001, "minimum_joint_margin_rad": -0.000000001},
+  "contact_criteria": {"loaded_normal_N": 0.05, "opposing_dot_below": -0.5, "control_samples": "Every scored sample must retain thumb-specific opposition and accepted thumb-below/all-fingers-above ordering", "physics_loss_persistence_s": 0.5},
+  "events": {"pre_seconds": 0.25, "post_seconds": 0.25, "window_rule": "HOLD entry and first scored loss/crossing per signal; all transitions, durations and extrema retained"},
+  "load_distribution_flag": "Per-hand signed Fz below 50% of matched reference 20-30 s mean; never claim stronger grasp capacity from unloading",
+  "robustness": {"only_after_qualification": true, "trials": [{"root_offset_x": -0.002}, {"root_offset_x": 0.002}, {"wrist_offset_x": -0.002}, {"wrist_offset_x": 0.002}]},
+  "optional_boundary_branch": "Use only if coupled interventions remain uninterpretable; at most six explicitly assisted diagnostic cases, never capacity qualification."
+}

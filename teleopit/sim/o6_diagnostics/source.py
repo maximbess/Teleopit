@@ -6,11 +6,16 @@ import numpy as np
 
 from teleopit.sim.g1_o6.config import Config
 from teleopit.sim.g1_o6.grasp_pose import GraspPose
+from teleopit.sim.g1_o6.holding import FINGER_LAW
 from teleopit.sim.g1_o6.metadata import SCHEMA, controller_settings
 
 
 def validate_contract(metadata):
     try:
+        if metadata["controller"]["schema"] != FINGER_LAW:
+            raise ValueError(
+                "unsupported source controller; isolated runner supports " + FINGER_LAW
+            )
         if metadata["schema"] != SCHEMA:
             raise ValueError(
                 "historical controller; reproduce it at its archived revision"

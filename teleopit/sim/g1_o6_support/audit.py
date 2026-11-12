@@ -38,6 +38,7 @@ class PhysicsAudit:
                 for prefix in ("contact_loss:", "opposition_loss:"):
                     values.pop(prefix + name, None)
             self.scored(env, row, values, thresholds, phase)
+        return row
 
     def scored(self, env, row, values, thresholds, phase):
         self.scored_steps += 1
