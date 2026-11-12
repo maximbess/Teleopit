@@ -1,5 +1,6 @@
 """Pose candidates use the existing environment and the same strict HOLD runner."""
 
+import json
 from pathlib import Path
 
 import mujoco
@@ -104,7 +105,7 @@ def candidate_metadata(env):
     }
 
 
-def reject_reset(env, path, extra, reasons):
+def reject_reset(env, path, extra, reasons, status="INFEASIBLE"):
     output_directory(path)
     initial = annotate(env, snapshot(env))
     metadata = experiment_metadata(
@@ -118,7 +119,7 @@ def reject_reset(env, path, extra, reasons):
     result = {
         "schema": "g1_o6_pose_rejection_v1",
         "software_status": "PASS",
-        "reset_status": "INFEASIBLE",
+        "reset_status": status,
         "strict_status": "NOT RUN",
         "reasons": reasons,
         "physics_steps": 0,
@@ -133,11 +134,7 @@ def run_candidate(candidate, output, *, seconds=30, physics_dt=0.001):
     path = Path(output)
     if path.exists() and any(path.iterdir()):
         raise FileExistsError(path)
-    env = SearchEnvironment(candidate, seconds, physics_dt)
-    extra = candidate_metadata(env)
-    reasons = list(env.initial_errors)
-    if extra["reset_inspection"]["minimum_joint_margin_rad"] < -1e-9:
-        reasons.append("initial_joint_range")
+    env, extra, reasons = prepare_candidate(candidate, seconds, physics_dt)
     if reasons:
         return reject_reset(env, path, extra, reasons)
     return run_hold(
@@ -148,3 +145,62 @@ def run_candidate(candidate, output, *, seconds=30, physics_dt=0.001):
         observer_factory=PoseObserver,
         metadata_extra=extra,
     )
+
+
+def prepare_candidate(candidate, seconds, dt):
+    env = SearchEnvironment(candidate, seconds, dt)
+    extra = candidate_metadata(env)
+    reasons = list(env.initial_errors)
+    if extra["reset_inspection"]["minimum_joint_margin_rad"] < -1e-9:
+        reasons.append("initial_joint_range")
+    return env, extra, reasons
+
+
+def duplicate_reset(qpos, finger_identity, references):
+    for reference in references:
+        if (
+            reference["finger_identity"] == finger_identity
+            and np.max(np.abs(qpos - reference["qpos"])) <= 0.001
+        ):
+            return reference["id"]
+    return None
+
+
+def preflight_geometry(candidate, output, references):
+    env, extra, reasons = prepare_candidate(candidate, 30, 0.001)
+    if reasons:
+        return reject_reset(env, output, extra, reasons)
+    identity = json.dumps(extra["controller"], sort_keys=True)
+    duplicate = duplicate_reset(env.data.qpos, identity, references)
+    if duplicate is not None:
+        return reject_reset(
+            env, output, extra, ["near_identical_reset_to:" + duplicate], "DUPLICATE"
+        )
+    references.append(
+        {
+            "id": candidate.id,
+            "qpos": env.data.qpos.tolist(),
+            "finger_identity": identity,
+        }
+    )
+    return None
+
+
+def prior_resets(root, records):
+    references = []
+    for record in records:
+        if record["stage"] != "screen" or record["status"] != "COMPLETE":
+            continue
+        if record["result"].get("reset_status") in ("INFEASIBLE", "DUPLICATE"):
+            continue
+        meta = json.loads((root / record["output"] / "resolved.json").read_text())
+        if meta["candidate"]["kind"] == "geometry":
+            references.append(
+                {
+                    "id": record["candidate"],
+                    "qpos": meta["initial"]["base_pose"]
+                    + meta["initial"]["joint_positions"],
+                    "finger_identity": json.dumps(meta["controller"], sort_keys=True),
+                }
+            )
+    return references

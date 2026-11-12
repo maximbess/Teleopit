@@ -71,6 +71,21 @@ def run_hold(
     observer_factory=None,
     metadata_extra=None,
 ):
+    env, path, initial, metadata = prepare_hold(
+        output, seconds, physics_dt, pose, environment, metadata_extra
+    )
+    audit = observer_factory(env, path) if observer_factory else PhysicsAudit(env)
+    rows = record_hold(env, path, initial, audit)
+    result = hold_result(env, rows, seconds, audit)
+    write_json(path / "summary.json", result)
+    write_csv(path / "physics_events.csv", audit.events.rows)
+    write_json(path / "all_phase_events.json", audit.all_events.rows)
+    export_traces(rows, metadata, result["strict"], path)
+    manifest(path, "support_long_hold", {"strict_status": result["strict_status"]})
+    return result
+
+
+def prepare_hold(output, seconds, physics_dt, pose, environment, extra):
     import mujoco
 
     cfg = Config(hold_seconds=seconds, physics_dt=physics_dt)
@@ -85,22 +100,48 @@ def run_hold(
     metadata = experiment_metadata(
         env, initial, {"mode": "long-hold", "requested_hold_s": seconds}
     )
-    metadata.update(metadata_extra or {})
+    metadata.update(extra or {})
     write_json(path / "resolved.json", metadata)
     mujoco.mj_saveLastXML(str(path / "scene.xml"), env.model)
+    return env, path, initial, metadata
+
+
+def summary_row(row):
+    # Full detail is already streamed to disk. These three payloads are not
+    # inputs to the original evaluator, drift calculation or wrist export.
+    return {
+        k: v
+        for k, v in row.items()
+        if k not in ("diagnostic_v1", "pose_search", "support_measurement")
+    }
+
+
+def record_hold(env, path, initial, audit):
     telemetry = coupled_telemetry(env)
-    rows, hold_start = [initial], None
-    audit = observer_factory(env, path) if observer_factory else PhysicsAudit(env)
-    with (path / "steps.jsonl").open("w") as stream:
-        enrich(env, initial, telemetry, hold_start, audit)
-        stream.write(json.dumps(initial) + "\n")
-        while env.phase not in ("ABORT", "HOLD_COMPLETE"):
-            row = env.step(audit)
-            if env.phase == "HOLD" and hold_start is None:
-                hold_start = float(env.data.time)
-            enrich(env, row, telemetry, hold_start, audit)
-            rows.append(row)
-            stream.write(json.dumps(row) + "\n")
+    rows, hold_start = [], None
+    try:
+        with (path / "steps.jsonl").open("w") as stream:
+            enrich(env, initial, telemetry, hold_start, audit)
+            record_row(stream, rows, initial)
+            while env.phase not in ("ABORT", "HOLD_COMPLETE"):
+                row = env.step(audit)
+                if env.phase == "HOLD" and hold_start is None:
+                    hold_start = float(env.data.time)
+                enrich(env, row, telemetry, hold_start, audit)
+                record_row(stream, rows, row)
+    finally:
+        close = getattr(audit, "close", None)
+        if close is not None:
+            close()
+    return rows
+
+
+def record_row(stream, rows, row):
+    stream.write(json.dumps(row) + "\n")
+    rows.append(summary_row(row))
+
+
+def hold_result(env, rows, seconds, audit):
     strict = summarize(env, rows)
     held = [r for r in rows if r["phase"] == "HOLD"]
     result = {
@@ -115,18 +156,12 @@ def run_hold(
     }
     finish_observer(audit, result)
     result["progression_justified"] = long_qualified(result, seconds)
-    write_json(path / "summary.json", result)
-    write_csv(path / "physics_events.csv", audit.events.rows)
-    write_json(path / "all_phase_events.json", audit.all_events.rows)
-    export_traces(rows, metadata, strict, path)
-    manifest(path, "support_long_hold", {"strict_status": result["strict_status"]})
     return result
 
 
 def finish_observer(observer, result):
     if hasattr(observer, "contact_report"):
         result["contact_quality"] = observer.contact_report()
-        observer.close()
 
 
 def long_qualified(result, seconds):

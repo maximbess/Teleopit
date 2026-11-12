@@ -1,0 +1,12 @@
+{
+  "reference_screen": {
+    "strict_exact": true,
+    "late_motion_exact": true,
+    "rows": 1753
+  },
+  "reference_120s": {
+    "strict_exact": true,
+    "late_motion_exact": true,
+    "rows": 4654
+  }
+}

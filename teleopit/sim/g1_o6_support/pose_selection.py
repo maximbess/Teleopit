@@ -3,6 +3,7 @@
 from itertools import combinations
 
 from .pose_candidates import (
+    Candidate,
     controller_candidates,
     offset_and_branch_candidates,
     variant,
@@ -53,19 +54,24 @@ def supported_combinations(campaign, results):
 
 def adaptive_geometry(campaign):
     results = campaign_results(campaign)
-    selected = geometry_parents(results)
-    campaign.note("offset_and_ik_parents", selected)
+    selected = campaign.decision(
+        "offset_and_ik_parents", lambda: geometry_parents(results)
+    )
     candidates = offset_and_branch_candidates([campaign.candidate(n) for n in selected])
-    combinations = supported_combinations(campaign, results)
-    campaign.note("supported_combinations", [c.record() for c in combinations])
+    records = campaign.decision(
+        "supported_combinations",
+        lambda: [c.record() for c in supported_combinations(campaign, results)],
+    )
+    combinations = [Candidate.from_dict(r) for r in records]
     campaign.register([*candidates, *combinations])
     campaign.run_many([(c.id, "screen") for c in [*candidates, *combinations]])
 
 
 def select_controllers(campaign):
     results = campaign_results(campaign)
-    selected = geometry_parents(results)
-    campaign.note("controller_parents", selected)
+    selected = campaign.decision(
+        "controller_parents", lambda: geometry_parents(results)
+    )
     mapping = read(campaign.root / "runs/reference_screen/resolved.json")[
         "command_joint_mapping"
     ]
@@ -81,6 +87,13 @@ def select_controllers(campaign):
 
 
 def promote_sixty(campaign):
+    requests = campaign.decision(
+        "sixty_second_promotions", lambda: sixty_requests(campaign)
+    )
+    campaign.run_many(requests)
+
+
+def sixty_requests(campaign):
     results = campaign_results(campaign)
     requests = []
     for kind, maximum in (("geometry", 6), ("controller", 6)):
@@ -101,11 +114,17 @@ def promote_sixty(campaign):
             (r["candidate"], "60s")
             for r in sorted(eligible, key=rank)[: max(0, maximum - used)]
         )
-    campaign.note("sixty_second_promotions", requests)
-    campaign.run_many(requests)
+    return requests
 
 
 def promote_long(campaign):
+    selected = campaign.decision(
+        "first_120_promotions", lambda: long_requests(campaign)
+    )
+    campaign.run_many([(n, "120s") for n in selected])
+
+
+def long_requests(campaign):
     results = campaign_results(campaign)
     used = sum(
         r["stage"] == "120s" and not r.get("retry_of") for r in campaign.state["runs"]
@@ -118,8 +137,7 @@ def promote_long(campaign):
         and campaign.previous(r["candidate"], "120s") is None
     ]
     selected = [r["candidate"] for r in sorted(eligible, key=rank)[: max(0, 6 - used)]]
-    campaign.note("first_120_promotions", selected)
-    campaign.run_many([(n, "120s") for n in selected])
+    return selected
 
 
 def finalists(results):
@@ -131,14 +149,14 @@ def finalists(results):
 
 
 def qualify(campaign):
-    selected = finalists(campaign_results(campaign))
-    campaign.note(
+    frozen = campaign.decision(
         "frozen_finalists",
-        [
+        lambda: [
             {"id": n, "configuration_sha256": campaign.candidate(n).digest()}
-            for n in selected
+            for n in finalists(campaign_results(campaign))
         ],
     )
+    selected = [r["id"] for r in frozen]
     campaign.run_many([(n, "repeat") for n in selected])
     eligible = [
         n

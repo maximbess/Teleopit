@@ -98,6 +98,8 @@ def test_parallel_workers_have_one_ledger_writer_and_resume_completed_jobs(
 
     monkeypatch.setattr(pose_campaign, "ProcessPoolExecutor", ThreadPoolExecutor)
     monkeypatch.setattr(pose_campaign, "run_candidate", simulated_result)
+    monkeypatch.setattr(pose_campaign, "prior_resets", lambda *args: [])
+    monkeypatch.setattr(pose_campaign, "preflight_geometry", lambda *args: None)
     campaign = pose_campaign.Campaign(tmp_path)
     jobs = [("reference", "screen"), ("rung10", "screen")]
     campaign.run_many(jobs, workers=2)
@@ -123,3 +125,19 @@ def test_failed_registration_leaves_frozen_candidates_unchanged(tmp_path):
             ]
         )
     assert campaign.state == before
+
+
+def test_frozen_choices_resume_without_reselecting_and_batches_are_atomic(tmp_path):
+    import copy
+
+    from teleopit.sim.g1_o6_support.pose_campaign import Campaign
+
+    campaign = Campaign(tmp_path)
+    chosen = campaign.decision("parents", lambda: ["reference"])
+    assert chosen == ["reference"]
+    again = Campaign(tmp_path)
+    assert again.decision("parents", lambda: ["rung10"]) == chosen
+    before = copy.deepcopy(again.state)
+    with pytest.raises(ValueError, match="preceding strict"):
+        again.reserve_many([("reference", "screen"), ("rung10", "60s")])
+    assert again.state == before

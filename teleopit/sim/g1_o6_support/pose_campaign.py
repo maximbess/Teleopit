@@ -11,7 +11,7 @@ from pathlib import Path
 from teleopit.sim.o6_diagnostics.io import write_json
 
 from .pose_candidates import Candidate, initial_geometry
-from .pose_trial import run_candidate
+from .pose_trial import preflight_geometry, prior_resets, run_candidate
 
 STAGES = {
     "screen": (30, 0.001),
@@ -192,6 +192,7 @@ class Campaign:
 
     def run_many(self, requests, workers=3):
         records = self.reserve_many(requests)
+        records = self.preflight(records)
         errors = []
         with ProcessPoolExecutor(max_workers=workers) as pool:
             jobs = {
@@ -222,6 +223,22 @@ class Campaign:
                     self.save()
         if errors:
             raise RuntimeError("technical errors preserved: " + ", ".join(errors))
+
+    def preflight(self, records):
+        references = prior_resets(self.root, self.state["runs"])
+        pending = []
+        for record in records:
+            candidate = self.candidate(record["candidate"])
+            result = None
+            if record["stage"] == "screen" and candidate.kind == "geometry":
+                result = preflight_geometry(
+                    candidate, self.root / record["output"], references
+                )
+            if result is None:
+                pending.append(record)
+            else:
+                self.complete(record, result)
+        return pending
 
     def reserve_many(self, requests):
         pending = []
@@ -257,12 +274,20 @@ class Campaign:
         return record
 
     def note(self, name, value):
+        value = json.loads(json.dumps(value))
         existing = next((r for r in self.state["decisions"] if r["name"] == name), None)
         if existing is not None and existing["value"] != value:
             raise ValueError("campaign decision already frozen")
         if existing is None:
             self.state["decisions"].append({"name": name, "value": value})
             self.save()
+
+    def decision(self, name, select):
+        existing = next((r for r in self.state["decisions"] if r["name"] == name), None)
+        if existing is not None:
+            return existing["value"]
+        self.note(name, select())
+        return self.decision(name, select)
 
 
 def mandatory(campaign):

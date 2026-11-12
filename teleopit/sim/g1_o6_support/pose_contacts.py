@@ -96,21 +96,38 @@ def group_centroid(contacts):
     ).tolist()
 
 
-def grasp_quality(contacts, height):
+def contact_partitions(contacts):
     target = [c for c in contacts if c["target"]]
     loaded = [c for c in target if c["normal_force_N"] >= LOADED_N]
     groups = {g: [c for c in loaded if c["group"] == g] for g in GROUPS}
-    ordered = all(
+    return target, loaded, groups
+
+
+def ordered_groups(groups, height):
+    return all(
         any(
             (c["position_world_m"][2] - height) * (-1 if g == "thumb" else 1) > 0
             for c in groups[g]
         )
         for g in FINGERS
     )
+
+
+def group_normals(groups):
+    return {g: sum(c["normal_force_N"] for c in groups[g]) for g in GROUPS}
+
+
+def geometric_groups(target):
+    return {g: any(c["group"] == g for c in target) for g in GROUPS}
+
+
+def grasp_quality(contacts, height):
+    target, loaded, groups = contact_partitions(contacts)
+    ordered = ordered_groups(groups, height)
     opposition = thumb_opposition(loaded)
-    normal = {g: sum(c["normal_force_N"] for c in groups[g]) for g in GROUPS}
+    normal = group_normals(groups)
     return {
-        "geometric_groups": {g: any(c["group"] == g for c in target) for g in GROUPS},
+        "geometric_groups": geometric_groups(target),
         "loaded_groups": {g: bool(groups[g]) for g in GROUPS},
         "normal_by_group_N": normal,
         "centroid_by_group_m": {g: group_centroid(groups[g]) for g in GROUPS},

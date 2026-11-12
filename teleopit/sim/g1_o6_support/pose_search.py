@@ -1,9 +1,11 @@
 """Run the frozen long-HOLD pose campaign without enabling support transfers."""
 
 import argparse
+import json
 from pathlib import Path
 
 from .pose_campaign import Campaign, campaign_lock, initial_screen, mandatory
+from .pose_candidates import Candidate
 from .pose_selection import (
     adaptive_geometry,
     promote_long,
@@ -20,6 +22,8 @@ def main():
     )
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("init")
+    register = commands.add_parser("register")
+    register.add_argument("--candidate-config", type=Path, required=True)
     commands.add_parser("mandatory")
     commands.add_parser("screen")
     for name in ("adaptive", "controllers", "promote-60", "promote-120", "qualify"):
@@ -31,7 +35,11 @@ def main():
     args = parser.parse_args()
     with campaign_lock(args.output):
         campaign = Campaign(args.output)
-        if args.command == "mandatory":
+        if args.command == "register":
+            campaign.register(
+                [Candidate.from_dict(json.loads(args.candidate_config.read_text()))]
+            )
+        elif args.command == "mandatory":
             mandatory(campaign)
         elif args.command == "screen":
             initial_screen(campaign)
