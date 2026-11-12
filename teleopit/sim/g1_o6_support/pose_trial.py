@@ -15,6 +15,7 @@ from teleopit.sim.g1_o6.posture_report import annotate
 from teleopit.sim.o6_diagnostics.io import manifest, output_directory, write_json
 
 from .long_hold import experiment_metadata, run_hold
+from .pose_arm import ArmReference
 from .pose_controller import FingerExperiment
 from .pose_observer import PoseObserver
 
@@ -30,7 +31,11 @@ class SearchEnvironment(Environment):
 
     def reset(self):
         row = super().reset()
-        self.hold_controller = FingerExperiment(self, self.candidate.controller)
+        self.hold_controller = (
+            ArmReference(self)
+            if self.candidate.controller == "arm_feedback"
+            else FingerExperiment(self, self.candidate.controller)
+        )
         return row
 
 

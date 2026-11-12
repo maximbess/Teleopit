@@ -1,0 +1,38 @@
+{
+  "id": "split_10_11",
+  "parent": "reference",
+  "family": "rung",
+  "kind": "geometry",
+  "pose": {
+    "hand_rungs": [
+      10,
+      11
+    ],
+    "waist_lean_rad": 0.3,
+    "hand_tilt_deg": 50.0,
+    "grip_offset_m": [
+      -0.023,
+      0.0,
+      -0.02
+    ],
+    "hand_spacing_m": 0.18,
+    "closed_pose": [
+      0.05,
+      0.5,
+      1.35,
+      1.35,
+      1.35,
+      1.35
+    ],
+    "finger_preload_Nm": 0.12
+  },
+  "controller": "reference",
+  "ik_seed": null,
+  "reset_offsets": {},
+  "changes": {
+    "hand_rungs": [
+      10,
+      11
+    ]
+  }
+}

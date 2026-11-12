@@ -89,6 +89,8 @@ def series(path):
                     "support_Fz_N": {
                         k: v["force_world"][2] for k, v in row["supports"].items()
                     },
+                    "weight_N": row["support_measurement"]["weight_N"],
+                    "static_balance_residual_N": row["static_balance_residual_N"],
                     "hands": {s: hand_signals(row, s) for s in ("left", "right")},
                 }
             )
@@ -113,17 +115,7 @@ def side_metrics(held, side):
     hands = [r["hands"][side] for r in held]
     if not hands:
         return {}
-    position = np.array([h["palm_position_m"] for h in hands])
-    target = np.array([h["thumb_target_rad"] for h in hands])
-    result = {
-        "mean_share": float(np.mean([h["share"] for h in hands])),
-        "palm_migration_m": float(np.linalg.norm(position - position[0], axis=1).max()),
-        "thumb_target_positive_advancement_rad": float(
-            np.maximum(0, np.diff(target)).sum()
-        ),
-        "final_thumb_travel_rad": hands[-1]["thumb_travel_rad"],
-        "final_thumb_work_J": hands[-1]["thumb_work_J"],
-    }
+    result = trajectory_metrics(hands)
     for key in (
         "thumb_normal_N",
         "finger_min_normal_N",
@@ -141,6 +133,58 @@ def side_metrics(held, side):
     ):
         result["max_" + key] = max(h[key] for h in hands)
     return result
+
+
+def trajectory_metrics(hands):
+    position = np.array([h["palm_position_m"] for h in hands])
+    target = np.array([h["thumb_target_rad"] for h in hands])
+    return {
+        "mean_share": float(np.mean([h["share"] for h in hands])),
+        "palm_migration_m": float(np.linalg.norm(position - position[0], axis=1).max()),
+        "thumb_target_positive_advancement_rad": float(
+            np.maximum(0, np.diff(target)).sum()
+        ),
+        "final_thumb_travel_rad": hands[-1]["thumb_travel_rad"],
+        "final_thumb_work_J": hands[-1]["thumb_work_J"],
+    }
+
+
+def stationary_target_motion(rows):
+    late = [r for r in rows if r["phase"] == "HOLD" and r["hold_s"] >= 30]
+    if len(late) < 2:
+        return None
+    sides = {}
+    for side in ("left", "right"):
+        hands = [r["hands"][side] for r in late]
+        mount = np.array([h["mount_position_m"] for h in hands])
+        sides[side] = {
+            "thumb_target_range_rad": float(
+                np.ptp([h["thumb_target_rad"] for h in hands])
+            ),
+            "mount_excursion_m": float(np.linalg.norm(mount - mount[0], axis=1).max()),
+        }
+    return {"hold_window_s": [late[0]["hold_s"], late[-1]["hold_s"]], "hands": sides}
+
+
+def support_metrics(held):
+    if not held:
+        return {}
+    forces = {
+        name: float(np.mean([r["support_Fz_N"][name] for r in held]))
+        for name in held[0]["support_Fz_N"]
+    }
+    residual = np.array([r["static_balance_residual_N"] for r in held])
+    return {
+        "window_s": [held[0]["hold_s"], held[-1]["hold_s"]],
+        "weight_N": held[0]["weight_N"],
+        "mean_support_Fz_N": forces,
+        "mean_support_share": {k: f / held[0]["weight_N"] for k, f in forces.items()},
+        "mean_static_balance_residual_N": residual.mean(axis=0).tolist(),
+        "max_static_balance_residual_norm_N": float(
+            np.linalg.norm(residual, axis=1).max()
+        ),
+        "interpretation": "Signed reactions over the achieved dynamic interval; residual is contact plus gravity, not an inertial-corrected balance error",
+    }
 
 
 def motion_cost(result):
@@ -193,6 +237,7 @@ def summarize_record(root, record):
         achieved_s=result["strict"]["unsupported_hold_seconds"],
         hands={s: side_metrics(held, s) for s in ("left", "right")},
         matched_shares=matched_shares(held),
+        support_accounting=support_metrics(held),
     )
     return summary
 
@@ -214,6 +259,17 @@ def rank(summary):
         quality.get("invalid_control_samples", 10**9),
         migration,
         result.get("strict", {}).get("peak_effort_fraction", float("inf")),
+        *margin_rank(summary.get("hands", {})),
+    )
+
+
+def margin_rank(hands):
+    if not hands:
+        return (float("inf"),) * 3
+    return (
+        -min(h["min_joint_margin_rad"] for h in hands.values()),
+        max(h["max_wrist_bend_deg"] for h in hands.values()),
+        -min(h["min_housing_clearance_m"] for h in hands.values()),
     )
 
 

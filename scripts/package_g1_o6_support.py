@@ -58,18 +58,18 @@ def directory_files(directories):
     }
 
 
-def check_artifacts():
+def check_artifacts(root):
     return {
         p
-        for p in ROOT.iterdir()
+        for p in root.iterdir()
         if p.is_file() and p.suffix in (".json", ".txt", ".py", ".npz")
     }
 
 
-def collect_files():
-    directories = [ROOT / name for name in RUNS] + [Path(p) for p in ASSETS] + [DOCS]
-    files = directory_files(directories) | check_artifacts()
-    files.update(Path("scripts").glob("*g1_o6*support*.py"))
+def collect_files(root=ROOT, docs=DOCS, runs=RUNS):
+    directories = [root / name for name in runs] + [Path(p) for p in ASSETS] + [docs]
+    files = directory_files(directories) | check_artifacts(root)
+    files.update(Path("scripts").glob("*g1_o6*.py"))
     files.add(Path("scripts/g1_o6_state_video.py"))
     return sorted(
         p for p in files if p.name not in ("artifact.json", "evidence_manifest.json")
@@ -129,7 +129,7 @@ class Archive:
         self.hashes[name] = hashlib.sha256(payload).hexdigest()
 
 
-def add_files(archive, files, staging):
+def add_files(archive, files, staging, root=ROOT):
     scenes, manifests = [], []
     for path in files:
         if path.name == "scene.xml":
@@ -148,7 +148,7 @@ def add_files(archive, files, staging):
                     "original_scene": "scene_original.xml",
                 }
             )
-        elif path.name == "manifest.json" and path.is_relative_to(ROOT):
+        elif path.name == "manifest.json" and path.is_relative_to(root):
             manifests.append(path)
             archive.file(path, (path.parent / "manifest_original.json").as_posix())
         else:
@@ -184,21 +184,63 @@ def verify(output):
     return manifest
 
 
-def package(output, staging):
+def implementation_revisions(files):
+    revisions = {
+        subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    }
+    for path in files:
+        if path.name == "resolved.json":
+            record = json.loads(path.read_text())
+            revision = record.get("code_revision")
+            if revision:
+                revisions.add(revision)
+    return sorted(revisions)
+
+
+def add_sources(archive, revisions):
+    for revision in revisions:
+        paths = subprocess.check_output(
+            [
+                "git",
+                "ls-tree",
+                "-r",
+                "--name-only",
+                revision,
+                "teleopit",
+                "scripts",
+                "pyproject.toml",
+                "requirements.txt",
+            ],
+            text=True,
+        ).splitlines()
+        for name in paths:
+            if Path(name).suffix in (".py", ".toml", ".yaml", ".yml", ".json"):
+                payload = subprocess.check_output(
+                    ["git", "show", revision + ":" + name]
+                )
+                archive.data("provenance/" + revision + "/" + name, payload)
+
+
+def package(output, staging, root=ROOT, docs=DOCS, runs=RUNS):
     if output.exists() or staging.exists():
         raise FileExistsError("choose new archive and staging paths")
     for name in ASSETS:
         shutil.copytree(name, staging / name)
     archive = Archive(output)
     try:
-        scenes, manifests = add_files(archive, collect_files(), staging)
+        files = collect_files(root, docs, runs)
+        scenes, manifests = add_files(archive, files, staging, root)
         add_manifests(archive, manifests)
+        revisions = implementation_revisions(files)
+        add_sources(archive, revisions)
         record = {
             "schema": "g1_o6_support_archive_v1",
             "implementation_revision": subprocess.check_output(
                 ["git", "rev-parse", "HEAD"], text=True
             ).strip(),
             "physical_assets_included": True,
+            "source_revisions_included": revisions,
+            "source_usage": "Committed source snapshots under provenance/<revision>; per-run resolved.json also retains any dirty diff and source hashes. Assets remain at archive root.",
             "portable_scenes": scenes,
             "files_sha256": dict(archive.hashes),
         }
@@ -218,7 +260,7 @@ def package(output, staging):
         "portable_scene_count": len(verified["portable_scenes"]),
         "publication_status": "not uploaded",
     }
-    (DOCS / "artifact.json").write_text(json.dumps(receipt, indent=2) + "\n")
+    (docs / "artifact.json").write_text(json.dumps(receipt, indent=2) + "\n")
     print(json.dumps(receipt, indent=2))
 
 
@@ -226,5 +268,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--staging", type=Path, required=True)
+    parser.add_argument("--runs-root", type=Path, default=ROOT)
+    parser.add_argument("--docs-root", type=Path, default=DOCS)
+    parser.add_argument("--runs", nargs="+", default=RUNS)
     args = parser.parse_args()
-    package(args.output, args.staging)
+    package(args.output, args.staging, args.runs_root, args.docs_root, args.runs)

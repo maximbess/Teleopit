@@ -3,6 +3,7 @@
 from teleopit.sim.g1_o6.metadata import controller_settings
 
 MODES = ("reference", "freeze_thumb", "freeze_all", "cap_thumb")
+SUPPORTED_MODES = (*MODES, "arm_feedback")
 
 
 class FingerExperiment:

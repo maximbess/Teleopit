@@ -12,6 +12,7 @@ from teleopit.sim.o6_diagnostics.io import write_json
 
 from .pose_candidates import Candidate, initial_geometry
 from .pose_trial import preflight_geometry, prior_resets, run_candidate
+from .pose_validation import validate_robustness
 
 STAGES = {
     "screen": (30, 0.001),
@@ -29,6 +30,18 @@ def validate_trial(records, candidate, stage, budgets):
         raise ValueError("unknown campaign stage")
     if any(r["candidate"] == candidate and r["stage"] == stage for r in records):
         raise ValueError("candidate/stage already attempted")
+    validate_budget(records, stage, budgets)
+    preceding = {
+        "60s": "screen",
+        "120s": "60s",
+        "repeat": "120s",
+        "fine": "repeat",
+    }.get(stage)
+    if preceding:
+        validate_preceding(records, candidate, stage, preceding)
+
+
+def validate_budget(records, stage, budgets):
     limit = {
         "60s": "promoted_60s",
         "120s": "first_120s",
@@ -42,14 +55,6 @@ def validate_trial(records, candidate, stage, budgets):
         >= budgets[limit]
     ):
         raise ValueError("campaign trial budget exhausted")
-    preceding = {
-        "60s": "screen",
-        "120s": "60s",
-        "repeat": "120s",
-        "fine": "repeat",
-    }.get(stage)
-    if preceding:
-        validate_preceding(records, candidate, stage, preceding)
 
 
 def validate_preceding(records, candidate, stage, preceding):
@@ -125,7 +130,7 @@ class Campaign:
             if old and Candidate.from_dict(old).digest() != candidate.digest():
                 raise ValueError("candidate identity is immutable")
             pending[candidate.id] = candidate.record()
-        for kind in ("geometry", "controller"):
+        for kind in ("geometry", "controller", "robustness"):
             count = sum(c["kind"] == kind for c in pending.values())
             if count > self.state["specification"]["budgets"][kind]:
                 raise ValueError("candidate budget exhausted")
@@ -154,6 +159,7 @@ class Campaign:
                 "unfinished/error attempt requires a documented technical retry"
             )
         if previous is None:
+            self.validate_stage(name, stage)
             validate_trial(
                 self.state["runs"], name, stage, self.state["specification"]["budgets"]
             )
@@ -251,10 +257,18 @@ class Campaign:
                         "unfinished/error batch attempt requires explicit retry"
                     )
                 continue
+            self.validate_stage(name, stage)
             validate_trial(preview, name, stage, self.state["specification"]["budgets"])
             pending.append((name, stage))
             preview.append({"candidate": name, "stage": stage, "status": "RESERVED"})
         return [self.reserve(name, stage, None, None) for name, stage in pending]
+
+    def validate_stage(self, name, stage):
+        candidate = self.candidate(name)
+        if (stage == "robustness") != (candidate.kind == "robustness"):
+            raise ValueError("robustness candidates require the robustness stage")
+        if stage == "robustness":
+            validate_robustness(self, candidate)
 
     def reserve(self, name, stage, previous, reason):
         suffix = "_retry_" + str(len(self.state["runs"])) if previous else ""

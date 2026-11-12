@@ -152,10 +152,6 @@ class PoseObserver(PhysicsAudit):
             and duration >= 0.5 - 1e-9
         }
         passed = bool(self.control_valid) and all(self.control_valid) and not persistent
-        minima = {
-            s: {k: v if np.isfinite(v) else None for k, v in values.items()}
-            for s, values in self.minimum_normal.items()
-        }
         return {
             "status": "PASS" if passed else "FAIL",
             "loaded_threshold_N": 0.05,
@@ -163,7 +159,7 @@ class PoseObserver(PhysicsAudit):
             "invalid_control_samples": self.control_valid.count(False),
             "longest_absence_s": absence,
             "persistent_quality_losses_s": persistent,
-            "minimum_group_normal_N": minima,
+            "minimum_group_normal_N": finite_minima(self.minimum_normal),
             "max_contact_centroid_migration_m": self.migration,
         }
 
@@ -174,3 +170,10 @@ class PoseObserver(PhysicsAudit):
             {"all_phases": self.history.rows, "hold": self.hold_history.rows},
         )
         write_json(self.path / "physics_window_triggers.json", self.windows.triggers)
+
+
+def finite_minima(minima):
+    return {
+        s: {k: v if np.isfinite(v) else None for k, v in values.items()}
+        for s, values in minima.items()
+    }

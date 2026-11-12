@@ -10,9 +10,12 @@ This report is generated from saved results. A screen is not 120 s qualification
 | reference_hand_spacing_m_0p2 / screen | PASS / FAIL / PASS | 30.00 | 15.454 | 0.888/0.891 | none |
 | reference_waist_lean_rad_0p2 / screen | PASS / FAIL / PASS | 30.00 | 24.793 | 1.254/1.257 | none |
 | reference_waist_lean_rad_0p4 / screen | PASS / FAIL / PASS | 30.00 | 9.906 | 0.407/0.423 | none |
+| reference_hand_spacing_m_0p16_offset_0_plus / screen | PASS / FAIL / PASS | 30.00 | 24.945 | 1.114/1.118 | none |
 | reference / 120s | FAIL / NOT RUN / PASS | 88.02 | 30.546 | 1.064/1.067 | drift |
+| reference_hand_spacing_m_0p16_offset_2_minus / screen | FAIL / NOT RUN / FAIL | 17.74 | 8.437 | 0.869/0.876 | right_hand |
 | split_11_10 / screen | FAIL / NOT RUN / PASS | 8.00 | 7.719 | -0.074/0.005 | joint_limits |
 | split_10_11 / screen | FAIL / NOT RUN / PASS | 7.76 | 7.966 | 0.001/-0.076 | joint_limits |
+| reference_hand_spacing_m_0p16_offset_0_minus / screen | FAIL / NOT RUN / FAIL | 4.94 | 3.655 | 0.762/0.760 | left_hand, right_hand |
 | rung10_hand_tilt_deg_40 / screen | FAIL / NOT RUN / PASS | 3.02 | 12.609 | -0.216/-0.213 | joint_limits |
 | reference_hand_tilt_deg_40 / screen | FAIL / NOT RUN / PASS | 2.90 | 4.197 | 0.573/0.586 | unintended_support |
 | rung10_waist_lean_rad_0p2 / screen | FAIL / NOT RUN / PASS | 0.50 | 7.947 | -0.165/-0.166 | joint_limits |
@@ -22,6 +25,10 @@ This report is generated from saved results. A screen is not 120 s qualification
 | rung10_hand_spacing_m_0p2 / screen | FAIL / NOT RUN / PASS | 0.50 | 6.687 | -0.158/-0.154 | joint_limits |
 | reference_hand_tilt_deg_60 / screen | FAIL / NOT RUN / FAIL | 0.50 | 7.349 | 0.601/0.601 | left_hand, right_hand |
 | rung10_hand_tilt_deg_60 / screen | FAIL / NOT RUN / FAIL | 0.50 | 19.151 | -0.059/-0.077 | joint_limits, unintended_support, left_hand, right_hand |
+| reference_hand_spacing_m_0p16_ik_17 / screen | NOT RUN / NOT RUN / NOT RUN | 0.00 | — | — | initial_penetration, unreachable_grasp |
+| reference_hand_spacing_m_0p16_ik_23 / screen | NOT RUN / NOT RUN / NOT RUN | 0.00 | — | — | initial_penetration, unreachable_grasp |
+| reference_ik_17 / screen | NOT RUN / NOT RUN / NOT RUN | 0.00 | — | — | unreachable_grasp |
+| reference_ik_23 / screen | NOT RUN / NOT RUN / NOT RUN | 0.00 | — | — | initial_penetration, unreachable_grasp |
 
 Qualified nominal/repeat/fine candidates: NONE.
 

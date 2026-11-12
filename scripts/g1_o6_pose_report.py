@@ -11,12 +11,14 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
+from teleopit.sim.g1_o6_support.pose_candidates import Candidate
 from teleopit.sim.g1_o6_support.pose_results import (
     campaign_results,
     read,
     series,
     strict_contact_pass,
 )
+from teleopit.sim.g1_o6_support.pose_validation import stage_qualification
 
 
 def trajectory_change(rows, side, name):
@@ -41,16 +43,24 @@ def trajectory_change(rows, side, name):
 def hand_lines(axes, rows, side, color):
     time = [r["hold_s"] for r in rows]
     hand = [r["hands"][side] for r in rows]
-    axes[1].plot(
-        time, [h["thumb_yaw_rad"] for h in hand], color=color, label=side + " angle"
+    signals = (
+        (1, "thumb_yaw_rad", "angle", "-", 1),
+        (1, "thumb_target_rad", "applied target", "--", 1),
+        (4, "thumb_normal_N", "thumb", "-", 1),
+        (4, "finger_min_normal_N", "min finger", "--", 1),
+        (5, "wrist_force_N", "|wrist F|", "-", 1),
+        (6, "share", "share", "-", 100),
+        (7, "wrist_bend_deg", "wrist", "-", 1),
+        (7, "elbow_bend_deg", "elbow", "--", 1),
     )
-    axes[1].plot(
-        time,
-        [h["thumb_target_rad"] for h in hand],
-        color=color,
-        ls="--",
-        label=side + " applied target",
-    )
+    for panel, field, label, style, scale in signals:
+        axes[panel].plot(
+            time,
+            [scale * h[field] for h in hand],
+            color=color,
+            ls=style,
+            label=side + " " + label,
+        )
     axes[2].plot(
         time, trajectory_change(rows, side, "thumb_centroid_m"), color=color, label=side
     )
@@ -66,30 +76,6 @@ def hand_lines(axes, rows, side, color):
         color=color,
         ls="--",
         label=side + " mount",
-    )
-    axes[4].plot(
-        time, [h["thumb_normal_N"] for h in hand], color=color, label=side + " thumb"
-    )
-    axes[4].plot(
-        time,
-        [h["finger_min_normal_N"] for h in hand],
-        color=color,
-        ls="--",
-        label=side + " min finger",
-    )
-    axes[5].plot(
-        time, [h["wrist_force_N"] for h in hand], color=color, label=side + " |wrist F|"
-    )
-    axes[6].plot(time, [100 * h["share"] for h in hand], color=color, label=side)
-    axes[7].plot(
-        time, [h["wrist_bend_deg"] for h in hand], color=color, label=side + " wrist"
-    )
-    axes[7].plot(
-        time,
-        [h["elbow_bend_deg"] for h in hand],
-        color=color,
-        ls="--",
-        label=side + " elbow",
     )
 
 
@@ -181,11 +167,7 @@ def representative_runs(results):
         "rung10": by_id[("rung10", "screen")],
     }
     for kind in ("geometry", "controller"):
-        eligible = [
-            r
-            for r in results
-            if r["configuration"]["kind"] == kind and strict_contact_pass(r)
-        ]
+        eligible = kind_results(results, kind)
         if eligible:
             selected["best_" + kind] = eligible[0]
     longer = [r for r in results if r["stage"] in ("120s", "repeat", "fine")]
@@ -194,21 +176,20 @@ def representative_runs(results):
     return selected
 
 
+def kind_results(results, kind):
+    return [
+        r
+        for r in results
+        if r["configuration"]["kind"] == kind and strict_contact_pass(r)
+    ]
+
+
 def qualification_table(state):
     result = {}
-    for name in state["candidates"]:
-        runs = [
-            r
-            for r in state["runs"]
-            if r["candidate"] == name and r["status"] == "COMPLETE"
-        ]
-        stages = {
-            stage: any(
-                r["stage"] == stage and r["result"].get("progression_justified")
-                for r in runs
-            )
-            for stage in ("120s", "repeat", "fine")
-        }
+    for name, candidate in state["candidates"].items():
+        stages = stage_qualification(
+            state["runs"], name, Candidate.from_dict(candidate).digest()
+        )
         result[name] = {"stages": stages, "qualified": all(stages.values())}
     return result
 
@@ -223,24 +204,7 @@ def comparison_markdown(results, qualified):
         "|---|---|---:|---:|---:|---|",
     ]
     for row in results:
-        result = row["result"]
-        late = result.get("drift_assessment", {}).get("status", "NOT RUN")
-        contact = result.get("contact_quality", {}).get("status", "NOT RUN")
-        drift = result.get("maximum_reset_drift_m")
-        drift_text = f"{1000 * drift:.3f}" if drift is not None else "—"
-        loads = (
-            "/".join(
-                f"{100 * row['hands'][s]['mean_share']:.3f}" for s in ("left", "right")
-            )
-            if all(row["hands"].values()) and row["hands"]
-            else "—"
-        )
-        reasons = result.get("strict", {}).get(
-            "failure_reasons", result.get("reasons", [])
-        )
-        lines.append(
-            f"| {row['candidate']} / {row['stage']} | {row['strict']} / {late} / {contact} | {row['achieved_s']:.2f} | {drift_text} | {loads} | {', '.join(reasons) or 'none'} |"
-        )
+        lines.append(comparison_row(row))
     names = [n for n, value in qualified.items() if value["qualified"]]
     lines.extend(
         [
@@ -257,6 +221,23 @@ def comparison_markdown(results, qualified):
         ]
     )
     return "\n".join(lines) + "\n"
+
+
+def comparison_row(row):
+    result = row["result"]
+    late = result.get("drift_assessment", {}).get("status", "NOT RUN")
+    contact = result.get("contact_quality", {}).get("status", "NOT RUN")
+    drift = result.get("maximum_reset_drift_m")
+    drift_text = f"{1000 * drift:.3f}" if drift is not None else "—"
+    loads = (
+        "/".join(
+            f"{100 * row['hands'][s]['mean_share']:.3f}" for s in ("left", "right")
+        )
+        if all(row["hands"].values()) and row["hands"]
+        else "—"
+    )
+    reasons = result.get("strict", {}).get("failure_reasons", result.get("reasons", []))
+    return f"| {row['candidate']} / {row['stage']} | {row['strict']} / {late} / {contact} | {row['achieved_s']:.2f} | {drift_text} | {loads} | {', '.join(reasons) or 'none'} |"
 
 
 def report(root, output, plots=True):

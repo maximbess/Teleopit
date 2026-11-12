@@ -13,6 +13,7 @@ from .pose_selection import (
     qualify,
     select_controllers,
 )
+from .pose_validation import robustness
 
 
 def main():
@@ -26,7 +27,14 @@ def main():
     register.add_argument("--candidate-config", type=Path, required=True)
     commands.add_parser("mandatory")
     commands.add_parser("screen")
-    for name in ("adaptive", "controllers", "promote-60", "promote-120", "qualify"):
+    for name in (
+        "adaptive",
+        "controllers",
+        "promote-60",
+        "promote-120",
+        "qualify",
+        "robustness",
+    ):
         commands.add_parser(name)
     trial = commands.add_parser("trial")
     trial.add_argument("candidate")
@@ -52,6 +60,7 @@ def main():
                 "promote-60": promote_sixty,
                 "promote-120": promote_long,
                 "qualify": qualify,
+                "robustness": robustness,
             }[args.command](campaign)
 
 

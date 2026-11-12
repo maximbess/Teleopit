@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass, field, replace
 
 from teleopit.sim.g1_o6.grasp_pose import GraspPose
 
-from .pose_controller import MODES
+from .pose_controller import MODES, SUPPORTED_MODES
 
 
 @dataclass(frozen=True)
@@ -27,15 +27,14 @@ class Candidate:
             raise ValueError("candidate id must be a safe lowercase identifier")
         if (
             self.kind not in ("geometry", "controller", "robustness")
-            or self.controller not in MODES
+            or self.controller not in SUPPORTED_MODES
         ):
             raise ValueError("unknown candidate kind/controller")
         if self.ik_seed is not None and (
             type(self.ik_seed) is not int or self.ik_seed < 0
         ):
             raise ValueError("invalid deterministic IK seed")
-        if set(self.reset_offsets) - {"root_offset_x", "wrist_offset_x"}:
-            raise ValueError("only declared reset offsets are supported")
+        validate_offsets(self.kind, self.reset_offsets)
 
     def record(self):
         return asdict(self)
@@ -65,6 +64,17 @@ def variant(parent, name, family, change, **other):
         changes=change,
         **other,
     )
+
+
+def validate_offsets(kind, offsets):
+    if kind != "robustness":
+        if offsets:
+            raise ValueError("reset offsets belong only to robustness trials")
+        return
+    if len(offsets) != 1 or set(offsets) - {"root_offset_x", "wrist_offset_x"}:
+        raise ValueError("robustness requires one declared reset offset")
+    if next(iter(offsets.values())) not in (-0.002, 0.002):
+        raise ValueError("robustness uses exactly +/-2 mm")
 
 
 def initial_geometry():

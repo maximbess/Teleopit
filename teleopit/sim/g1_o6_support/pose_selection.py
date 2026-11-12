@@ -8,7 +8,14 @@ from .pose_candidates import (
     offset_and_branch_candidates,
     variant,
 )
-from .pose_results import campaign_results, rank, read, strict_contact_pass
+from .pose_results import (
+    campaign_results,
+    rank,
+    read,
+    series,
+    stationary_target_motion,
+    strict_contact_pass,
+)
 
 
 def geometry_parents(results):
@@ -42,14 +49,20 @@ def supported_combinations(campaign, results):
         children = [
             campaign.candidate(r["candidate"])
             for r in screens.values()
-            if r["configuration"]["parent"] == parent_id
-            and len(r["configuration"]["changes"]) == 1
-            and strict_contact_pass(r)
-            and rank(r) < rank(parent)
-            and not any((r.get("materially_reduced_hand_load") or {}).values())
+            if supported_child(r, parent)
         ]
         output.extend(combine_improvements(campaign.candidate(parent_id), children))
     return output[:4]
+
+
+def supported_child(result, parent):
+    return (
+        result["configuration"]["parent"] == parent["candidate"]
+        and len(result["configuration"]["changes"]) == 1
+        and strict_contact_pass(result)
+        and rank(result) < rank(parent)
+        and not any((result.get("materially_reduced_hand_load") or {}).values())
+    )
 
 
 def adaptive_geometry(campaign):
@@ -78,12 +91,57 @@ def select_controllers(campaign):
     candidates = controller_candidates(
         [campaign.candidate(n) for n in selected], mapping
     )
-    campaign.note(
-        "conditional_arm_feedback",
-        "NOT RUN: use the six isolated finger-law interventions; no separately established arm-first mechanism",
-    )
+    candidates = conditional_arm(campaign, candidates, selected)
     campaign.register(candidates)
     campaign.run_many([(c.id, "screen") for c in candidates])
+
+
+def conditional_arm(campaign, candidates, parents):
+    if not parents:
+        return candidates
+    evidence = campaign.decision(
+        "arm_tracking_evidence", lambda: arm_tracking_evidence(campaign)
+    )
+    if evidence is None:
+        campaign.note(
+            "conditional_arm_feedback",
+            "NOT RUN: no stationary-target wrist-tracking-error evidence",
+        )
+        return candidates
+    parent = campaign.candidate(parents[0])
+    replacement = variant(
+        parent,
+        parent.id + "_arm_feedback",
+        "arm_feedback",
+        {},
+        kind="controller",
+        controller="arm_feedback",
+    )
+    campaign.note(
+        "conditional_arm_feedback",
+        {
+            "replaces": parent.id + "_preload_0p14",
+            "candidate": replacement.record(),
+            "evidence": evidence,
+            "hypothesis": "Persistent rung-relative wrist tracking error after thumb target settles; this timing alone does not establish an arm-first cause",
+        },
+    )
+    return [
+        replacement if c.id == parent.id + "_preload_0p14" else c for c in candidates
+    ]
+
+
+def arm_tracking_evidence(campaign):
+    record = campaign.previous("reference", "120s")
+    if record is None or record["status"] != "COMPLETE":
+        return None
+    evidence = stationary_target_motion(series(campaign.root / record["output"]))
+    if evidence and any(
+        h["thumb_target_range_rad"] <= 1e-4 and h["mount_excursion_m"] > 0.002
+        for h in evidence["hands"].values()
+    ):
+        return {"source": record["output"], **evidence}
+    return None
 
 
 def promote_sixty(campaign):
@@ -102,19 +160,23 @@ def sixty_requests(campaign):
             for r in campaign.state["runs"]
             if not r.get("retry_of")
         )
-        eligible = [
-            r
-            for r in results
-            if r["stage"] == "screen"
-            and r["configuration"]["kind"] == kind
-            and strict_contact_pass(r)
-            and campaign.previous(r["candidate"], "60s") is None
-        ]
+        eligible = sixty_eligible(campaign, results, kind)
         requests.extend(
             (r["candidate"], "60s")
             for r in sorted(eligible, key=rank)[: max(0, maximum - used)]
         )
     return requests
+
+
+def sixty_eligible(campaign, results, kind):
+    return [
+        r
+        for r in results
+        if r["stage"] == "screen"
+        and r["configuration"]["kind"] == kind
+        and strict_contact_pass(r)
+        and campaign.previous(r["candidate"], "60s") is None
+    ]
 
 
 def promote_long(campaign):
@@ -144,7 +206,9 @@ def finalists(results):
     return [
         r["candidate"]
         for r in results
-        if r["stage"] == "120s" and r["result"]["progression_justified"]
+        if r["stage"] == "120s"
+        and r["result"]["progression_justified"]
+        and strict_contact_pass(r)
     ][:2]
 
 
