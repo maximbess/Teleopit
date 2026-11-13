@@ -101,7 +101,9 @@ checkout before rebuilding: it contains all 91 simulation files with the exact
 recorded bytes, including 20 files with CRLF line endings. A normal Git checkout
 can normalize those bytes and fail the deliberate source-hash guard. The source
 ZIP and every contained file are checked by `source/frozen_source_receipt.json`.
-The complete branch history is included in `source/dex-hand-exp.bundle`.
+The complete branch history through the archive's implementation revision is
+included in `source/dex-hand-exp.bundle`; later archive-receipt commits contain
+documentation only.
 The current development checkout remains on `dex-hand-exp`.
 
 The archive keeps every original file byte-for-byte and adds portable scene copies
@@ -134,3 +136,8 @@ use Radon with measured execution coverage, AST comparison and targeted
 behavioral mutations. [evidence_verification.json](evidence_verification.json)
 contains per-run checks. These software results do not change the negative
 physical qualification result.
+
+The verified local ZIP is **3,579,699,880 bytes** and contains **2,440 checksummed
+files** plus its manifest, including **78 portable scene copies**. Its SHA-256 is
+`45ecf1e4be0ed928d1df42c3b788308c09100c5ed6a11a15ae4ca5bedfaf9103`.
+See [artifact.json](artifact.json) for the absolute local path and source revision.
