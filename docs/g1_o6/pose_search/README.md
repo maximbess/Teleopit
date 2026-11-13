@@ -64,3 +64,21 @@ Conditional arm feedback replaces one higher-preload slot only when saved refere
 [WORK_LOG.md](WORK_LOG.md) records actions, hypotheses, tests and refactoring receipts. [baseline_verification.json](baseline_verification.json) pins all 1,753 original physical baseline rows and the strict summary; [projection_verification.json](projection_verification.json) pins strict/late-motion results after reducing in-memory telemetry.
 
 Representative synchronized plots show complete trials, HOLD entry and first threshold windows. Videos under the archive's `outputs/g1_o6/pose_search/videos` are explicitly labeled **offline recorded-state replay**: they use saved positions and never step or qualify dynamics. The portable archive retains failed/infeasible results, original scenes/manifests, compiled-equivalent portable scenes, exact source revisions, assets and SHA256 checksums. Previous archives remain intact.
+
+## Raw archive and download parts
+
+The complete verified ZIP is stored locally at `outputs/g1_o6/pose_search/evidence/G1_O6_Pose_Search_2026-11-13.zip` on D:. It contains 3,577 verified files, including 59 portable scenes. The publication receipt records its SHA256 and the exact archive implementation revision; subsequent commits add publication instructions and receipts only.
+
+The public release uses three numbered parts because the ZIP exceeds GitHub's [2 GiB per-file release limit](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases). Download every `.partNN`, the `.zip.parts.json` manifest and `reassemble_g1_o6_pose_search.py` into the same folder on D:, then run there:
+
+```powershell
+conda run --no-capture-output -n teleopit python reassemble_g1_o6_pose_search.py
+```
+
+The script verifies every part, preserves a mismatched existing output, and verifies the complete ZIP after assembly. Extract the verified ZIP into a checkout of the implementation revision recorded in [artifact.json](artifact.json). [Reassembly source](reassemble_g1_o6_pose_search.py) and [transport verification](transport_verification.json) are also retained here. [The release](https://github.com/maximbess/Teleopit/releases/tag/g1-o6-pose-search-2026-11-13) provides the parts and checksums.
+
+All six public files are verified. Each downloaded part matches its recorded SHA256, and the ordered parts reproduce the full 2,666,002,117-byte ZIP hash. [Publication verification](publication_verification.json) records the checks and recovery from interrupted network connections; no experiments were rerun during publication.
+
+`videos/index.json` inside the archive identifies the five current representative offline replays and the preserved interim clip. Original scene and manifest bytes remain alongside portable replacements. Simulation raw data and previous archives are preserved.
+
+The prior support-validation ZIP was not present at its recorded Downloads path during the final check. A verified copy was restored from its unchanged public release to `outputs/g1_o6/pose_search/evidence/previous/`; its original SHA256 matches. The separate partial ZIP in Downloads remains untouched. See [preservation receipt](prior_archive_preservation.json).

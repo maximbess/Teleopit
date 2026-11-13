@@ -1,0 +1,49 @@
+{
+  "successful_assembly": true,
+  "idempotent_existing_archive": true,
+  "tampered_part_rejected_before_output": true,
+  "wrong_order_rejected_by_whole_archive_hash": true,
+  "existing_mismatched_output_preserved": true,
+  "path_traversal_rejected": true,
+  "behavior_preserved_after_refactor": true,
+  "checksum_bypass_mutation": "KILLED",
+  "quality": [
+    {
+      "function": "digest",
+      "complexity": 2,
+      "coverage": 1.0,
+      "crap": 2.0
+    },
+    {
+      "function": "child",
+      "complexity": 4,
+      "coverage": 1.0,
+      "crap": 4.0
+    },
+    {
+      "function": "verified_parts",
+      "complexity": 4,
+      "coverage": 1.0,
+      "crap": 4.0
+    },
+    {
+      "function": "assemble_parts",
+      "complexity": 3,
+      "coverage": 1.0,
+      "crap": 3.0
+    },
+    {
+      "function": "archive_matches",
+      "complexity": 2,
+      "coverage": 1.0,
+      "crap": 2.0
+    },
+    {
+      "function": "reassemble",
+      "complexity": 6,
+      "coverage": 1.0,
+      "crap": 6.0
+    }
+  ],
+  "script_sha256": "84b7b60a711a8ccbaa3b434a9b83a7c4e6a62a5017e24d52a431459feaa4c438"
+}

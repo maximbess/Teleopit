@@ -1,0 +1,43 @@
+{
+  "path": "outputs\\g1_o6\\pose_search\\evidence\\G1_O6_Pose_Search_2026-11-13.zip",
+  "bytes": 2666002117,
+  "sha256": "c320cf82a0428a722309aed23a90b5931260a5bb82ca5c6ec70fed47bfe85343",
+  "implementation_revision": "cb6dec0232247ea01c64a5aa99d46d0d68906abf",
+  "verified_files": 3577,
+  "physical_assets_included": true,
+  "portable_scene_count": 59,
+  "publication_status": "published; every public part SHA256 and complete reconstruction SHA256 verified",
+  "transport": "numbered 1 GiB parts; concatenate in listed order after SHA256 checks",
+  "parts_manifest": "outputs\\g1_o6\\pose_search\\evidence\\G1_O6_Pose_Search_2026-11-13.zip.parts.json",
+  "parts": [
+    {
+      "name": "G1_O6_Pose_Search_2026-11-13.zip.part01",
+      "bytes": 1073741824,
+      "sha256": "8487dc56185413aa2ece0cf0075ef425bf98b8212b621c37e7cef7d8dac6a251"
+    },
+    {
+      "name": "G1_O6_Pose_Search_2026-11-13.zip.part02",
+      "bytes": 1073741824,
+      "sha256": "114c36cc22e51cb3a7c50385b00495720664385cc9d18320704fa7b3749346b2"
+    },
+    {
+      "name": "G1_O6_Pose_Search_2026-11-13.zip.part03",
+      "bytes": 518518469,
+      "sha256": "d37cbaa6545e558b1d52a9027b0d0539c265dccba6cf5fc367d7ef78b38460a6"
+    }
+  ],
+  "reassembly_script": "outputs\\g1_o6\\pose_search\\evidence\\reassemble_g1_o6_pose_search.py",
+  "release_id": 443824167,
+  "release_url": "https://github.com/maximbess/Teleopit/releases/tag/g1-o6-pose-search-2026-11-13",
+  "download_urls": {
+    "G1_O6_Pose_Search_2026-11-13.zip.part01": "https://github.com/maximbess/Teleopit/releases/download/g1-o6-pose-search-2026-11-13/G1_O6_Pose_Search_2026-11-13.zip.part01",
+    "G1_O6_Pose_Search_2026-11-13.zip.part02": "https://github.com/maximbess/Teleopit/releases/download/g1-o6-pose-search-2026-11-13/G1_O6_Pose_Search_2026-11-13.zip.part02",
+    "G1_O6_Pose_Search_2026-11-13.zip.part03": "https://github.com/maximbess/Teleopit/releases/download/g1-o6-pose-search-2026-11-13/G1_O6_Pose_Search_2026-11-13.zip.part03",
+    "G1_O6_Pose_Search_2026-11-13.zip.parts.json": "https://github.com/maximbess/Teleopit/releases/download/g1-o6-pose-search-2026-11-13/G1_O6_Pose_Search_2026-11-13.zip.parts.json",
+    "G1_O6_Pose_Search_2026-11-13.zip.sha256": "https://github.com/maximbess/Teleopit/releases/download/g1-o6-pose-search-2026-11-13/G1_O6_Pose_Search_2026-11-13.zip.sha256",
+    "reassemble_g1_o6_pose_search.py": "https://github.com/maximbess/Teleopit/releases/download/g1-o6-pose-search-2026-11-13/reassemble_g1_o6_pose_search.py"
+  },
+  "public_download_bytes": 2666002117,
+  "public_download_sha256": "c320cf82a0428a722309aed23a90b5931260a5bb82ca5c6ec70fed47bfe85343",
+  "publication_verification": "publication_verification.json"
+}

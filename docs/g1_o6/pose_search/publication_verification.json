@@ -1,0 +1,55 @@
+{
+  "verified_at_utc": "2026-11-13T05:25:17.499968+00:00",
+  "release_url": "https://github.com/maximbess/Teleopit/releases/tag/g1-o6-pose-search-2026-11-13",
+  "implementation_revision": "cb6dec0232247ea01c64a5aa99d46d0d68906abf",
+  "public_parts": [
+    {
+      "name": "G1_O6_Pose_Search_2026-11-13.zip.part01",
+      "bytes": 1073741824,
+      "sha256": "8487dc56185413aa2ece0cf0075ef425bf98b8212b621c37e7cef7d8dac6a251",
+      "public_download_verified": true,
+      "transport": "complete unauthenticated requests stream; SHA256 recorded in publication_retry1_console.txt"
+    },
+    {
+      "name": "G1_O6_Pose_Search_2026-11-13.zip.part02",
+      "bytes": 1073741824,
+      "sha256": "114c36cc22e51cb3a7c50385b00495720664385cc9d18320704fa7b3749346b2",
+      "public_download_verified": true,
+      "transport": "complete unauthenticated requests stream; SHA256 recorded in publication_retry1_console.txt"
+    },
+    {
+      "name": "G1_O6_Pose_Search_2026-11-13.zip.part03",
+      "bytes": 518518469,
+      "sha256": "d37cbaa6545e558b1d52a9027b0d0539c265dccba6cf5fc367d7ef78b38460a6",
+      "public_download_verified": true,
+      "transport": "complete unauthenticated curl download, resumed via another DNS-listed GitHub endpoint; TLS verification retained"
+    }
+  ],
+  "public_auxiliary_files": [
+    {
+      "name": "G1_O6_Pose_Search_2026-11-13.zip.parts.json",
+      "bytes": 1256,
+      "sha256": "34400158a089e6850043cbd38e3ce7711db0f6c3dc6d70afa46c28de3d4f8196",
+      "download_url": "https://github.com/maximbess/Teleopit/releases/download/g1-o6-pose-search-2026-11-13/G1_O6_Pose_Search_2026-11-13.zip.parts.json",
+      "matches_local_bytes": true
+    },
+    {
+      "name": "G1_O6_Pose_Search_2026-11-13.zip.sha256",
+      "bytes": 100,
+      "sha256": "529e345a0df42a0d6246752300c4469109b92821fb21d76a2ecf1ba80e36d94a",
+      "download_url": "https://github.com/maximbess/Teleopit/releases/download/g1-o6-pose-search-2026-11-13/G1_O6_Pose_Search_2026-11-13.zip.sha256",
+      "matches_local_bytes": true
+    },
+    {
+      "name": "reassemble_g1_o6_pose_search.py",
+      "bytes": 2573,
+      "sha256": "84b7b60a711a8ccbaa3b434a9b83a7c4e6a62a5017e24d52a431459feaa4c438",
+      "download_url": "https://github.com/maximbess/Teleopit/releases/download/g1-o6-pose-search-2026-11-13/reassemble_g1_o6_pose_search.py",
+      "matches_local_bytes": true
+    }
+  ],
+  "reconstructed_bytes": 2666002117,
+  "reconstructed_sha256": "c320cf82a0428a722309aed23a90b5931260a5bb82ca5c6ec70fed47bfe85343",
+  "method": "Each public part independently matches its local SHA256. Concatenation uses the matching local copies of parts 1/2 and downloaded part 3; the resulting complete ZIP hash matches the original archive.",
+  "network_recovery": "Reused the first uploaded asset after a connection reset. Published all six assets. Retained the completed first two public-download checks after the last requests connection stalled; verified the remaining part with curl and all auxiliary bytes independently. No simulation rerun or asset replacement."
+}
