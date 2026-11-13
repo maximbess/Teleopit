@@ -27,6 +27,12 @@
 - Added a flat comparison CSV with full resolved parameters, side-specific metrics, contact-absence timing, four-support accounting, final-window slopes/excursions, and explicit nominal/repeat/fine PASS/FAIL/NOT RUN states. Initial absence is distinguished from disappearance after recorded presence. The saved raw histories remain the authoritative evidence.
 - The 0.20 rad waist candidate fails drift at 47.28 s HOLD. The 0.40 rad candidate fails unintended support at 49.86 s despite smaller base displacement; its wrist housing touches rung 10. Preserve these failures rather than treating reduced drift or hand unloading as improved grasp stability.
 
+- All 12 allocated 60 s promotions are complete: nine strict/contact passes with late-motion failures, and three strict failures (waist 0.20 drift, waist 0.40 unintended support, positive-X offset drift). Started the remaining five first-120 s slots using the frozen ranking of eligible 60 s evidence; the reproduced reference failure already occupies the sixth slot. No additional geometry or controller tuning is allowed.
+
+- Added a measured 14-row controlled screen comparison, including target advancement, palm migration and matched per-hand loading. C1/C2/C3/C6 preserve acquisition; C4/C5 affect acquisition too, so their causal interpretation is narrower. Inspected the synchronized 60 s finger-freeze plot and the acquired rung-10 replay. The flat table contains 547 evidence columns and distinguishes failed nominal tests from unattempted repeats.
+
+- Reporting regression: anatomical contact interruptions could be absent from synchronized plots when no original strict threshold crossed. A focused plot-event check failed, then passed after adding first thumb/order/valid absence annotations with durations and an explicit initial-absence label. This changes offline reports only; running trial physics and selection are unchanged.
+
 ## Terms
 
 - Strict: the original full-interval HOLD evaluator, unchanged.

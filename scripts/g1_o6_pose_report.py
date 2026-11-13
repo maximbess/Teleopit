@@ -101,6 +101,17 @@ def failure_times(root, result):
             and previous["first_crossing_s"] < scored[name]["first_crossing_s"] - 0.02
         ):
             times.append((name + " before HOLD", previous["first_crossing_s"] - start))
+    return times + contact_times(result, start)
+
+
+def contact_times(result, start):
+    times = []
+    for name, event in result.get("contact_first_absence", {}).items():
+        if ":thumb" in name or name.endswith((":ordered", ":valid")):
+            label = f"{name} absent for {event['duration_s']:g} s"
+            if not event["followed_recorded_presence"]:
+                label += " (initial absence)"
+            times.append((label, event["time_s"] - start))
     return times
 
 
