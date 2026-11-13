@@ -3,6 +3,7 @@
 import hashlib
 import json
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 import numpy as np
 
@@ -238,8 +239,26 @@ def summarize_record(root, record):
         hands={s: side_metrics(held, s) for s in ("left", "right")},
         matched_shares=matched_shares(held),
         support_accounting=support_metrics(held),
+        contact_first_absence=first_absence(path),
     )
     return summary
+
+
+def first_absence(path):
+    first, previous = {}, {}
+    for episode in read(path / "contact_episodes.json")["hold"]:
+        signal = episode["signal"]
+        if not episode["present"]:
+            first.setdefault(
+                signal,
+                {
+                    "time_s": episode["start_s"],
+                    "duration_s": episode["duration_s"],
+                    "followed_recorded_presence": previous.get(signal, False),
+                },
+            )
+        previous[signal] = episode["present"]
+    return first
 
 
 def rank(summary):
@@ -310,14 +329,31 @@ def cached_summary(root, record):
         source.read_bytes() + Path(__file__).read_bytes()
     ).hexdigest()
     cache = root / "comparison_cache" / (record["id"] + ".json")
-    if cache.exists():
-        value = read(cache)
-        if value["source_and_analysis_sha256"] == digest:
-            return value["summary"]
+    saved = read_cache(cache, digest)
+    if saved is not None:
+        return saved
     result = summarize_record(root, record)
     cache.parent.mkdir(exist_ok=True)
-    cache.write_text(
-        json.dumps({"source_and_analysis_sha256": digest, "summary": result}, indent=2)
-        + "\n"
-    )
+    write_cache(cache, {"source_and_analysis_sha256": digest, "summary": result})
     return result
+
+
+def read_cache(path, digest):
+    try:
+        value = read(path)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+    if isinstance(value, dict) and value.get("source_and_analysis_sha256") == digest:
+        return value.get("summary")
+    return None
+
+
+def write_cache(path, value):
+    # Independent readers may build the same advisory cache. Publish complete
+    # bytes atomically from a unique same-directory file, never a shared temp.
+    with NamedTemporaryFile(
+        "w", dir=path.parent, suffix=".tmp", delete=False
+    ) as stream:
+        stream.write(json.dumps(value, indent=2) + "\n")
+        temporary = Path(stream.name)
+    temporary.replace(path)

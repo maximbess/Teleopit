@@ -1,6 +1,7 @@
 """Compare the bounded pose campaign using preserved traces, never new physics."""
 
 import argparse
+import csv
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -199,8 +200,31 @@ def qualification_table(state):
         stages = stage_qualification(
             state["runs"], name, Candidate.from_dict(candidate).digest()
         )
-        result[name] = {"stages": stages, "qualified": all(stages.values())}
+        result[name] = {
+            "stages": stages,
+            "qualified": all(stages.values()),
+            "statuses": {
+                stage: validation_status(state, name, stage)
+                for stage in ("120s", "repeat", "fine")
+            },
+        }
     return result
+
+
+def validation_status(state, name, stage):
+    record = next(
+        (
+            r
+            for r in reversed(state["runs"])
+            if r["candidate"] == name and r["stage"] == stage
+        ),
+        None,
+    )
+    if record is None:
+        return "NOT RUN"
+    if record["status"] != "COMPLETE":
+        return record["status"]
+    return "PASS" if record["result"].get("progression_justified") else "FAIL"
 
 
 def comparison_markdown(results, qualified):
@@ -223,6 +247,7 @@ def comparison_markdown(results, qualified):
             + ".",
             "",
             "[Complete configurations, per-hand metrics, late windows, first crossings and qualification status](results.json).",
+            "[Flat comparison table with all per-hand metrics and separate validation statuses](comparison.csv).",
             "",
             "A >50% reduction in either hand's signed 20–30 s share is explicitly flagged in the JSON; it does not establish stronger grasp capacity.",
             "",
@@ -249,6 +274,58 @@ def comparison_row(row):
     return f"| {row['candidate']} / {row['stage']} | {row['strict']} / {late} / {contact} | {row['achieved_s']:.2f} | {drift_text} | {loads} | {', '.join(reasons) or 'none'} |"
 
 
+def flatten_fields(value, prefix=""):
+    result = {}
+    for name, item in value.items():
+        key = prefix + str(name)
+        if isinstance(item, dict):
+            result.update(flatten_fields(item, key + "."))
+        else:
+            result[key] = json.dumps(item) if isinstance(item, (list, tuple)) else item
+    return result
+
+
+def comparison_csv(results, qualified, output):
+    rows = [
+        flatten_fields(
+            {
+                "candidate": r["candidate"],
+                "parent": r["configuration"]["parent"],
+                "stage": r["stage"],
+                "requested_s": r["requested_s"],
+                "achieved_s": r["achieved_s"],
+                "changes": r["configuration"]["changes"],
+                "pose": r["configuration"]["pose"],
+                "ik_seed": r["configuration"]["ik_seed"],
+                "controller": r["controller"],
+                "targets": r["support_targets"],
+                "reset_inspection": r["reset"],
+                "hands": r["hands"],
+                "support_accounting": r.get("support_accounting", {}),
+                "result": r["result"],
+                "late_final_window": final_window(r["result"]),
+                "contact_first_absence": r.get("contact_first_absence", {}),
+                "matched_20_30s_hand_shares": r["matched_shares"],
+                "materially_reduced_hand_load": r["materially_reduced_hand_load"],
+                "eligible_for_longer_diagnostic": r["stage"] in ("screen", "60s")
+                and strict_contact_pass(r),
+                "nominal_repeat_fine": qualified[r["candidate"]],
+            }
+        )
+        for r in results
+    ]
+    fields = list(dict.fromkeys(key for row in rows for key in row))
+    with (output / "comparison.csv").open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def final_window(result):
+    windows = result.get("drift_assessment", {}).get("windows", [])
+    return windows[-1] if windows else {}
+
+
 def report(root, output, plots=True):
     state = read(root / "campaign_state.json")
     results = campaign_results(SimpleNamespace(root=root, state=state))
@@ -272,6 +349,7 @@ def report(root, output, plots=True):
     (output / "COMPARISON.md").write_text(
         comparison_markdown(results, qualified), encoding="utf-8"
     )
+    comparison_csv(results, qualified, output)
     if plots:
         for name, result in representatives.items():
             if result["strict"] != "NOT RUN":
