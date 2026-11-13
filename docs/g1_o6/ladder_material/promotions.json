@@ -1,0 +1,176 @@
+{
+  "promotions_60s": {
+    "ranked": [
+      "G0_reference",
+      "G0_M_1p2",
+      "G0_H_1p2",
+      "G0_H_0p6",
+      "G0_M_0p6",
+      "G0_M_0p8",
+      "G0_H_0p8",
+      "G0_H_0p4"
+    ],
+    "selected": [
+      "G0_H_1p2",
+      "G0_reference",
+      "G0_M_1p2",
+      "G0_H_0p6",
+      "G0_M_0p6",
+      "G0_M_0p8",
+      "G0_H_0p8",
+      "G0_H_0p4"
+    ],
+    "diagnostic_nonconvergent": [
+      "G0_reference",
+      "G0_M_1p2",
+      "G0_H_1p2",
+      "G0_H_0p6",
+      "G0_M_0p6",
+      "G0_M_0p8",
+      "G0_H_0p8",
+      "G0_H_0p4"
+    ]
+  },
+  "promotions_120s": {
+    "ranked": [
+      "G0_H_0p6",
+      "G0_M_0p6",
+      "G0_reference",
+      "G0_M_0p8",
+      "G0_H_0p8",
+      "G0_M_1p2",
+      "G0_H_1p2"
+    ],
+    "selected": [
+      "G0_H_0p6",
+      "G0_M_0p6",
+      "G0_M_0p8",
+      "G0_H_0p8",
+      "G0_M_1p2"
+    ],
+    "diagnostic_nonconvergent": [
+      "G0_H_0p6",
+      "G0_M_0p6",
+      "G0_reference",
+      "G0_M_0p8",
+      "G0_H_0p8",
+      "G0_M_1p2",
+      "G0_H_1p2"
+    ]
+  },
+  "finalists": [],
+  "runs": [
+    {
+      "id": "G0_reference_120s",
+      "candidate": "G0_reference",
+      "stage": "120s",
+      "identity": "adb0e5fb7a802757bf7dd07c8f80364eb63ffd876ba4edcaa05f38cabef4558d",
+      "status": "COMPLETE",
+      "output": "reference/120s"
+    },
+    {
+      "id": "G0_H_1p2_60s",
+      "candidate": "G0_H_1p2",
+      "stage": "60s",
+      "identity": "434c8cef4cba3318ec84ce7ecd1328bef6af5f159ff14a50c92983ea6ec4ff0a",
+      "status": "COMPLETE",
+      "output": "runs/G0_H_1p2_60s"
+    },
+    {
+      "id": "G0_reference_60s",
+      "candidate": "G0_reference",
+      "stage": "60s",
+      "identity": "3fabb0a7aec961488db4dfae1a2f5ab33479b103f62f1c0275b76c6a570e5284",
+      "status": "COMPLETE",
+      "output": "runs/G0_reference_60s"
+    },
+    {
+      "id": "G0_M_1p2_60s",
+      "candidate": "G0_M_1p2",
+      "stage": "60s",
+      "identity": "c11bf14bc927487deb24420bf81615c96630ae79175570caea62c2c4787a0593",
+      "status": "COMPLETE",
+      "output": "runs/G0_M_1p2_60s"
+    },
+    {
+      "id": "G0_H_0p6_60s",
+      "candidate": "G0_H_0p6",
+      "stage": "60s",
+      "identity": "6303721b2b6fafafab7d2bd92010d1b3c37c3279a0ac183e3ecaeac2d0641a86",
+      "status": "COMPLETE",
+      "output": "runs/G0_H_0p6_60s"
+    },
+    {
+      "id": "G0_M_0p6_60s",
+      "candidate": "G0_M_0p6",
+      "stage": "60s",
+      "identity": "c8906d80e1ea5b21b3d35346daac88acb898d7363781326969b8c9698d9d39e0",
+      "status": "COMPLETE",
+      "output": "runs/G0_M_0p6_60s"
+    },
+    {
+      "id": "G0_M_0p8_60s",
+      "candidate": "G0_M_0p8",
+      "stage": "60s",
+      "identity": "b9f19dd742512841cd2c611564f99c3ce13ccca2f0cda12fdc5d2e0345754842",
+      "status": "COMPLETE",
+      "output": "runs/G0_M_0p8_60s"
+    },
+    {
+      "id": "G0_H_0p8_60s",
+      "candidate": "G0_H_0p8",
+      "stage": "60s",
+      "identity": "c670ea1594ae0d540045b5f8058579b684e7cd6b4ae1dec11779a078050bce86",
+      "status": "COMPLETE",
+      "output": "runs/G0_H_0p8_60s"
+    },
+    {
+      "id": "G0_H_0p4_60s",
+      "candidate": "G0_H_0p4",
+      "stage": "60s",
+      "identity": "22fdcfab641fecbe6a1ba0905334239b4b3ae96f7e3624d25bece15251d21c00",
+      "status": "COMPLETE",
+      "output": "runs/G0_H_0p4_60s"
+    },
+    {
+      "id": "G0_H_0p6_120s",
+      "candidate": "G0_H_0p6",
+      "stage": "120s",
+      "identity": "6658f36ee3d905dac069d0130b7d1046443604d542e3de2b4bf568dbe801f81b",
+      "status": "COMPLETE",
+      "output": "runs/G0_H_0p6_120s"
+    },
+    {
+      "id": "G0_M_0p6_120s",
+      "candidate": "G0_M_0p6",
+      "stage": "120s",
+      "identity": "2617e8c5cf07ef68d1f079d549856bc734d40f99746d79d67e27757bfe7b2246",
+      "status": "COMPLETE",
+      "output": "runs/G0_M_0p6_120s"
+    },
+    {
+      "id": "G0_M_0p8_120s",
+      "candidate": "G0_M_0p8",
+      "stage": "120s",
+      "identity": "ef736ba39e1366ee51b13e2c03965e6f06a02ade9873219858a9a4ec652672a8",
+      "status": "COMPLETE",
+      "output": "runs/G0_M_0p8_120s"
+    },
+    {
+      "id": "G0_H_0p8_120s",
+      "candidate": "G0_H_0p8",
+      "stage": "120s",
+      "identity": "6de5bce276551b0c1aa602a3a068ac6727af7444752802a18e4234b1bf627963",
+      "status": "COMPLETE",
+      "output": "runs/G0_H_0p8_120s"
+    },
+    {
+      "id": "G0_M_1p2_120s",
+      "candidate": "G0_M_1p2",
+      "stage": "120s",
+      "identity": "a901a4fd7c2e481966aae54f73cccc2b4e6616d8f5a02ae26b5e20f0f13c594c",
+      "status": "COMPLETE",
+      "output": "runs/G0_M_1p2_120s"
+    }
+  ]
+}

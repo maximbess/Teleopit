@@ -1,0 +1,1684 @@
+{
+  "software_status": "PASS",
+  "reference_comparisons": {
+    "status": "PASS",
+    "trace_hashes_and_summaries_match_comparison": true
+  },
+  "partial": false,
+  "distinct_conditions_by_stage": {
+    "screen": 25,
+    "60s": 8,
+    "120s": 6,
+    "repeat": 0,
+    "fine": 0
+  },
+  "runs": [
+    {
+      "id": "G0_reference_screen",
+      "integrity": "PASS",
+      "files": 12,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "native reference",
+          "mu": 1.8
+        },
+        "observed_pairs": 23,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            1.8
+          ]
+        },
+        "observation_resolution": "original reference control rows; unchanged native model"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "method": "reviewed reference every-physics-step boolean audit; detailed arrays retained in event windows",
+        "scored_steps": 30000,
+        "nonzero_steps": 0
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": true,
+      "acquisition_windows": {
+        "status": "PASS",
+        "identical_control_rows": 266,
+        "phases": [
+          "INITIALIZE",
+          "ACQUIRE",
+          "REMOVE_ASSISTANCE",
+          "HOLD"
+        ],
+        "purpose": "separate deterministic acquisition prefix; no qualification result"
+      }
+    },
+    {
+      "id": "G0_reference_120s",
+      "integrity": "PASS",
+      "files": 12,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "native reference",
+          "mu": 1.8
+        },
+        "observed_pairs": 23,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            1.8
+          ]
+        },
+        "observation_resolution": "original reference control rows; unchanged native model"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "method": "reviewed reference every-physics-step boolean audit; detailed arrays retained in event windows",
+        "scored_steps": 88020,
+        "nonzero_steps": 0
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": true
+    },
+    {
+      "id": "G1_reference_screen",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "native reference",
+          "mu": 1.8
+        },
+        "observed_pairs": 19,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            1.8
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 500,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": false,
+      "acquisition_windows": {
+        "status": "PASS",
+        "identical_control_rows": 266,
+        "phases": [
+          "INITIALIZE",
+          "ACQUIRE",
+          "REMOVE_ASSISTANCE",
+          "HOLD"
+        ],
+        "purpose": "separate deterministic acquisition prefix; no qualification result"
+      }
+    },
+    {
+      "id": "G2_reference_screen",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "native reference",
+          "mu": 1.8
+        },
+        "observed_pairs": 21,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            1.8
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 500,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": false,
+      "acquisition_windows": {
+        "status": "PASS",
+        "identical_control_rows": 266,
+        "phases": [
+          "INITIALIZE",
+          "ACQUIRE",
+          "REMOVE_ASSISTANCE",
+          "HOLD"
+        ],
+        "purpose": "separate deterministic acquisition prefix; no qualification result"
+      }
+    },
+    {
+      "id": "G3_reference_screen",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "native reference",
+          "mu": 1.8
+        },
+        "observed_pairs": 19,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            1.8
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 500,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": false,
+      "acquisition_windows": {
+        "status": "PASS",
+        "identical_control_rows": 266,
+        "phases": [
+          "INITIALIZE",
+          "ACQUIRE",
+          "REMOVE_ASSISTANCE",
+          "HOLD"
+        ],
+        "purpose": "separate deterministic acquisition prefix; no qualification result"
+      }
+    },
+    {
+      "id": "G4_reference_screen",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "native reference",
+          "mu": 1.8
+        },
+        "observed_pairs": 19,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            1.8
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 500,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": true,
+      "acquisition_windows": {
+        "status": "PASS",
+        "identical_control_rows": 266,
+        "phases": [
+          "INITIALIZE",
+          "ACQUIRE",
+          "REMOVE_ASSISTANCE",
+          "HOLD"
+        ],
+        "purpose": "separate deterministic acquisition prefix; no qualification result"
+      }
+    },
+    {
+      "id": "G5_reference_screen",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "native reference",
+          "mu": 1.8
+        },
+        "observed_pairs": 18,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            1.8
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 500,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": true,
+      "acquisition_windows": {
+        "status": "PASS",
+        "identical_control_rows": 266,
+        "phases": [
+          "INITIALIZE",
+          "ACQUIRE",
+          "REMOVE_ASSISTANCE",
+          "HOLD"
+        ],
+        "purpose": "separate deterministic acquisition prefix; no qualification result"
+      }
+    },
+    {
+      "id": "G6_reference_screen",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "native reference",
+          "mu": 1.8
+        },
+        "observed_pairs": 19,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            1.8
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 500,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": true,
+      "acquisition_windows": {
+        "status": "PASS",
+        "identical_control_rows": 266,
+        "phases": [
+          "INITIALIZE",
+          "ACQUIRE",
+          "REMOVE_ASSISTANCE",
+          "HOLD"
+        ],
+        "purpose": "separate deterministic acquisition prefix; no qualification result"
+      }
+    },
+    {
+      "id": "G0_H_0p4_screen",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "H",
+          "mu": 0.4
+        },
+        "observed_pairs": 23,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            0.4
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 30000,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": false,
+      "acquisition_windows": {
+        "status": "PASS",
+        "identical_control_rows": 266,
+        "phases": [
+          "INITIALIZE",
+          "ACQUIRE",
+          "REMOVE_ASSISTANCE",
+          "HOLD"
+        ],
+        "purpose": "separate deterministic acquisition prefix; no qualification result"
+      }
+    },
+    {
+      "id": "G0_H_0p6_screen",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "H",
+          "mu": 0.6
+        },
+        "observed_pairs": 23,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            0.6
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 30000,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": false,
+      "acquisition_windows": {
+        "status": "PASS",
+        "identical_control_rows": 266,
+        "phases": [
+          "INITIALIZE",
+          "ACQUIRE",
+          "REMOVE_ASSISTANCE",
+          "HOLD"
+        ],
+        "purpose": "separate deterministic acquisition prefix; no qualification result"
+      }
+    },
+    {
+      "id": "G0_H_0p8_screen",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "H",
+          "mu": 0.8
+        },
+        "observed_pairs": 23,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            0.8
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 30000,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": false,
+      "acquisition_windows": {
+        "status": "PASS",
+        "identical_control_rows": 266,
+        "phases": [
+          "INITIALIZE",
+          "ACQUIRE",
+          "REMOVE_ASSISTANCE",
+          "HOLD"
+        ],
+        "purpose": "separate deterministic acquisition prefix; no qualification result"
+      }
+    },
+    {
+      "id": "G0_H_1p2_screen",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "H",
+          "mu": 1.2
+        },
+        "observed_pairs": 23,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            1.2
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 30000,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": true,
+      "acquisition_windows": {
+        "status": "PASS",
+        "identical_control_rows": 266,
+        "phases": [
+          "INITIALIZE",
+          "ACQUIRE",
+          "REMOVE_ASSISTANCE",
+          "HOLD"
+        ],
+        "purpose": "separate deterministic acquisition prefix; no qualification result"
+      }
+    },
+    {
+      "id": "G5_H_0p4_screen",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "H",
+          "mu": 0.4
+        },
+        "observed_pairs": 18,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            0.4
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 500,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": true,
+      "acquisition_windows": {
+        "status": "PASS",
+        "identical_control_rows": 266,
+        "phases": [
+          "INITIALIZE",
+          "ACQUIRE",
+          "REMOVE_ASSISTANCE",
+          "HOLD"
+        ],
+        "purpose": "separate deterministic acquisition prefix; no qualification result"
+      }
+    },
+    {
+      "id": "G5_H_0p6_screen",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "H",
+          "mu": 0.6
+        },
+        "observed_pairs": 18,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            0.6
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 500,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": true,
+      "acquisition_windows": {
+        "status": "PASS",
+        "identical_control_rows": 266,
+        "phases": [
+          "INITIALIZE",
+          "ACQUIRE",
+          "REMOVE_ASSISTANCE",
+          "HOLD"
+        ],
+        "purpose": "separate deterministic acquisition prefix; no qualification result"
+      }
+    },
+    {
+      "id": "G5_H_0p8_screen",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "H",
+          "mu": 0.8
+        },
+        "observed_pairs": 18,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            0.8
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 500,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": true,
+      "acquisition_windows": {
+        "status": "PASS",
+        "identical_control_rows": 266,
+        "phases": [
+          "INITIALIZE",
+          "ACQUIRE",
+          "REMOVE_ASSISTANCE",
+          "HOLD"
+        ],
+        "purpose": "separate deterministic acquisition prefix; no qualification result"
+      }
+    },
+    {
+      "id": "G5_H_1p2_screen",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "H",
+          "mu": 1.2
+        },
+        "observed_pairs": 18,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            1.2
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 500,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": true,
+      "acquisition_windows": {
+        "status": "PASS",
+        "identical_control_rows": 266,
+        "phases": [
+          "INITIALIZE",
+          "ACQUIRE",
+          "REMOVE_ASSISTANCE",
+          "HOLD"
+        ],
+        "purpose": "separate deterministic acquisition prefix; no qualification result"
+      }
+    },
+    {
+      "id": "G6_H_0p4_screen",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "H",
+          "mu": 0.4
+        },
+        "observed_pairs": 20,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            0.4
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 500,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": true,
+      "acquisition_windows": {
+        "status": "PASS",
+        "identical_control_rows": 266,
+        "phases": [
+          "INITIALIZE",
+          "ACQUIRE",
+          "REMOVE_ASSISTANCE",
+          "HOLD"
+        ],
+        "purpose": "separate deterministic acquisition prefix; no qualification result"
+      }
+    },
+    {
+      "id": "G6_H_0p6_screen",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "H",
+          "mu": 0.6
+        },
+        "observed_pairs": 20,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            0.6
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 500,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": true,
+      "acquisition_windows": {
+        "status": "PASS",
+        "identical_control_rows": 266,
+        "phases": [
+          "INITIALIZE",
+          "ACQUIRE",
+          "REMOVE_ASSISTANCE",
+          "HOLD"
+        ],
+        "purpose": "separate deterministic acquisition prefix; no qualification result"
+      }
+    },
+    {
+      "id": "G6_H_0p8_screen",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "H",
+          "mu": 0.8
+        },
+        "observed_pairs": 20,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            0.8
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 500,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": true,
+      "acquisition_windows": {
+        "status": "PASS",
+        "identical_control_rows": 266,
+        "phases": [
+          "INITIALIZE",
+          "ACQUIRE",
+          "REMOVE_ASSISTANCE",
+          "HOLD"
+        ],
+        "purpose": "separate deterministic acquisition prefix; no qualification result"
+      }
+    },
+    {
+      "id": "G6_H_1p2_screen",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "H",
+          "mu": 1.2
+        },
+        "observed_pairs": 20,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            1.2
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 500,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": true,
+      "acquisition_windows": {
+        "status": "PASS",
+        "identical_control_rows": 266,
+        "phases": [
+          "INITIALIZE",
+          "ACQUIRE",
+          "REMOVE_ASSISTANCE",
+          "HOLD"
+        ],
+        "purpose": "separate deterministic acquisition prefix; no qualification result"
+      }
+    },
+    {
+      "id": "G0_M_0p6_screen",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "M",
+          "mu": 0.6
+        },
+        "observed_pairs": 23,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            0.6
+          ],
+          "hand": [
+            0.6
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 30000,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": false,
+      "acquisition_windows": {
+        "status": "PASS",
+        "identical_control_rows": 266,
+        "phases": [
+          "INITIALIZE",
+          "ACQUIRE",
+          "REMOVE_ASSISTANCE",
+          "HOLD"
+        ],
+        "purpose": "separate deterministic acquisition prefix; no qualification result"
+      }
+    },
+    {
+      "id": "G0_M_0p8_screen",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "M",
+          "mu": 0.8
+        },
+        "observed_pairs": 23,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            0.8
+          ],
+          "hand": [
+            0.8
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 30000,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": false,
+      "acquisition_windows": {
+        "status": "PASS",
+        "identical_control_rows": 266,
+        "phases": [
+          "INITIALIZE",
+          "ACQUIRE",
+          "REMOVE_ASSISTANCE",
+          "HOLD"
+        ],
+        "purpose": "separate deterministic acquisition prefix; no qualification result"
+      }
+    },
+    {
+      "id": "G0_M_1p2_screen",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "M",
+          "mu": 1.2
+        },
+        "observed_pairs": 23,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.2
+          ],
+          "hand": [
+            1.2
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 30000,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": false,
+      "acquisition_windows": {
+        "status": "PASS",
+        "identical_control_rows": 266,
+        "phases": [
+          "INITIALIZE",
+          "ACQUIRE",
+          "REMOVE_ASSISTANCE",
+          "HOLD"
+        ],
+        "purpose": "separate deterministic acquisition prefix; no qualification result"
+      }
+    },
+    {
+      "id": "G6_M_0p6_screen",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "M",
+          "mu": 0.6
+        },
+        "observed_pairs": 20,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            0.6
+          ],
+          "hand": [
+            0.6
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 500,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": true,
+      "acquisition_windows": {
+        "status": "PASS",
+        "identical_control_rows": 266,
+        "phases": [
+          "INITIALIZE",
+          "ACQUIRE",
+          "REMOVE_ASSISTANCE",
+          "HOLD"
+        ],
+        "purpose": "separate deterministic acquisition prefix; no qualification result"
+      }
+    },
+    {
+      "id": "G6_M_0p8_screen",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "M",
+          "mu": 0.8
+        },
+        "observed_pairs": 20,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            0.8
+          ],
+          "hand": [
+            0.8
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 500,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": true,
+      "acquisition_windows": {
+        "status": "PASS",
+        "identical_control_rows": 266,
+        "phases": [
+          "INITIALIZE",
+          "ACQUIRE",
+          "REMOVE_ASSISTANCE",
+          "HOLD"
+        ],
+        "purpose": "separate deterministic acquisition prefix; no qualification result"
+      }
+    },
+    {
+      "id": "G6_M_1p2_screen",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "M",
+          "mu": 1.2
+        },
+        "observed_pairs": 20,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.2
+          ],
+          "hand": [
+            1.2
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 500,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": true,
+      "acquisition_windows": {
+        "status": "PASS",
+        "identical_control_rows": 266,
+        "phases": [
+          "INITIALIZE",
+          "ACQUIRE",
+          "REMOVE_ASSISTANCE",
+          "HOLD"
+        ],
+        "purpose": "separate deterministic acquisition prefix; no qualification result"
+      }
+    },
+    {
+      "id": "G0_H_1p2_60s",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "H",
+          "mu": 1.2
+        },
+        "observed_pairs": 23,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            1.2
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 60020,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": false
+    },
+    {
+      "id": "G0_reference_60s",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "native reference",
+          "mu": 1.8
+        },
+        "observed_pairs": 23,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            1.8
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 60020,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": false
+    },
+    {
+      "id": "G0_M_1p2_60s",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "M",
+          "mu": 1.2
+        },
+        "observed_pairs": 23,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.2
+          ],
+          "hand": [
+            1.2
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 60020,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": false
+    },
+    {
+      "id": "G0_H_0p6_60s",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "H",
+          "mu": 0.6
+        },
+        "observed_pairs": 23,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            0.6
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 60020,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": true
+    },
+    {
+      "id": "G0_M_0p6_60s",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "M",
+          "mu": 0.6
+        },
+        "observed_pairs": 23,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            0.6
+          ],
+          "hand": [
+            0.6
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 60020,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": true
+    },
+    {
+      "id": "G0_M_0p8_60s",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "M",
+          "mu": 0.8
+        },
+        "observed_pairs": 23,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            0.8
+          ],
+          "hand": [
+            0.8
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 60020,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": true
+    },
+    {
+      "id": "G0_H_0p8_60s",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "H",
+          "mu": 0.8
+        },
+        "observed_pairs": 23,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            0.8
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 60020,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": true
+    },
+    {
+      "id": "G0_H_0p4_60s",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "H",
+          "mu": 0.4
+        },
+        "observed_pairs": 23,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            0.4
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 49020,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": true
+    },
+    {
+      "id": "G0_H_0p6_120s",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "H",
+          "mu": 0.6
+        },
+        "observed_pairs": 23,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            0.6
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 83780,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": false
+    },
+    {
+      "id": "G0_M_0p6_120s",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "M",
+          "mu": 0.6
+        },
+        "observed_pairs": 23,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            0.6
+          ],
+          "hand": [
+            0.6
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 83020,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": false
+    },
+    {
+      "id": "G0_M_0p8_120s",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "M",
+          "mu": 0.8
+        },
+        "observed_pairs": 23,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            0.8
+          ],
+          "hand": [
+            0.8
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 85760,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": false
+    },
+    {
+      "id": "G0_H_0p8_120s",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "H",
+          "mu": 0.8
+        },
+        "observed_pairs": 23,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.8
+          ],
+          "hand": [
+            0.8
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 86240,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": true
+    },
+    {
+      "id": "G0_M_1p2_120s",
+      "integrity": "PASS",
+      "files": 15,
+      "material": {
+        "status": "PASS",
+        "requested": {
+          "scope": "M",
+          "mu": 1.2
+        },
+        "observed_pairs": 23,
+        "observed_regions": [
+          "hand",
+          "other_robot"
+        ],
+        "observed_tangential_by_region": {
+          "other_robot": [
+            1.2
+          ],
+          "hand": [
+            1.2
+          ]
+        },
+        "observation_resolution": "physics step"
+      },
+      "external_forces": {
+        "status": "PASS",
+        "scored_steps": 87500,
+        "nonzero_steps": 0,
+        "method": "all actual applied arrays at every scored physics step"
+      },
+      "robot_solver_controller": "PASS",
+      "reconstructed_scene": "PASS",
+      "original_scene_has_coupled_model": true
+    }
+  ],
+  "physical_qualification": {
+    "G0_reference": "FAILED",
+    "G1_reference": "FAILED",
+    "G2_reference": "FAILED",
+    "G3_reference": "FAILED",
+    "G4_reference": "FAILED",
+    "G5_reference": "FAILED",
+    "G6_reference": "FAILED",
+    "G0_H_0p4": "FAILED",
+    "G0_H_0p6": "FAILED",
+    "G0_H_0p8": "FAILED",
+    "G0_H_1p2": "NOT RUN (long qualification)",
+    "G5_H_0p4": "FAILED",
+    "G5_H_0p6": "FAILED",
+    "G5_H_0p8": "FAILED",
+    "G5_H_1p2": "FAILED",
+    "G6_H_0p4": "FAILED",
+    "G6_H_0p6": "FAILED",
+    "G6_H_0p8": "FAILED",
+    "G6_H_1p2": "FAILED",
+    "G0_M_0p6": "FAILED",
+    "G0_M_0p8": "FAILED",
+    "G0_M_1p2": "FAILED",
+    "G6_M_0p6": "FAILED",
+    "G6_M_0p8": "FAILED",
+    "G6_M_1p2": "FAILED"
+  }
+}

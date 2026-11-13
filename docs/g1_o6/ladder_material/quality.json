@@ -1,0 +1,1109 @@
+{
+  "tools": "Radon + measured coverage; AST SequenceMatcher >=50 nodes (named crapper/dryer unavailable)",
+  "reference": "cc0cd5393c670e7801bb7d242c700e6af4d47303",
+  "scope_prefixes": [
+    "teleopit/sim/",
+    "scripts/g1_o6_ladder_report.py",
+    "scripts/g1_o6_ladder_reconstruct.py",
+    "scripts/verify_g1_o6_ladder_campaign.py",
+    "scripts/package_g1_o6_ladder.py",
+    "scripts/g1_o6_ladder_acquisition.py",
+    "scripts/g1_o6_ladder_video.py"
+  ],
+  "functions": [
+    {
+      "file": "scripts/g1_o6_ladder_acquisition.py",
+      "function": "compare_row",
+      "complexity": 4,
+      "coverage": 0.75,
+      "crap": 4.25
+    },
+    {
+      "file": "scripts/g1_o6_ladder_acquisition.py",
+      "function": "record_prefix",
+      "complexity": 7,
+      "coverage": 0.875,
+      "crap": 7.095703125
+    },
+    {
+      "file": "scripts/g1_o6_ladder_acquisition.py",
+      "function": "supplement",
+      "complexity": 6,
+      "coverage": 0.96,
+      "crap": 6.002304
+    },
+    {
+      "file": "scripts/g1_o6_ladder_acquisition.py",
+      "function": "main",
+      "complexity": 6,
+      "coverage": 1.0,
+      "crap": 6.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_reconstruct.py",
+      "function": "read",
+      "complexity": 1,
+      "coverage": 1.0,
+      "crap": 1.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_reconstruct.py",
+      "function": "assert_same_arrays",
+      "complexity": 4,
+      "coverage": 1.0,
+      "crap": 4.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_reconstruct.py",
+      "function": "check_source",
+      "complexity": 5,
+      "coverage": 0.8888888888888888,
+      "crap": 5.034293552812072
+    },
+    {
+      "file": "scripts/g1_o6_ladder_reconstruct.py",
+      "function": "reconstruct",
+      "complexity": 2,
+      "coverage": 1.0,
+      "crap": 2.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_reconstruct.py",
+      "function": "verify_existing",
+      "complexity": 4,
+      "coverage": 1.0,
+      "crap": 4.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_reconstruct.py",
+      "function": "rebuild_environment",
+      "complexity": 4,
+      "coverage": 1.0,
+      "crap": 4.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_reconstruct.py",
+      "function": "verify_environment",
+      "complexity": 5,
+      "coverage": 0.8888888888888888,
+      "crap": 5.034293552812072
+    },
+    {
+      "file": "scripts/g1_o6_ladder_reconstruct.py",
+      "function": "reconstruction_proof",
+      "complexity": 5,
+      "coverage": 1.0,
+      "crap": 5.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_reconstruct.py",
+      "function": "main",
+      "complexity": 4,
+      "coverage": 1.0,
+      "crap": 4.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_report.py",
+      "function": "read",
+      "complexity": 1,
+      "coverage": 1.0,
+      "crap": 1.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_report.py",
+      "function": "in_hold_window",
+      "complexity": 3,
+      "coverage": 1.0,
+      "crap": 3.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_report.py",
+      "function": "complete_window",
+      "complexity": 3,
+      "coverage": 1.0,
+      "crap": 3.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_report.py",
+      "function": "matched_statistics",
+      "complexity": 5,
+      "coverage": 1.0,
+      "crap": 5.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_report.py",
+      "function": "window_averages",
+      "complexity": 7,
+      "coverage": 1.0,
+      "crap": 7.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_report.py",
+      "function": "matched_foot_slip",
+      "complexity": 8,
+      "coverage": 1.0,
+      "crap": 8.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_report.py",
+      "function": "summarize",
+      "complexity": 3,
+      "coverage": 0.8888888888888888,
+      "crap": 3.0123456790123457
+    },
+    {
+      "file": "scripts/g1_o6_ladder_report.py",
+      "function": "plot_run",
+      "complexity": 9,
+      "coverage": 0.9375,
+      "crap": 9.019775390625
+    },
+    {
+      "file": "scripts/g1_o6_ladder_report.py",
+      "function": "plot_side",
+      "complexity": 7,
+      "coverage": 1.0,
+      "crap": 7.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_report.py",
+      "function": "plot_migration",
+      "complexity": 6,
+      "coverage": 1.0,
+      "crap": 6.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_report.py",
+      "function": "format_axes",
+      "complexity": 3,
+      "coverage": 1.0,
+      "crap": 3.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_report.py",
+      "function": "failure_crossings",
+      "complexity": 3,
+      "coverage": 1.0,
+      "crap": 3.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_report.py",
+      "function": "save_plots",
+      "complexity": 4,
+      "coverage": 1.0,
+      "crap": 4.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_report.py",
+      "function": "paired_material_comparisons",
+      "complexity": 3,
+      "coverage": 1.0,
+      "crap": 3.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_report.py",
+      "function": "stage_material_comparisons",
+      "complexity": 7,
+      "coverage": 1.0,
+      "crap": 7.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_report.py",
+      "function": "compare_pair",
+      "complexity": 5,
+      "coverage": 1.0,
+      "crap": 5.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_report.py",
+      "function": "report",
+      "complexity": 7,
+      "coverage": 1.0,
+      "crap": 7.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_report.py",
+      "function": "analyze_record",
+      "complexity": 3,
+      "coverage": 1.0,
+      "crap": 3.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_report.py",
+      "function": "cached_result",
+      "complexity": 6,
+      "coverage": 1.0,
+      "crap": 6.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_report.py",
+      "function": "write_matrix",
+      "complexity": 6,
+      "coverage": 1.0,
+      "crap": 6.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_report.py",
+      "function": "write_timeline",
+      "complexity": 6,
+      "coverage": 1.0,
+      "crap": 6.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_report.py",
+      "function": "timeline_events",
+      "complexity": 3,
+      "coverage": 1.0,
+      "crap": 3.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_report.py",
+      "function": "write_table",
+      "complexity": 5,
+      "coverage": 1.0,
+      "crap": 5.0
+    },
+    {
+      "file": "scripts/g1_o6_ladder_video.py",
+      "function": "replay",
+      "complexity": 8,
+      "coverage": 0.9583333333333334,
+      "crap": 8.00462962962963
+    },
+    {
+      "file": "scripts/package_g1_o6_ladder.py",
+      "function": "package",
+      "complexity": 6,
+      "coverage": 0.9655172413793104,
+      "crap": 6.0014760752798395
+    },
+    {
+      "file": "scripts/verify_g1_o6_ladder_campaign.py",
+      "function": "read",
+      "complexity": 1,
+      "coverage": 1.0,
+      "crap": 1.0
+    },
+    {
+      "file": "scripts/verify_g1_o6_ladder_campaign.py",
+      "function": "baseline_contacts",
+      "complexity": 6,
+      "coverage": 1.0,
+      "crap": 6.0
+    },
+    {
+      "file": "scripts/verify_g1_o6_ladder_campaign.py",
+      "function": "verify_material",
+      "complexity": 6,
+      "coverage": 1.0,
+      "crap": 6.0
+    },
+    {
+      "file": "scripts/verify_g1_o6_ladder_campaign.py",
+      "function": "check_contact_coefficients",
+      "complexity": 7,
+      "coverage": 1.0,
+      "crap": 7.0
+    },
+    {
+      "file": "scripts/verify_g1_o6_ladder_campaign.py",
+      "function": "check_requested_material",
+      "complexity": 7,
+      "coverage": 1.0,
+      "crap": 7.0
+    },
+    {
+      "file": "scripts/verify_g1_o6_ladder_campaign.py",
+      "function": "check_selected_pair",
+      "complexity": 4,
+      "coverage": 1.0,
+      "crap": 4.0
+    },
+    {
+      "file": "scripts/verify_g1_o6_ladder_campaign.py",
+      "function": "verify_forces",
+      "complexity": 8,
+      "coverage": 1.0,
+      "crap": 8.0
+    },
+    {
+      "file": "scripts/verify_g1_o6_ladder_campaign.py",
+      "function": "verify",
+      "complexity": 9,
+      "coverage": 0.8125,
+      "crap": 9.533935546875
+    },
+    {
+      "file": "scripts/verify_g1_o6_ladder_campaign.py",
+      "function": "verify_reference_history",
+      "complexity": 2,
+      "coverage": 1.0,
+      "crap": 2.0
+    },
+    {
+      "file": "scripts/verify_g1_o6_ladder_campaign.py",
+      "function": "verify_record",
+      "complexity": 5,
+      "coverage": 0.9166666666666666,
+      "crap": 5.014467592592593
+    },
+    {
+      "file": "scripts/verify_g1_o6_ladder_campaign.py",
+      "function": "verify_acquisition",
+      "complexity": 9,
+      "coverage": 0.9230769230769231,
+      "crap": 9.0368684569868
+    },
+    {
+      "file": "scripts/verify_g1_o6_ladder_campaign.py",
+      "function": "verify_transition_coverage",
+      "complexity": 6,
+      "coverage": 1.0,
+      "crap": 6.0
+    },
+    {
+      "file": "scripts/verify_g1_o6_ladder_campaign.py",
+      "function": "assert_transition_interval",
+      "complexity": 6,
+      "coverage": 1.0,
+      "crap": 6.0
+    },
+    {
+      "file": "scripts/verify_g1_o6_ladder_campaign.py",
+      "function": "verified_model",
+      "complexity": 7,
+      "coverage": 1.0,
+      "crap": 7.0
+    },
+    {
+      "file": "scripts/verify_g1_o6_ladder_campaign.py",
+      "function": "verify_budgets",
+      "complexity": 5,
+      "coverage": 1.0,
+      "crap": 5.0
+    },
+    {
+      "file": "scripts/verify_g1_o6_ladder_campaign.py",
+      "function": "qualification_statuses",
+      "complexity": 5,
+      "coverage": 1.0,
+      "crap": 5.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6/env.py",
+      "function": "__init__",
+      "complexity": 8,
+      "coverage": 1.0,
+      "crap": 8.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6/env.py",
+      "function": "save_scene",
+      "complexity": 1,
+      "coverage": 1.0,
+      "crap": 1.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6/env.py",
+      "function": "reset",
+      "complexity": 2,
+      "coverage": 1.0,
+      "crap": 2.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6/grasp_pose.py",
+      "function": "mount_target",
+      "complexity": 4,
+      "coverage": 1.0,
+      "crap": 4.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6/grasp_pose.py",
+      "function": "__post_init__",
+      "complexity": 3,
+      "coverage": 1.0,
+      "crap": 3.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6/grasp_pose.py",
+      "function": "validate_vectors",
+      "complexity": 8,
+      "coverage": 1.0,
+      "crap": 8.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6/grasp_pose.py",
+      "function": "support_targets",
+      "complexity": 3,
+      "coverage": 1.0,
+      "crap": 3.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6/initialize.py",
+      "function": "initial_stance",
+      "complexity": 9,
+      "coverage": 1.0,
+      "crap": 9.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6/initialize.py",
+      "function": "rung_face_displacement",
+      "complexity": 1,
+      "coverage": 1.0,
+      "crap": 1.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6/initialize.py",
+      "function": "translate_support_frame",
+      "complexity": 2,
+      "coverage": 1.0,
+      "crap": 2.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6/material.py",
+      "function": "eligible_pair",
+      "complexity": 5,
+      "coverage": 1.0,
+      "crap": 5.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6/material.py",
+      "function": "selected_pairs",
+      "complexity": 6,
+      "coverage": 1.0,
+      "crap": 6.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6/material.py",
+      "function": "selected_robot_geoms",
+      "complexity": 6,
+      "coverage": 1.0,
+      "crap": 6.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6/material.py",
+      "function": "mix_solver",
+      "complexity": 3,
+      "coverage": 0.8888888888888888,
+      "crap": 3.0123456790123457
+    },
+    {
+      "file": "teleopit/sim/g1_o6/material.py",
+      "function": "mixed_parameters",
+      "complexity": 3,
+      "coverage": 0.6,
+      "crap": 3.576
+    },
+    {
+      "file": "teleopit/sim/g1_o6/material.py",
+      "function": "xml_values",
+      "complexity": 3,
+      "coverage": 1.0,
+      "crap": 3.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6/material.py",
+      "function": "configure_material",
+      "complexity": 7,
+      "coverage": 0.9473684210526315,
+      "crap": 7.007143898527482
+    },
+    {
+      "file": "teleopit/sim/g1_o6/material.py",
+      "function": "__post_init__",
+      "complexity": 4,
+      "coverage": 1.0,
+      "crap": 4.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6/model.py",
+      "function": "build_model",
+      "complexity": 9,
+      "coverage": 0.967741935483871,
+      "crap": 9.002718941962337
+    },
+    {
+      "file": "teleopit/sim/g1_o6/posture.py",
+      "function": "housing_clearance",
+      "complexity": 8,
+      "coverage": 1.0,
+      "crap": 8.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6/run.py",
+      "function": "run_trial",
+      "complexity": 3,
+      "coverage": 0.9565217391304348,
+      "crap": 3.000739705761486
+    },
+    {
+      "file": "teleopit/sim/g1_o6/settings.py",
+      "function": "load_settings",
+      "complexity": 3,
+      "coverage": 1.0,
+      "crap": 3.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "digest",
+      "complexity": 1,
+      "coverage": 1.0,
+      "crap": 1.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "conditions",
+      "complexity": 5,
+      "coverage": 1.0,
+      "crap": 5.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "specification",
+      "complexity": 3,
+      "coverage": 1.0,
+      "crap": 3.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "code_provenance",
+      "complexity": 2,
+      "coverage": 1.0,
+      "crap": 2.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "run_identity",
+      "complexity": 1,
+      "coverage": 1.0,
+      "crap": 1.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "screen_passes",
+      "complexity": 5,
+      "coverage": 1.0,
+      "crap": 5.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "condition_status",
+      "complexity": 9,
+      "coverage": 0.9090909090909091,
+      "crap": 9.060856498873028
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "empty_result",
+      "complexity": 1,
+      "coverage": 1.0,
+      "crap": 1.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "trial_payload",
+      "complexity": 1,
+      "coverage": 1.0,
+      "crap": 1.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "run_condition",
+      "complexity": 6,
+      "coverage": 0.9047619047619048,
+      "crap": 6.031098153547133
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "file_hash",
+      "complexity": 2,
+      "coverage": 1.0,
+      "crap": 2.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "run_checksums",
+      "complexity": 3,
+      "coverage": 1.0,
+      "crap": 3.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "reference_material_equivalence",
+      "complexity": 4,
+      "coverage": 1.0,
+      "crap": 4.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "ranked_promotions",
+      "complexity": 6,
+      "coverage": 1.0,
+      "crap": 6.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "promotion_records",
+      "complexity": 5,
+      "coverage": 1.0,
+      "crap": 5.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "promotion_rank",
+      "complexity": 2,
+      "coverage": 1.0,
+      "crap": 2.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "reservation_groups",
+      "complexity": 2,
+      "coverage": 1.0,
+      "crap": 2.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "reserved_promotions",
+      "complexity": 6,
+      "coverage": 1.0,
+      "crap": 6.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "__init__",
+      "complexity": 5,
+      "coverage": 0.6923076923076923,
+      "crap": 5.728265817023214
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "candidate",
+      "complexity": 1,
+      "coverage": 1.0,
+      "crap": 1.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "prepare",
+      "complexity": 2,
+      "coverage": 1.0,
+      "crap": 2.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "reset_for",
+      "complexity": 3,
+      "coverage": 1.0,
+      "crap": 3.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "validate_stage",
+      "complexity": 6,
+      "coverage": 0.875,
+      "crap": 6.0703125
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "validate_preceding",
+      "complexity": 6,
+      "coverage": 0.75,
+      "crap": 6.5625
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "run_many",
+      "complexity": 4,
+      "coverage": 1.0,
+      "crap": 4.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "plan_requests",
+      "complexity": 8,
+      "coverage": 1.0,
+      "crap": 8.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "retry",
+      "complexity": 5,
+      "coverage": 0.9230769230769231,
+      "crap": 5.011379153390988
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "verify_resume",
+      "complexity": 5,
+      "coverage": 1.0,
+      "crap": 5.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_campaign.py",
+      "function": "execute",
+      "complexity": 6,
+      "coverage": 0.6875,
+      "crap": 7.0986328125
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_experiment.py",
+      "function": "import_reference",
+      "complexity": 3,
+      "coverage": 1.0,
+      "crap": 3.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_experiment.py",
+      "function": "verified_reference",
+      "complexity": 4,
+      "coverage": 0.9,
+      "crap": 4.016
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_experiment.py",
+      "function": "screens",
+      "complexity": 7,
+      "coverage": 0.8333333333333334,
+      "crap": 7.226851851851852
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_experiment.py",
+      "function": "promote",
+      "complexity": 9,
+      "coverage": 0.8,
+      "crap": 9.648
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_experiment.py",
+      "function": "completed",
+      "complexity": 3,
+      "coverage": 1.0,
+      "crap": 3.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_experiment.py",
+      "function": "promotion_decision",
+      "complexity": 5,
+      "coverage": 1.0,
+      "crap": 5.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_experiment.py",
+      "function": "confirm",
+      "complexity": 7,
+      "coverage": 1.0,
+      "crap": 7.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_experiment.py",
+      "function": "main",
+      "complexity": 2,
+      "coverage": 1.0,
+      "crap": 2.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_experiment.py",
+      "function": "dispatch",
+      "complexity": 3,
+      "coverage": 0.7142857142857143,
+      "crap": 3.2099125364431487
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_experiment.py",
+      "function": "run_all",
+      "complexity": 3,
+      "coverage": 1.0,
+      "crap": 3.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_identity.py",
+      "function": "array_digest",
+      "complexity": 2,
+      "coverage": 1.0,
+      "crap": 2.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_identity.py",
+      "function": "physical_identity",
+      "complexity": 8,
+      "coverage": 1.0,
+      "crap": 8.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_identity.py",
+      "function": "invariant_field",
+      "complexity": 7,
+      "coverage": 1.0,
+      "crap": 7.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_identity.py",
+      "function": "solver_fields",
+      "complexity": 4,
+      "coverage": 1.0,
+      "crap": 4.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_identity.py",
+      "function": "controller_hash",
+      "complexity": 2,
+      "coverage": 0.8571428571428571,
+      "crap": 2.011661807580175
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_identity.py",
+      "function": "assert_preserved",
+      "complexity": 3,
+      "coverage": 1.0,
+      "crap": 3.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_identity.py",
+      "function": "verify_reviewed_model",
+      "complexity": 3,
+      "coverage": 0.125,
+      "crap": 9.029296875
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_observer.py",
+      "function": "support_wrenches",
+      "complexity": 4,
+      "coverage": 1.0,
+      "crap": 4.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_observer.py",
+      "function": "add_support_wrench",
+      "complexity": 7,
+      "coverage": 1.0,
+      "crap": 7.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_observer.py",
+      "function": "__init__",
+      "complexity": 1,
+      "coverage": 1.0,
+      "crap": 1.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_observer.py",
+      "function": "physics_reasons",
+      "complexity": 2,
+      "coverage": 1.0,
+      "crap": 2.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_observer.py",
+      "function": "__call__",
+      "complexity": 7,
+      "coverage": 1.0,
+      "crap": 7.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_observer.py",
+      "function": "enrich",
+      "complexity": 3,
+      "coverage": 1.0,
+      "crap": 3.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_observer.py",
+      "function": "close",
+      "complexity": 1,
+      "coverage": 1.0,
+      "crap": 1.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_reset.py",
+      "function": "reset_candidates",
+      "complexity": 5,
+      "coverage": 1.0,
+      "crap": 5.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_reset.py",
+      "function": "candidate_pose",
+      "complexity": 1,
+      "coverage": 1.0,
+      "crap": 1.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_reset.py",
+      "function": "inspect_reset",
+      "complexity": 6,
+      "coverage": 0.8333333333333334,
+      "crap": 6.166666666666667
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_reset.py",
+      "function": "select_reset",
+      "complexity": 3,
+      "coverage": 0.9230769230769231,
+      "crap": 3.0040964952207556
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_reset.py",
+      "function": "exact_pose_inspection",
+      "complexity": 7,
+      "coverage": 0.95,
+      "crap": 7.006125
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/ladder_reset.py",
+      "function": "exact_pose_inspections",
+      "complexity": 2,
+      "coverage": 1.0,
+      "crap": 2.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/long_hold.py",
+      "function": "prepare_hold",
+      "complexity": 5,
+      "coverage": 0.9230769230769231,
+      "crap": 5.011379153390988
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/pose_motion.py",
+      "function": "__init__",
+      "complexity": 9,
+      "coverage": 1.0,
+      "crap": 9.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/pose_trial.py",
+      "function": "rung_transforms",
+      "complexity": 3,
+      "coverage": 1.0,
+      "crap": 3.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/pose_trial.py",
+      "function": "reset_report",
+      "complexity": 8,
+      "coverage": 1.0,
+      "crap": 8.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/pose_trial.py",
+      "function": "reject_reset",
+      "complexity": 1,
+      "coverage": 1.0,
+      "crap": 1.0
+    },
+    {
+      "file": "teleopit/sim/g1_o6_support/qualification.py",
+      "function": "identity",
+      "complexity": 4,
+      "coverage": 0.8888888888888888,
+      "crap": 4.021947873799726
+    },
+    {
+      "file": "teleopit/sim/ladder_config.py",
+      "function": "reference_rung_centers",
+      "complexity": 2,
+      "coverage": 1.0,
+      "crap": 2.0
+    },
+    {
+      "file": "teleopit/sim/ladder_config.py",
+      "function": "geometry_matrix",
+      "complexity": 2,
+      "coverage": 1.0,
+      "crap": 2.0
+    },
+    {
+      "file": "teleopit/sim/ladder_config.py",
+      "function": "rail_geometry",
+      "complexity": 6,
+      "coverage": 0.9583333333333334,
+      "crap": 6.002604166666667
+    },
+    {
+      "file": "teleopit/sim/ladder_config.py",
+      "function": "add_configured_ladder",
+      "complexity": 8,
+      "coverage": 1.0,
+      "crap": 8.0
+    },
+    {
+      "file": "teleopit/sim/ladder_config.py",
+      "function": "compiled_element",
+      "complexity": 2,
+      "coverage": 1.0,
+      "crap": 2.0
+    },
+    {
+      "file": "teleopit/sim/ladder_config.py",
+      "function": "compiled_ladder",
+      "complexity": 9,
+      "coverage": 1.0,
+      "crap": 9.0
+    },
+    {
+      "file": "teleopit/sim/ladder_config.py",
+      "function": "compiled_elements",
+      "complexity": 3,
+      "coverage": 1.0,
+      "crap": 3.0
+    },
+    {
+      "file": "teleopit/sim/ladder_config.py",
+      "function": "__post_init__",
+      "complexity": 1,
+      "coverage": 1.0,
+      "crap": 1.0
+    },
+    {
+      "file": "teleopit/sim/ladder_config.py",
+      "function": "validate_dimensions",
+      "complexity": 7,
+      "coverage": 0.875,
+      "crap": 7.095703125
+    },
+    {
+      "file": "teleopit/sim/ladder_config.py",
+      "function": "validate_structure",
+      "complexity": 6,
+      "coverage": 0.7777777777777778,
+      "crap": 6.395061728395062
+    },
+    {
+      "file": "teleopit/sim/ladder_config.py",
+      "function": "pitch_xyz",
+      "complexity": 2,
+      "coverage": 1.0,
+      "crap": 2.0
+    },
+    {
+      "file": "teleopit/sim/ladder_config.py",
+      "function": "centers",
+      "complexity": 3,
+      "coverage": 1.0,
+      "crap": 3.0
+    },
+    {
+      "file": "teleopit/sim/ladder_config.py",
+      "function": "historical_layout",
+      "complexity": 1,
+      "coverage": 1.0,
+      "crap": 1.0
+    },
+    {
+      "file": "teleopit/sim/ladder_config.py",
+      "function": "historical_rails",
+      "complexity": 2,
+      "coverage": 1.0,
+      "crap": 2.0
+    },
+    {
+      "file": "teleopit/sim/ladder_config.py",
+      "function": "digest",
+      "complexity": 1,
+      "coverage": 1.0,
+      "crap": 1.0
+    }
+  ],
+  "crap_ge_10": [],
+  "duplication_ge_0_8": []
+}

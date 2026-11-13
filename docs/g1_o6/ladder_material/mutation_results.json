@@ -1,0 +1,52 @@
+[
+  {
+    "mutation": "mixing_floor",
+    "killed_by_behavior_assertion": true,
+    "returncode": 1
+  },
+  {
+    "mutation": "hand_scope_changes_feet",
+    "killed_by_behavior_assertion": true,
+    "returncode": 1
+  },
+  {
+    "mutation": "vertical_pitch_misread",
+    "killed_by_behavior_assertion": true,
+    "returncode": 1
+  },
+  {
+    "mutation": "rear_collision_disabled",
+    "killed_by_behavior_assertion": true,
+    "returncode": 1
+  },
+  {
+    "mutation": "lost_opposition_promoted",
+    "killed_by_behavior_assertion": true,
+    "returncode": 1
+  },
+  {
+    "mutation": "external_assistance_accepted",
+    "killed_by_behavior_assertion": true,
+    "returncode": 1
+  },
+  {
+    "mutation": "housing_support_accepted",
+    "killed_by_behavior_assertion": true,
+    "returncode": 1
+  },
+  {
+    "mutation": "identity_ignored",
+    "killed_by_behavior_assertion": true,
+    "returncode": 1
+  },
+  {
+    "mutation": "global_xml_export",
+    "killed_by_behavior_assertion": true,
+    "returncode": 1
+  },
+  {
+    "mutation": "missing_acquisition_windows",
+    "killed_by_behavior_assertion": true,
+    "returncode": 1
+  }
+]
