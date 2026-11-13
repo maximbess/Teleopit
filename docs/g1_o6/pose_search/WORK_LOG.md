@@ -33,6 +33,11 @@
 
 - Reporting regression: anatomical contact interruptions could be absent from synchronized plots when no original strict threshold crossed. A focused plot-event check failed, then passed after adding first thumb/order/valid absence annotations with durations and an explicit initial-absence label. This changes offline reports only; running trial physics and selection are unchanged.
 
+- Attack the premise after both all-finger-freeze trials fail opposition: "Latching every finger reference at HOLD entry is sufficient for stable long holding" is contradicted at 70.92/70.14 s (reference/0.16 m spacing), despite only 17.745/18.578 mm maximum base drift. Final signed forces for the four actors are preserved in `freeze_all_failure_accounting.json`: [{"run": "reference_freeze_all_120s", "final_support_Fz_N": {"left_hand": 3.570163641211549, "left_foot": 162.84864917539278, "right_hand": 3.5335254626585817, "right_foot": 159.32326362928669}, "hold_seconds": 70.92, "failures": ["left_hand"]}, {"run": "reference_hand_spacing_m_0p16_freeze_all_120s", "final_support_Fz_N": {"left_hand": 3.7427046848809082, "left_foot": 163.317172612413, "right_hand": 3.7406048593927093, "right_foot": 159.91471577970964}, "hold_seconds": 70.14, "failures": ["left_hand", "right_hand"]}]. Remove the assignment of grasp improvement from lower base drift alone. Continue only the already declared thumb-only/cap interventions; do not add corrective tuning.
+
+- The offline plotting process exited with native error `0xc06d007f` when launched directly outside conda activation. No simulation process failed. Repeating the same report through activated `teleopit` completed; preserve the failed invocation log. Reproduction commands consistently use `conda run`.
+- A second report regression exposed a misleading representative choice: a successful 60 s clip could be selected even after the same candidate failed its 120 s attempt. The check failed, then passed after selecting that candidate's most advanced attempt. The reference keeps its dedicated baseline panel; geometry and final-failure panels prefer nonreference alternatives. All three final report/cache checks pass and lint is clean.
+
 ## Terms
 
 - Strict: the original full-interval HOLD evaluator, unchanged.

@@ -190,19 +190,41 @@ def representative_runs(results):
     for kind in ("geometry", "controller"):
         eligible = kind_results(results, kind)
         if eligible:
-            selected["best_" + kind] = eligible[0]
-    longer = [r for r in results if r["stage"] in ("120s", "repeat", "fine")]
+            selected["best_" + kind] = latest_attempt(results, eligible[0]["candidate"])
+    longer = diagnostic_long_attempts(results)
     if longer:
-        selected["final_qualification_or_best_failure"] = longer[0]
+        selected["final_qualification_or_best_failure"] = latest_attempt(
+            results, longer[0]["candidate"]
+        )
     return selected
 
 
 def kind_results(results, kind):
-    return [
+    eligible = [
         r
         for r in results
         if r["configuration"]["kind"] == kind and strict_contact_pass(r)
     ]
+    return alternatives(eligible)
+
+
+def alternatives(results):
+    # The reference already has its own panel. Keep it when no alternative exists.
+    return [r for r in results if r["candidate"] != "reference"] or results
+
+
+def diagnostic_long_attempts(results):
+    return alternatives(
+        [r for r in results if r["stage"] in ("120s", "repeat", "fine")]
+    )
+
+
+def latest_attempt(results, name):
+    stage_order = {"repeat": 1, "fine": 2}
+    return max(
+        (r for r in results if r["candidate"] == name),
+        key=lambda r: (r["requested_s"], stage_order.get(r["stage"], 0)),
+    )
 
 
 def qualification_table(state):
