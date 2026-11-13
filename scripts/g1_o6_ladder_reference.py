@@ -19,7 +19,8 @@ def main():
     if args.seconds == 30:
         env = SearchEnvironment(candidate, 30, 0.001)
         arrays = {
-            name: value for name in dir(env.model)
+            name: value
+            for name in dir(env.model)
             if isinstance(value := getattr(env.model, name), np.ndarray)
         }
         arrays["reset_qpos"] = env.data.qpos.copy()

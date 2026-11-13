@@ -53,7 +53,9 @@ class GraspPose:
 
     def validate_vectors(self):
         for name in ("hand_rungs", "foot_rungs"):
-            if len(getattr(self, name)) != 2 or any(type(r) is not int or r < 1 for r in getattr(self, name)):
+            if len(getattr(self, name)) != 2 or any(
+                type(r) is not int or r < 1 for r in getattr(self, name)
+            ):
                 raise ValueError(name + " must contain two positive rung numbers")
         if len(self.grip_offset_m) != 3 or len(self.closed_pose) != 6:
             raise ValueError("expected a three-axis offset and six finger targets")
@@ -61,7 +63,9 @@ class GraspPose:
     def support_targets(self):
         return {
             side + "_" + part: f"left_ladder_rung_{r:02d}"
-            for side, rung, foot in zip(("left", "right"), self.hand_rungs, self.foot_rungs)
+            for side, rung, foot in zip(
+                ("left", "right"), self.hand_rungs, self.foot_rungs
+            )
             for part, r in (("hand", rung), ("foot", foot))
         }
 

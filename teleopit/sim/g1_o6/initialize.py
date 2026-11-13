@@ -70,7 +70,7 @@ def initial_stance(model, data, hands, cfg, *, foot_rungs=(4, 4), adapt=False):
 def rung_face_displacement(model, rung):
     """Front/top face movement from the historical 110 by 70 mm box."""
     size = model.geom(f"left_ladder_rung_{rung:02d}").size
-    return np.array([.110 / 2 - size[0], 0., size[2] - .070 / 2])
+    return np.array([0.110 / 2 - size[0], 0.0, size[2] - 0.070 / 2])
 
 
 def translate_support_frame(model, data, feet, hands, foot_rungs):

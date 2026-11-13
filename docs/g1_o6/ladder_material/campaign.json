@@ -1,0 +1,1177 @@
+{
+  "schema": "g1_o6_ladder_material_campaign_v1",
+  "reference_revision": "cc0cd5393c670e7801bb7d242c700e6af4d47303",
+  "geometries": {
+    "G0": {
+      "identity": "G0",
+      "length_m": 0.7,
+      "depth_m": 0.11,
+      "thickness_m": 0.07,
+      "inclination_deg": 69.44395478041653,
+      "pitch_m": 0.19936008739074237,
+      "pitch_convention": "along_rail",
+      "first_center_m": [
+        -0.98,
+        0.0,
+        0.18666666666666665
+      ],
+      "rung_count": 14,
+      "rail_style": "reference_capsule",
+      "rail_plane_m": 0.1,
+      "rail_lateral_m": 0.1,
+      "apex_height_m": 2.8,
+      "rear_present": true,
+      "front_collision": true,
+      "rear_collision": false,
+      "top_structure": [],
+      "dimension_sources": [
+        [
+          "all",
+          "Teleopit cc0cd5393c670e7801bb7d242c700e6af4d47303"
+        ]
+      ]
+    },
+    "G1": {
+      "identity": "G1",
+      "length_m": 0.7,
+      "depth_m": 0.11,
+      "thickness_m": 0.0381,
+      "inclination_deg": 69.44395478041653,
+      "pitch_m": 0.19936008739074237,
+      "pitch_convention": "along_rail",
+      "first_center_m": [
+        -0.98,
+        0.0,
+        0.18666666666666665
+      ],
+      "rung_count": 14,
+      "rail_style": "reference_capsule",
+      "rail_plane_m": 0.1,
+      "rail_lateral_m": 0.1,
+      "apex_height_m": 2.8,
+      "rear_present": true,
+      "front_collision": true,
+      "rear_collision": false,
+      "top_structure": [],
+      "dimension_sources": [
+        [
+          "unchanged dimensions",
+          "Teleopit cc0cd5393c670e7801bb7d242c700e6af4d47303"
+        ],
+        [
+          "depth_m,thickness_m",
+          "declared controlled geometry experiment"
+        ]
+      ]
+    },
+    "G2": {
+      "identity": "G2",
+      "length_m": 0.7,
+      "depth_m": 0.08,
+      "thickness_m": 0.07,
+      "inclination_deg": 69.44395478041653,
+      "pitch_m": 0.19936008739074237,
+      "pitch_convention": "along_rail",
+      "first_center_m": [
+        -0.98,
+        0.0,
+        0.18666666666666665
+      ],
+      "rung_count": 14,
+      "rail_style": "reference_capsule",
+      "rail_plane_m": 0.1,
+      "rail_lateral_m": 0.1,
+      "apex_height_m": 2.8,
+      "rear_present": true,
+      "front_collision": true,
+      "rear_collision": false,
+      "top_structure": [],
+      "dimension_sources": [
+        [
+          "unchanged dimensions",
+          "Teleopit cc0cd5393c670e7801bb7d242c700e6af4d47303"
+        ],
+        [
+          "depth_m,thickness_m",
+          "declared controlled geometry experiment"
+        ]
+      ]
+    },
+    "G3": {
+      "identity": "G3",
+      "length_m": 0.7,
+      "depth_m": 0.08,
+      "thickness_m": 0.0381,
+      "inclination_deg": 69.44395478041653,
+      "pitch_m": 0.19936008739074237,
+      "pitch_convention": "along_rail",
+      "first_center_m": [
+        -0.98,
+        0.0,
+        0.18666666666666665
+      ],
+      "rung_count": 14,
+      "rail_style": "reference_capsule",
+      "rail_plane_m": 0.1,
+      "rail_lateral_m": 0.1,
+      "apex_height_m": 2.8,
+      "rear_present": true,
+      "front_collision": true,
+      "rear_collision": false,
+      "top_structure": [],
+      "dimension_sources": [
+        [
+          "unchanged dimensions",
+          "Teleopit cc0cd5393c670e7801bb7d242c700e6af4d47303"
+        ],
+        [
+          "depth_m,thickness_m",
+          "declared controlled geometry experiment"
+        ]
+      ]
+    },
+    "G4": {
+      "identity": "G4",
+      "length_m": 0.7,
+      "depth_m": 0.11,
+      "thickness_m": 0.07,
+      "inclination_deg": 69.44395478041653,
+      "pitch_m": 0.25,
+      "pitch_convention": "along_rail",
+      "first_center_m": [
+        -1.033342581191294,
+        0.0,
+        0.04441978348988329
+      ],
+      "rung_count": 14,
+      "rail_style": "reference_capsule",
+      "rail_plane_m": 0.1,
+      "rail_lateral_m": 0.1,
+      "apex_height_m": 3.3215719049815386,
+      "rear_present": true,
+      "front_collision": true,
+      "rear_collision": false,
+      "top_structure": [],
+      "dimension_sources": [
+        [
+          "unchanged dimensions",
+          "Teleopit cc0cd5393c670e7801bb7d242c700e6af4d47303"
+        ],
+        [
+          "pitch_m,first_center_m,rail endpoints",
+          "250 mm along rail; original rung 4 anchored; rails extended to floor and one pitch above last rung"
+        ]
+      ]
+    },
+    "G5": {
+      "identity": "G5",
+      "length_m": 0.6,
+      "depth_m": 0.08,
+      "thickness_m": 0.0381,
+      "inclination_deg": 65.5,
+      "pitch_m": 0.25,
+      "pitch_convention": "along_rail",
+      "first_center_m": [
+        -0.58,
+        0.0,
+        0.19095
+      ],
+      "rung_count": 6,
+      "rail_style": "ladderman_box",
+      "rail_plane_m": 0.07279690167012345,
+      "rail_lateral_m": 0.0381,
+      "apex_height_m": 1.328401588595679,
+      "rear_present": false,
+      "front_collision": true,
+      "rear_collision": false,
+      "top_structure": [],
+      "dimension_sources": [
+        [
+          "all geometry dimensions and rail transforms",
+          "amazon-far/LadderMan 9a8d5ed2b44621e84cc40e8efee7abe4b1543025 cfg/task/base/ladder.yaml and active_adaptation/envs/ladder_env.py"
+        ],
+        [
+          "fixed world, contact properties",
+          "Teleopit controlled geometry comparison"
+        ]
+      ]
+    },
+    "G6": {
+      "identity": "G6",
+      "length_m": 0.54,
+      "depth_m": 0.08,
+      "thickness_m": 0.0381,
+      "inclination_deg": 70,
+      "pitch_m": 0.265,
+      "pitch_convention": "vertical",
+      "first_center_m": [
+        -0.758877938445032,
+        0.0,
+        0.265
+      ],
+      "rung_count": 8,
+      "rail_style": "commercial_box",
+      "rail_plane_m": 0.068,
+      "rail_lateral_m": 0.025,
+      "apex_height_m": 2.35,
+      "rear_present": true,
+      "front_collision": true,
+      "rear_collision": true,
+      "top_structure": [],
+      "dimension_sources": [
+        [
+          "depth_m,pitch_m,pitch_convention",
+          "https://www.zarges.com/de/produkte/r13step-b (80 mm depth; 265 mm vertical interval only)"
+        ],
+        [
+          "length_m,thickness_m,inclination_deg,first_center_m,rung_count,rail_plane_m,rail_lateral_m,apex_height_m,constant width,no top structure,fixed world",
+          "declared simplified commercial stepladder approximation; not a digital twin or certification reconstruction"
+        ]
+      ]
+    }
+  },
+  "conditions": [
+    {
+      "id": "G0_reference",
+      "geometry": "G0",
+      "material": null,
+      "stage_group": "A"
+    },
+    {
+      "id": "G1_reference",
+      "geometry": "G1",
+      "material": null,
+      "stage_group": "A"
+    },
+    {
+      "id": "G2_reference",
+      "geometry": "G2",
+      "material": null,
+      "stage_group": "A"
+    },
+    {
+      "id": "G3_reference",
+      "geometry": "G3",
+      "material": null,
+      "stage_group": "A"
+    },
+    {
+      "id": "G4_reference",
+      "geometry": "G4",
+      "material": null,
+      "stage_group": "A"
+    },
+    {
+      "id": "G5_reference",
+      "geometry": "G5",
+      "material": null,
+      "stage_group": "A"
+    },
+    {
+      "id": "G6_reference",
+      "geometry": "G6",
+      "material": null,
+      "stage_group": "A"
+    },
+    {
+      "id": "G0_H_0p4",
+      "geometry": "G0",
+      "material": {
+        "scope": "H",
+        "mu": 0.4
+      },
+      "stage_group": "B"
+    },
+    {
+      "id": "G0_H_0p6",
+      "geometry": "G0",
+      "material": {
+        "scope": "H",
+        "mu": 0.6
+      },
+      "stage_group": "B"
+    },
+    {
+      "id": "G0_H_0p8",
+      "geometry": "G0",
+      "material": {
+        "scope": "H",
+        "mu": 0.8
+      },
+      "stage_group": "B"
+    },
+    {
+      "id": "G0_H_1p2",
+      "geometry": "G0",
+      "material": {
+        "scope": "H",
+        "mu": 1.2
+      },
+      "stage_group": "B"
+    },
+    {
+      "id": "G5_H_0p4",
+      "geometry": "G5",
+      "material": {
+        "scope": "H",
+        "mu": 0.4
+      },
+      "stage_group": "B"
+    },
+    {
+      "id": "G5_H_0p6",
+      "geometry": "G5",
+      "material": {
+        "scope": "H",
+        "mu": 0.6
+      },
+      "stage_group": "B"
+    },
+    {
+      "id": "G5_H_0p8",
+      "geometry": "G5",
+      "material": {
+        "scope": "H",
+        "mu": 0.8
+      },
+      "stage_group": "B"
+    },
+    {
+      "id": "G5_H_1p2",
+      "geometry": "G5",
+      "material": {
+        "scope": "H",
+        "mu": 1.2
+      },
+      "stage_group": "B"
+    },
+    {
+      "id": "G6_H_0p4",
+      "geometry": "G6",
+      "material": {
+        "scope": "H",
+        "mu": 0.4
+      },
+      "stage_group": "B"
+    },
+    {
+      "id": "G6_H_0p6",
+      "geometry": "G6",
+      "material": {
+        "scope": "H",
+        "mu": 0.6
+      },
+      "stage_group": "B"
+    },
+    {
+      "id": "G6_H_0p8",
+      "geometry": "G6",
+      "material": {
+        "scope": "H",
+        "mu": 0.8
+      },
+      "stage_group": "B"
+    },
+    {
+      "id": "G6_H_1p2",
+      "geometry": "G6",
+      "material": {
+        "scope": "H",
+        "mu": 1.2
+      },
+      "stage_group": "B"
+    },
+    {
+      "id": "G0_M_0p6",
+      "geometry": "G0",
+      "material": {
+        "scope": "M",
+        "mu": 0.6
+      },
+      "stage_group": "C"
+    },
+    {
+      "id": "G0_M_0p8",
+      "geometry": "G0",
+      "material": {
+        "scope": "M",
+        "mu": 0.8
+      },
+      "stage_group": "C"
+    },
+    {
+      "id": "G0_M_1p2",
+      "geometry": "G0",
+      "material": {
+        "scope": "M",
+        "mu": 1.2
+      },
+      "stage_group": "C"
+    },
+    {
+      "id": "G6_M_0p6",
+      "geometry": "G6",
+      "material": {
+        "scope": "M",
+        "mu": 0.6
+      },
+      "stage_group": "C"
+    },
+    {
+      "id": "G6_M_0p8",
+      "geometry": "G6",
+      "material": {
+        "scope": "M",
+        "mu": 0.8
+      },
+      "stage_group": "C"
+    },
+    {
+      "id": "G6_M_1p2",
+      "geometry": "G6",
+      "material": {
+        "scope": "M",
+        "mu": 1.2
+      },
+      "stage_group": "C"
+    }
+  ],
+  "reset_shortlists": {
+    "G0": [
+      {
+        "order": 0,
+        "hand": 11,
+        "foot": 4,
+        "score_m": 0.0,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 1,
+        "hand": 10,
+        "foot": 3,
+        "score_m": 0.018666666666666665,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 2,
+        "hand": 12,
+        "foot": 5,
+        "score_m": 0.01866666666666672,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 3,
+        "hand": 9,
+        "foot": 2,
+        "score_m": 0.037333333333333385,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 4,
+        "hand": 13,
+        "foot": 6,
+        "score_m": 0.03733333333333356,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 5,
+        "hand": 8,
+        "foot": 1,
+        "score_m": 0.055999999999999994,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 6,
+        "hand": 14,
+        "foot": 7,
+        "score_m": 0.05600000000000001,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 7,
+        "hand": 12,
+        "foot": 4,
+        "score_m": 0.1993600873907423,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 8,
+        "hand": 10,
+        "foot": 4,
+        "score_m": 0.19936008739074246,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 9,
+        "hand": 9,
+        "foot": 3,
+        "score_m": 0.21802675405740893,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 10,
+        "hand": 11,
+        "foot": 3,
+        "score_m": 0.21802675405740893,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 11,
+        "hand": 11,
+        "foot": 5,
+        "score_m": 0.21802675405740896,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      }
+    ],
+    "G1": [
+      {
+        "order": 0,
+        "hand": 11,
+        "foot": 4,
+        "score_m": 0.0,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 1,
+        "hand": 10,
+        "foot": 3,
+        "score_m": 0.018666666666666665,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 2,
+        "hand": 12,
+        "foot": 5,
+        "score_m": 0.01866666666666672,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 3,
+        "hand": 9,
+        "foot": 2,
+        "score_m": 0.037333333333333385,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 4,
+        "hand": 13,
+        "foot": 6,
+        "score_m": 0.03733333333333356,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 5,
+        "hand": 8,
+        "foot": 1,
+        "score_m": 0.055999999999999994,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 6,
+        "hand": 14,
+        "foot": 7,
+        "score_m": 0.05600000000000001,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 7,
+        "hand": 12,
+        "foot": 4,
+        "score_m": 0.1993600873907423,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 8,
+        "hand": 10,
+        "foot": 4,
+        "score_m": 0.19936008739074246,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 9,
+        "hand": 9,
+        "foot": 3,
+        "score_m": 0.21802675405740893,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 10,
+        "hand": 11,
+        "foot": 3,
+        "score_m": 0.21802675405740893,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 11,
+        "hand": 11,
+        "foot": 5,
+        "score_m": 0.21802675405740896,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      }
+    ],
+    "G2": [
+      {
+        "order": 0,
+        "hand": 11,
+        "foot": 4,
+        "score_m": 0.0,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 1,
+        "hand": 10,
+        "foot": 3,
+        "score_m": 0.018666666666666665,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 2,
+        "hand": 12,
+        "foot": 5,
+        "score_m": 0.01866666666666672,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 3,
+        "hand": 9,
+        "foot": 2,
+        "score_m": 0.037333333333333385,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 4,
+        "hand": 13,
+        "foot": 6,
+        "score_m": 0.03733333333333356,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 5,
+        "hand": 8,
+        "foot": 1,
+        "score_m": 0.055999999999999994,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 6,
+        "hand": 14,
+        "foot": 7,
+        "score_m": 0.05600000000000001,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 7,
+        "hand": 12,
+        "foot": 4,
+        "score_m": 0.1993600873907423,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 8,
+        "hand": 10,
+        "foot": 4,
+        "score_m": 0.19936008739074246,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 9,
+        "hand": 9,
+        "foot": 3,
+        "score_m": 0.21802675405740893,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 10,
+        "hand": 11,
+        "foot": 3,
+        "score_m": 0.21802675405740893,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 11,
+        "hand": 11,
+        "foot": 5,
+        "score_m": 0.21802675405740896,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      }
+    ],
+    "G3": [
+      {
+        "order": 0,
+        "hand": 11,
+        "foot": 4,
+        "score_m": 0.0,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 1,
+        "hand": 10,
+        "foot": 3,
+        "score_m": 0.018666666666666665,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 2,
+        "hand": 12,
+        "foot": 5,
+        "score_m": 0.01866666666666672,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 3,
+        "hand": 9,
+        "foot": 2,
+        "score_m": 0.037333333333333385,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 4,
+        "hand": 13,
+        "foot": 6,
+        "score_m": 0.03733333333333356,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 5,
+        "hand": 8,
+        "foot": 1,
+        "score_m": 0.055999999999999994,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 6,
+        "hand": 14,
+        "foot": 7,
+        "score_m": 0.05600000000000001,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 7,
+        "hand": 12,
+        "foot": 4,
+        "score_m": 0.1993600873907423,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 8,
+        "hand": 10,
+        "foot": 4,
+        "score_m": 0.19936008739074246,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 9,
+        "hand": 9,
+        "foot": 3,
+        "score_m": 0.21802675405740893,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 10,
+        "hand": 11,
+        "foot": 3,
+        "score_m": 0.21802675405740893,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 11,
+        "hand": 11,
+        "foot": 5,
+        "score_m": 0.21802675405740896,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      }
+    ],
+    "G4": [
+      {
+        "order": 0,
+        "hand": 10,
+        "foot": 4,
+        "score_m": 0.10447938826480337,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 1,
+        "hand": 9,
+        "foot": 3,
+        "score_m": 0.1278876177040294,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 2,
+        "hand": 11,
+        "foot": 5,
+        "score_m": 0.12788761770402943,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 3,
+        "hand": 9,
+        "foot": 4,
+        "score_m": 0.14552061173519668,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 4,
+        "hand": 8,
+        "foot": 2,
+        "score_m": 0.1512958471432555,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 5,
+        "hand": 12,
+        "foot": 6,
+        "score_m": 0.1512958471432555,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 6,
+        "hand": 10,
+        "foot": 5,
+        "score_m": 0.1689288411744228,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 7,
+        "hand": 8,
+        "foot": 3,
+        "score_m": 0.16892884117442283,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 8,
+        "hand": 7,
+        "foot": 1,
+        "score_m": 0.17470407658248166,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 9,
+        "hand": 13,
+        "foot": 7,
+        "score_m": 0.17470407658248166,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 10,
+        "hand": 7,
+        "foot": 2,
+        "score_m": 0.19233707061364896,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 11,
+        "hand": 11,
+        "foot": 6,
+        "score_m": 0.19233707061364896,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      }
+    ],
+    "G5": [
+      {
+        "order": 0,
+        "hand": 6,
+        "foot": 1,
+        "score_m": 0.22714790043417823,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 1,
+        "hand": 6,
+        "foot": 2,
+        "score_m": 0.4366125292093961,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 2,
+        "hand": 5,
+        "foot": 1,
+        "score_m": 0.4593615609813097,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 3,
+        "hand": 6,
+        "foot": 3,
+        "score_m": 0.6594226259968385,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 4,
+        "hand": 5,
+        "foot": 2,
+        "score_m": 0.6821716577687522,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 5,
+        "hand": 4,
+        "foot": 1,
+        "score_m": 0.7049206895406658,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 6,
+        "hand": 5,
+        "foot": 3,
+        "score_m": 0.9074375361311838,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 7,
+        "hand": 6,
+        "foot": 4,
+        "score_m": 0.9100393616574183,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 8,
+        "hand": 4,
+        "foot": 2,
+        "score_m": 0.9301865679030975,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 9,
+        "hand": 3,
+        "foot": 1,
+        "score_m": 0.9529355996750108,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 10,
+        "hand": 4,
+        "foot": 3,
+        "score_m": 1.156315245631517,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 11,
+        "hand": 5,
+        "foot": 4,
+        "score_m": 1.1589170711577514,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      }
+    ],
+    "G6": [
+      {
+        "order": 0,
+        "hand": 8,
+        "foot": 3,
+        "score_m": 0.024733334247682367,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 1,
+        "hand": 7,
+        "foot": 2,
+        "score_m": 0.04156666758101543,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 2,
+        "hand": 6,
+        "foot": 1,
+        "score_m": 0.06806666758101566,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 3,
+        "hand": 7,
+        "foot": 3,
+        "score_m": 0.2726024948988082,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 4,
+        "hand": 6,
+        "foot": 2,
+        "score_m": 0.28943582823214126,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 5,
+        "hand": 8,
+        "foot": 4,
+        "score_m": 0.2991024948988082,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 6,
+        "hand": 5,
+        "foot": 1,
+        "score_m": 0.3159358282321415,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 7,
+        "hand": 8,
+        "foot": 2,
+        "score_m": 0.31856347708553984,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 8,
+        "hand": 7,
+        "foot": 1,
+        "score_m": 0.34506347708553964,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 9,
+        "hand": 6,
+        "foot": 3,
+        "score_m": 0.5544337860116031,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 10,
+        "hand": 5,
+        "foot": 2,
+        "score_m": 0.5712671193449363,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      },
+      {
+        "order": 11,
+        "hand": 7,
+        "foot": 4,
+        "score_m": 0.5809337860116033,
+        "hand_spacing_m": 0.18,
+        "mapping": "front_top_face_clearances_v1"
+      }
+    ]
+  },
+  "budgets": {
+    "screen": 25,
+    "60s": 8,
+    "120s": 6,
+    "repeat": 2,
+    "fine": 2
+  },
+  "controller": {
+    "schema": "o6_bounded_closing_v1",
+    "closed_pose_rad": [
+      0.05,
+      0.5,
+      1.35,
+      1.35,
+      1.35,
+      1.35
+    ],
+    "finger_preload_Nm": 0.12,
+    "command_rate_rad_s": 1.0,
+    "delay_steps": 0,
+    "reset_servo_preload": true,
+    "body_compensation": "static_bias_minus_equal_foot_load",
+    "acquisition_assistance": "pose_stabilization_only",
+    "hold_external_assistance": false
+  },
+  "reset_rule": "first feasible candidate in frozen geometric order; exact pose inspected separately",
+  "ranking": "strict duration and anatomical contact integrity; late-motion cost; peak actuator fraction; identity",
+  "reservations": [
+    "G5",
+    "G6",
+    "lower friction H",
+    "G6 whole-tread M"
+  ],
+  "long_diagnostic": "preceding strict/contact pass required; nonconvergent shorter runs may diagnose long behavior but are not stable",
+  "matched_windows": {
+    "screen": [
+      20,
+      30
+    ],
+    "60s": [
+      50,
+      60
+    ],
+    "120s": [
+      90,
+      120
+    ]
+  },
+  "qualification": "120s nominal + fresh repeat + .0005 s physics; strict, anatomical, no-assistance, prohibited-support and late-motion gates all pass",
+  "aliases": "H mu=1.8 may reuse native geometry reference only after selected-pair equivalence verification"
+}

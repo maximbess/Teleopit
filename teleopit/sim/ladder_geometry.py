@@ -42,16 +42,24 @@ def add_ladder(spec, config=None):
     if config is not None:
         from .ladder_config import LadderConfig, add_configured_ladder
 
-        if config.identity not in ("G0", "G1", "G2", "G3"):
+        if not config.historical_rails:
             return add_configured_ladder(spec, config)
         # The dimension controls use the historical construction byte for byte,
         # then change only box sizes. G0 retains every compiled numeric field.
-        add_ladder(spec)
+        add_reference_ladder(spec)
         if config != LadderConfig():
             for geom in spec.geoms:
                 if "_ladder_rung_" in geom.name:
-                    geom.size[:] = (config.depth_m / 2, config.length_m / 2, config.thickness_m / 2)
+                    geom.size[:] = (
+                        config.depth_m / 2,
+                        config.length_m / 2,
+                        config.thickness_m / 2,
+                    )
         return
+    add_reference_ladder(spec)
+
+
+def add_reference_ladder(spec):
     world = spec.worldbody
     # The robot stands on the negative-x face. The positive-x face is the back
     # of the A-frame: keep it for rendering, and leave it out of collision.

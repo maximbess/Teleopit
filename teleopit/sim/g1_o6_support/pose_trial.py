@@ -50,7 +50,10 @@ def rung_transforms(env):
             "half_sizes_m": env.model.geom(f"left_ladder_rung_{r:02d}").size.tolist(),
         }
         for r in range(1, env.model.ngeom)
-        if mujoco.mj_name2id(env.model, mujoco.mjtObj.mjOBJ_GEOM, f"left_ladder_rung_{r:02d}") >= 0
+        if mujoco.mj_name2id(
+            env.model, mujoco.mjtObj.mjOBJ_GEOM, f"left_ladder_rung_{r:02d}"
+        )
+        >= 0
     }
 
 
@@ -80,7 +83,9 @@ def reset_report(env):
         "rung_11_minus_10_world_m": (
             np.array(transforms["11"]["position_world_m"])
             - transforms["10"]["position_world_m"]
-        ).tolist() if "11" in transforms and "10" in transforms else None,
+        ).tolist()
+        if "11" in transforms and "10" in transforms
+        else None,
         "actual_mount_separation_m": float(np.linalg.norm(mounts[0] - mounts[1])),
         "minimum_joint_margin_rad": float(margin.min()),
         "spacing_semantics": "signed lateral offset per hand, not total separation",

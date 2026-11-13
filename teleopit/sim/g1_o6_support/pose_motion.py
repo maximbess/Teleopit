@@ -96,7 +96,9 @@ class LadderClearance:
     def __init__(self, env):
         m = env.model
         self.obstacles = [
-            g for g in range(m.ngeom) if "_ladder_" in m.geom(g).name
+            g
+            for g in range(m.ngeom)
+            if "_ladder_" in m.geom(g).name
             and (m.geom_contype[g] or m.geom_conaffinity[g])
         ]
         self.hands = {

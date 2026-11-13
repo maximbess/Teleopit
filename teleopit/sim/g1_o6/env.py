@@ -17,13 +17,17 @@ from .model import build_model
 
 
 class Environment:
-    def __init__(self, config=None, *, pose=None, ladder=None, material=None, adapt_reset=True):
+    def __init__(
+        self, config=None, *, pose=None, ladder=None, material=None, adapt_reset=True
+    ):
         self.config = config or Config()
         self.pose = pose if pose is not None else GraspPose()
         self.pose.validate()
         self.ladder, self.material = ladder, material
         self.adapt_reset = ladder is not None and adapt_reset
-        self.model, self.xml, self.hands, self.audit = build_model(self.config, ladder=ladder, material=material)
+        self.model, self.xml, self.hands, self.audit = build_model(
+            self.config, ladder=ladder, material=material
+        )
         for name in self.pose.support_targets().values():
             if mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, name) < 0:
                 raise ValueError("support rung absent from compiled ladder: " + name)
@@ -38,8 +42,14 @@ class Environment:
 
     def reset(self):
         mujoco.mj_resetData(self.model, self.data)
-        initial_stance(self.model, self.data, self.hands, self.config,
-                       foot_rungs=self.pose.foot_rungs, adapt=self.adapt_reset)
+        initial_stance(
+            self.model,
+            self.data,
+            self.hands,
+            self.config,
+            foot_rungs=self.pose.foot_rungs,
+            adapt=self.adapt_reset,
+        )
         self.ik = place_hands(self, self.pose)
         self.initial_qpos = self.data.qpos.copy()
         self.body_target = self.data.qpos[self.act_qpos].copy()
