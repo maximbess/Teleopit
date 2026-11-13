@@ -38,6 +38,12 @@
 - The offline plotting process exited with native error `0xc06d007f` when launched directly outside conda activation. No simulation process failed. Repeating the same report through activated `teleopit` completed; preserve the failed invocation log. Reproduction commands consistently use `conda run`.
 - A second report regression exposed a misleading representative choice: a successful 60 s clip could be selected even after the same candidate failed its 120 s attempt. The check failed, then passed after selecting that candidate's most advanced attempt. The reference keeps its dedicated baseline panel; geometry and final-failure panels prefer nonreference alternatives. All three final report/cache checks pass and lint is clean.
 
+- Completed all six first-120 s attempts. The reference reproduces its 88.02 s drift failure; thumb cap fails opposition at 86.72 s, thumb freeze at 81.02/80.18 s, and all-finger freeze at 70.92/70.14 s (reference/0.16 m spacing). No nominal candidate qualifies. The runner freezes an empty finalist list; repeat/fine are NOT RUN and robustness is BLOCKED. Optional boundary diagnostics are NOT RUN because the coupled interventions are interpretable without adding support.
+- Fresh-reset first-30 s physical prefixes match exactly for all six long attempts (1,753 rows each); terminal phase labels are excluded because durations differ. This verifies reproducibility, not a full 120 s repeat pass. All raw failures and event histories are preserved.
+
+- Final software verification: 277 affected runtime tests plus three final report/cache regression checks pass (280 distinct checks). Across 175 changed production functions, measured Radon/coverage CRAP is below 10 (maximum 9.583984); scoped AST duplication finds no pair at or above 0.8. All 12 verified behavioral mutations are killed. These are explicitly documented substitutes for unavailable named tools.
+- Final physical/evidence verification: 58 completed campaign records, one physical asset-hash group, and zero nonzero applied-force steps in all scored HOLD intervals. The 58-row, 563-column comparison distinguishes failure from unattempted validation. All 31 plot PNGs decode, all five representative videos decode end-to-end, and their source identities match the report. Inspected final geometry/controller/failure frames and synchronized plots. Converted a Windows-encoded report helper to UTF-8 before generating the final narrative; repository report text validates as UTF-8.
+
 ## Terms
 
 - Strict: the original full-interval HOLD evaluator, unchanged.

@@ -2,7 +2,7 @@
 
 This campaign tests a coupled G1/O6 four-support stance: both feet stay on rung 04, with two physical O6 hands on their declared rungs. A successful stance is not independent hand capacity, hanging, climbing, or hardware qualification. Capacity and transfer prerequisites remain unchanged.
 
-The requested plan is implemented on `dex-hand-exp`, using conda `teleopit`. The original working default, physical limits, solver settings and strict evaluator remain unchanged. The campaign specification was frozen before candidate dynamics in [campaign.json](campaign.json). Full results and interpretation are recorded in [COMPARISON.md](COMPARISON.md) and [results.json](results.json); the final interpretation follows completion of the bounded runs.
+The requested plan is implemented on `dex-hand-exp`, using conda `teleopit`. The original working default, physical limits, solver settings and strict evaluator remain unchanged. The campaign specification was frozen before candidate dynamics in [campaign.json](campaign.json). The campaign is complete: no candidate qualifies. [OUTCOMES.md](OUTCOMES.md) answers the four experiment questions; [COMPARISON.md](COMPARISON.md), [comparison.csv](comparison.csv) and [results.json](results.json) retain every ranked result and separate verdict.
 
 ## Reproduction
 

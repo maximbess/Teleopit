@@ -3,5 +3,75 @@
     "hold_entry",
     0,
     "HOLD entry"
+  ],
+  [
+    "first_0",
+    65.52299999997285,
+    "opposition_loss:left_hand"
+  ],
+  [
+    "first_1",
+    66.3089999999766,
+    "opposition_loss:right_hand"
+  ],
+  [
+    "first_2",
+    -5.0390000000000175,
+    "opposition_loss:left_hand before HOLD"
+  ],
+  [
+    "first_3",
+    -5.0390000000000175,
+    "opposition_loss:right_hand before HOLD"
+  ],
+  [
+    "first_4",
+    65.52299999997285,
+    "left:thumb:geometric_groups absent for 0.001 s"
+  ],
+  [
+    "first_5",
+    65.52299999997285,
+    "left:thumb:loaded_groups absent for 0.001 s"
+  ],
+  [
+    "first_6",
+    65.52299999997285,
+    "left:thumb_opposition absent for 0.001 s"
+  ],
+  [
+    "first_7",
+    65.52299999997285,
+    "left:ordered absent for 0.001 s"
+  ],
+  [
+    "first_8",
+    65.52299999997285,
+    "left:valid absent for 0.001 s"
+  ],
+  [
+    "first_9",
+    66.3089999999766,
+    "right:thumb:geometric_groups absent for 0.001 s"
+  ],
+  [
+    "first_10",
+    66.3089999999766,
+    "right:thumb:loaded_groups absent for 0.001 s"
+  ],
+  [
+    "first_11",
+    66.3089999999766,
+    "right:thumb_opposition absent for 0.001 s"
+  ],
+  [
+    "first_12",
+    66.3089999999766,
+    "right:ordered absent for 0.001 s"
+  ],
+  [
+    "first_13",
+    66.3089999999766,
+    "right:valid absent for 0.001 s"
   ]
 ]

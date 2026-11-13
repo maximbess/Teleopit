@@ -4,20 +4,45 @@ This report is generated from saved results. A screen is not 120 s qualification
 
 | Candidate / stage | Strict / late / contact | HOLD achieved (s) | Max RESET drift (mm) | Mean hand shares L/R (%) | First terminal reason |
 |---|---|---:|---:|---:|---|
+| reference_freeze_all / 60s | PASS / FAIL / PASS | 60.02 | 15.148 | 0.882/0.884 | none |
+| reference_hand_spacing_m_0p16_freeze_all / 60s | PASS / FAIL / PASS | 60.02 | 15.888 | 0.921/0.921 | none |
+| reference_cap_thumb / 60s | PASS / FAIL / PASS | 60.02 | 13.576 | 0.885/0.887 | none |
+| reference_hand_spacing_m_0p16_freeze_thumb / 60s | PASS / FAIL / PASS | 60.02 | 12.506 | 0.900/0.901 | none |
+| reference_freeze_thumb / 60s | PASS / FAIL / PASS | 60.02 | 11.997 | 0.860/0.864 | none |
+| reference_hand_spacing_m_0p16_cap_thumb / 60s | PASS / FAIL / PASS | 60.02 | 14.052 | 0.923/0.924 | none |
 | reference / 60s | PASS / FAIL / PASS | 60.02 | 21.403 | 0.994/0.997 | none |
+| reference_hand_spacing_m_0p16 / 60s | PASS / FAIL / PASS | 60.02 | 21.878 | 1.031/1.036 | none |
+| reference_hand_spacing_m_0p2 / 60s | PASS / FAIL / PASS | 60.02 | 20.872 | 0.957/0.960 | none |
+| reference_freeze_all / screen | PASS / FAIL / PASS | 30.00 | 9.814 | 0.831/0.831 | none |
 | reference_hand_spacing_m_0p16_freeze_all / screen | PASS / FAIL / PASS | 30.00 | 10.102 | 0.868/0.866 | none |
 | reference_hand_spacing_m_0p16_freeze_thumb / screen | PASS / FAIL / PASS | 30.00 | 8.830 | 0.855/0.853 | none |
 | reference_hand_spacing_m_0p16_cap_thumb / screen | PASS / FAIL / PASS | 30.00 | 10.054 | 0.876/0.873 | none |
+| reference_freeze_thumb / screen | PASS / FAIL / PASS | 30.00 | 8.568 | 0.816/0.817 | none |
+| reference_cap_thumb / screen | PASS / FAIL / PASS | 30.00 | 9.769 | 0.838/0.839 | none |
+| reference_hand_spacing_m_0p16_preload_0p1 / screen | PASS / FAIL / PASS | 30.00 | 14.872 | 0.951/0.956 | none |
+| reference_hand_spacing_m_0p16_thumb_0p40 / screen | PASS / FAIL / PASS | 30.00 | 12.966 | 0.922/0.927 | none |
+| reference_thumb_0p40 / screen | PASS / FAIL / PASS | 30.00 | 12.609 | 0.887/0.889 | none |
+| reference_preload_0p1 / screen | PASS / FAIL / PASS | 30.00 | 15.003 | 0.920/0.924 | none |
 | reference_hand_spacing_m_0p16 / screen | PASS / FAIL / PASS | 30.00 | 15.926 | 0.963/0.966 | none |
 | reference / screen | PASS / FAIL / PASS | 30.00 | 15.722 | 0.925/0.928 | none |
 | reference_hand_spacing_m_0p2 / screen | PASS / FAIL / PASS | 30.00 | 15.454 | 0.888/0.891 | none |
+| reference_preload_0p14 / screen | PASS / FAIL / PASS | 30.00 | 16.183 | 0.927/0.931 | none |
 | reference_waist_lean_rad_0p2 / screen | PASS / FAIL / PASS | 30.00 | 24.793 | 1.254/1.257 | none |
+| reference_hand_spacing_m_0p16_arm_feedback / screen | PASS / FAIL / PASS | 30.00 | 20.941 | 1.047/1.063 | none |
 | reference_waist_lean_rad_0p4 / screen | PASS / FAIL / PASS | 30.00 | 9.906 | 0.407/0.423 | none |
 | reference_offset_0_plus / screen | PASS / FAIL / PASS | 30.00 | 23.462 | 1.077/1.082 | none |
 | reference_offset_2_plus / screen | PASS / FAIL / PASS | 30.00 | 21.945 | 0.988/0.989 | none |
 | reference_hand_spacing_m_0p16_offset_2_plus / screen | PASS / FAIL / PASS | 30.00 | 22.356 | 1.024/1.028 | none |
 | reference_hand_spacing_m_0p16_offset_0_plus / screen | PASS / FAIL / PASS | 30.00 | 24.945 | 1.114/1.118 | none |
 | reference / 120s | FAIL / NOT RUN / PASS | 88.02 | 30.546 | 1.064/1.067 | drift |
+| reference_cap_thumb / 120s | FAIL / NOT RUN / FAIL | 86.72 | 15.739 | 0.935/0.937 | left_hand |
+| reference_freeze_thumb / 120s | FAIL / NOT RUN / FAIL | 81.02 | 13.205 | 0.896/0.901 | left_hand |
+| reference_hand_spacing_m_0p16_freeze_thumb / 120s | FAIL / NOT RUN / FAIL | 80.18 | 13.834 | 0.934/0.938 | left_hand |
+| reference_freeze_all / 120s | FAIL / NOT RUN / FAIL | 70.92 | 17.745 | 0.903/0.906 | left_hand |
+| reference_hand_spacing_m_0p16_freeze_all / 120s | FAIL / NOT RUN / FAIL | 70.14 | 18.578 | 0.943/0.942 | left_hand, right_hand |
+| reference_waist_lean_rad_0p4 / 60s | FAIL / NOT RUN / PASS | 49.86 | 12.084 | 0.439/0.500 | unintended_support |
+| reference_offset_0_plus / 60s | FAIL / NOT RUN / PASS | 47.58 | 30.293 | 1.137/1.142 | drift |
+| reference_waist_lean_rad_0p2 / 60s | FAIL / NOT RUN / PASS | 47.28 | 30.169 | 1.301/1.304 | drift |
 | reference_hand_spacing_m_0p16_offset_2_minus / screen | FAIL / NOT RUN / FAIL | 17.74 | 8.437 | 0.869/0.876 | right_hand |
 | reference_offset_2_minus / screen | FAIL / NOT RUN / FAIL | 17.46 | 8.183 | 0.832/0.840 | right_hand |
 | reference_offset_0_minus / screen | FAIL / NOT RUN / FAIL | 8.82 | 4.140 | 0.742/0.731 | left_hand |
@@ -41,6 +66,7 @@ This report is generated from saved results. A screen is not 120 s qualification
 Qualified nominal/repeat/fine candidates: NONE.
 
 [Complete configurations, per-hand metrics, late windows, first crossings and qualification status](results.json).
+[Flat comparison table with all per-hand metrics and separate validation statuses](comparison.csv).
 
 A >50% reduction in either hand's signed 20–30 s share is explicitly flagged in the JSON; it does not establish stronger grasp capacity.
 

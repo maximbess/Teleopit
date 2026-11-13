@@ -6,7 +6,22 @@
   ],
   [
     "first_0",
-    87.53600000007796,
-    "drift"
+    86.2250000000717,
+    "opposition_loss:left_hand"
+  ],
+  [
+    "first_1",
+    -5.0390000000000175,
+    "opposition_loss:left_hand before HOLD"
+  ],
+  [
+    "first_2",
+    86.2250000000717,
+    "left:thumb_opposition absent for 0.496 s"
+  ],
+  [
+    "first_3",
+    86.2250000000717,
+    "left:valid absent for 0.496 s"
   ]
 ]

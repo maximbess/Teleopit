@@ -1,0 +1,634 @@
+{
+  "schema": "g1_o6_pose_verification_v1",
+  "implementation_revision": "1d4c59c874939b8ebd20a230b570adf359a4a290",
+  "environment": {
+    "environment": "teleopit",
+    "executable": "C:\\Users\\maxim\\anaconda3\\envs\\teleopit\\python.exe",
+    "python": "3.10.20 | packaged by Anaconda, Inc. | (main, Jun 11 2026, 15:13:20) [MSC v.1942 64 bit (AMD64)]",
+    "platform": "Windows-10-10.0.22631-SP0",
+    "packages": {
+      "mujoco": "3.8.1",
+      "numpy": "2.2.6",
+      "scipy": "1.15.2",
+      "pytest": "9.2.0",
+      "pytest-cov": "7.1.0",
+      "coverage": "7.16.2",
+      "radon": "6.0.1",
+      "matplotlib": "3.10.9",
+      "imageio": "2.37.4",
+      "pillow": "12.3.0",
+      "ruff": "0.17.4"
+    }
+  },
+  "tests": {
+    "passed": 280,
+    "details": "277 affected runtime checks plus 3 final report/cache regressions; existing dependency deprecation warning retained",
+    "logs": [
+      "all_tests_final.txt",
+      "report_tests_final.txt"
+    ]
+  },
+  "quality": {
+    "changed_functions": 175,
+    "max_crap": 9.583984375,
+    "crap_ge_10": [],
+    "duplication_ge_0_8": [],
+    "tools": "Radon + measured statement coverage; AST SequenceMatcher (>=50 nodes)",
+    "named_tools_available": false,
+    "scope": "Changed production functions since 6e5b3c9 in g1_o6, g1_o6_support, o6_diagnostics and the two evidence scripts"
+  },
+  "behavioral_mutations": {
+    "method": "in-memory semantic mutations, no production edits; require assertion failures and no fixture errors",
+    "results": [
+      {
+        "name": "generic_opposition",
+        "outcome": "KILLED",
+        "exit_code": 1
+      },
+      {
+        "name": "weak_contact",
+        "outcome": "KILLED",
+        "exit_code": 1
+      },
+      {
+        "name": "raw_latch",
+        "outcome": "KILLED",
+        "exit_code": 1
+      },
+      {
+        "name": "loose_thumb_cap",
+        "outcome": "KILLED",
+        "exit_code": 1
+      },
+      {
+        "name": "silent_identity",
+        "outcome": "KILLED",
+        "exit_code": 1
+      },
+      {
+        "name": "unsigned_hand_load",
+        "outcome": "KILLED",
+        "exit_code": 1
+      },
+      {
+        "name": "unbounded_budget",
+        "outcome": "KILLED",
+        "exit_code": 1
+      },
+      {
+        "name": "ignored_contact_failure",
+        "outcome": "KILLED",
+        "exit_code": 1
+      },
+      {
+        "name": "wrong_parent_identity",
+        "outcome": "KILLED",
+        "exit_code": 1
+      },
+      {
+        "name": "fast_arm_correction",
+        "outcome": "KILLED",
+        "exit_code": 1
+      },
+      {
+        "name": "live_forward",
+        "outcome": "KILLED",
+        "exit_code": 1
+      },
+      {
+        "name": "false_finalist",
+        "outcome": "KILLED",
+        "exit_code": 1
+      }
+    ]
+  },
+  "budget_usage": {
+    "candidate_kinds": {
+      "geometry": 28,
+      "controller": 12
+    },
+    "attempts_by_stage": {
+      "screen": 40,
+      "60s": 12,
+      "120s": 6
+    },
+    "technical_retries": 0
+  },
+  "physical_asset_hash_groups": 1,
+  "physical_audit": [
+    {
+      "id": "reference_screen",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 30000,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "rung10_screen",
+      "strict": "FAIL",
+      "contact": "PASS",
+      "late": "NOT RUN",
+      "scored_steps": 500,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_60s",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 60020,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_120s",
+      "strict": "FAIL",
+      "contact": "PASS",
+      "late": "NOT RUN",
+      "scored_steps": 88020,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "split_10_11_screen",
+      "strict": "FAIL",
+      "contact": "PASS",
+      "late": "NOT RUN",
+      "scored_steps": 7760,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "split_11_10_screen",
+      "strict": "FAIL",
+      "contact": "PASS",
+      "late": "NOT RUN",
+      "scored_steps": 8000,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_hand_tilt_deg_40_screen",
+      "strict": "FAIL",
+      "contact": "PASS",
+      "late": "NOT RUN",
+      "scored_steps": 2900,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_hand_tilt_deg_60_screen",
+      "strict": "FAIL",
+      "contact": "FAIL",
+      "late": "NOT RUN",
+      "scored_steps": 500,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_waist_lean_rad_0p2_screen",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 30000,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_waist_lean_rad_0p4_screen",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 30000,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_hand_spacing_m_0p16_screen",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 30000,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_hand_spacing_m_0p2_screen",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 30000,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "rung10_hand_tilt_deg_40_screen",
+      "strict": "FAIL",
+      "contact": "PASS",
+      "late": "NOT RUN",
+      "scored_steps": 3020,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "rung10_hand_tilt_deg_60_screen",
+      "strict": "FAIL",
+      "contact": "FAIL",
+      "late": "NOT RUN",
+      "scored_steps": 500,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "rung10_waist_lean_rad_0p2_screen",
+      "strict": "FAIL",
+      "contact": "PASS",
+      "late": "NOT RUN",
+      "scored_steps": 500,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "rung10_waist_lean_rad_0p4_screen",
+      "strict": "FAIL",
+      "contact": "PASS",
+      "late": "NOT RUN",
+      "scored_steps": 500,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "rung10_hand_spacing_m_0p16_screen",
+      "strict": "FAIL",
+      "contact": "PASS",
+      "late": "NOT RUN",
+      "scored_steps": 500,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "rung10_hand_spacing_m_0p2_screen",
+      "strict": "FAIL",
+      "contact": "PASS",
+      "late": "NOT RUN",
+      "scored_steps": 500,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_hand_spacing_m_0p16_offset_0_minus_screen",
+      "strict": "FAIL",
+      "contact": "FAIL",
+      "late": "NOT RUN",
+      "scored_steps": 4940,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_hand_spacing_m_0p16_offset_0_plus_screen",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 30000,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_hand_spacing_m_0p16_offset_2_minus_screen",
+      "strict": "FAIL",
+      "contact": "FAIL",
+      "late": "NOT RUN",
+      "scored_steps": 17740,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_hand_spacing_m_0p16_offset_2_plus_screen",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 30000,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_hand_spacing_m_0p16_ik_17_screen",
+      "strict": "NOT RUN",
+      "contact": "NOT RUN",
+      "late": "NOT RUN",
+      "scored_steps": 0,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_hand_spacing_m_0p16_ik_23_screen",
+      "strict": "NOT RUN",
+      "contact": "NOT RUN",
+      "late": "NOT RUN",
+      "scored_steps": 0,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_offset_0_minus_screen",
+      "strict": "FAIL",
+      "contact": "FAIL",
+      "late": "NOT RUN",
+      "scored_steps": 8820,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_offset_0_plus_screen",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 30000,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_offset_2_minus_screen",
+      "strict": "FAIL",
+      "contact": "FAIL",
+      "late": "NOT RUN",
+      "scored_steps": 17460,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_offset_2_plus_screen",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 30000,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_ik_17_screen",
+      "strict": "NOT RUN",
+      "contact": "NOT RUN",
+      "late": "NOT RUN",
+      "scored_steps": 0,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_ik_23_screen",
+      "strict": "NOT RUN",
+      "contact": "NOT RUN",
+      "late": "NOT RUN",
+      "scored_steps": 0,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_hand_spacing_m_0p16_freeze_thumb_screen",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 30000,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_hand_spacing_m_0p16_freeze_all_screen",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 30000,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_hand_spacing_m_0p16_cap_thumb_screen",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 30000,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_hand_spacing_m_0p16_preload_0p1_screen",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 30000,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_hand_spacing_m_0p16_arm_feedback_screen",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 30000,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_hand_spacing_m_0p16_thumb_0p40_screen",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 30000,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_freeze_thumb_screen",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 30000,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_freeze_all_screen",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 30000,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_cap_thumb_screen",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 30000,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_preload_0p1_screen",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 30000,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_preload_0p14_screen",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 30000,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_thumb_0p40_screen",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 30000,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_hand_spacing_m_0p16_60s",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 60020,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_hand_spacing_m_0p2_60s",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 60020,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_waist_lean_rad_0p2_60s",
+      "strict": "FAIL",
+      "contact": "PASS",
+      "late": "NOT RUN",
+      "scored_steps": 47280,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_waist_lean_rad_0p4_60s",
+      "strict": "FAIL",
+      "contact": "PASS",
+      "late": "NOT RUN",
+      "scored_steps": 49860,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_offset_0_plus_60s",
+      "strict": "FAIL",
+      "contact": "PASS",
+      "late": "NOT RUN",
+      "scored_steps": 47580,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_freeze_all_60s",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 60020,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_hand_spacing_m_0p16_freeze_all_60s",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 60020,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_hand_spacing_m_0p16_freeze_thumb_60s",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 60020,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_hand_spacing_m_0p16_cap_thumb_60s",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 60020,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_freeze_thumb_60s",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 60020,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_cap_thumb_60s",
+      "strict": "PASS",
+      "contact": "PASS",
+      "late": "FAIL",
+      "scored_steps": 60020,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_freeze_all_120s",
+      "strict": "FAIL",
+      "contact": "FAIL",
+      "late": "NOT RUN",
+      "scored_steps": 70920,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_hand_spacing_m_0p16_freeze_all_120s",
+      "strict": "FAIL",
+      "contact": "FAIL",
+      "late": "NOT RUN",
+      "scored_steps": 70140,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_cap_thumb_120s",
+      "strict": "FAIL",
+      "contact": "FAIL",
+      "late": "NOT RUN",
+      "scored_steps": 86720,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_hand_spacing_m_0p16_freeze_thumb_120s",
+      "strict": "FAIL",
+      "contact": "FAIL",
+      "late": "NOT RUN",
+      "scored_steps": 80180,
+      "nonzero_applied_steps": 0
+    },
+    {
+      "id": "reference_freeze_thumb_120s",
+      "strict": "FAIL",
+      "contact": "FAIL",
+      "late": "NOT RUN",
+      "scored_steps": 81020,
+      "nonzero_applied_steps": 0
+    }
+  ],
+  "all_scored_applied_arrays_zero": true,
+  "trace_baseline_proof": "baseline_verification.json",
+  "memory_refactor_proof": "projection_verification.json",
+  "acquisition_proof": {
+    "reference_freeze_thumb": {
+      "physical_rows_exact_through_hold_entry": 253,
+      "entry_simulation_s": 5.040000000000018
+    },
+    "reference_freeze_all": {
+      "physical_rows_exact_through_hold_entry": 253,
+      "entry_simulation_s": 5.040000000000018
+    },
+    "reference_cap_thumb": {
+      "physical_rows_exact_through_hold_entry": 253,
+      "entry_simulation_s": 5.040000000000018
+    },
+    "reference_hand_spacing_m_0p16_freeze_thumb": {
+      "physical_rows_exact_through_hold_entry": 253,
+      "entry_simulation_s": 5.040000000000018
+    },
+    "reference_hand_spacing_m_0p16_freeze_all": {
+      "physical_rows_exact_through_hold_entry": 253,
+      "entry_simulation_s": 5.040000000000018
+    },
+    "reference_hand_spacing_m_0p16_cap_thumb": {
+      "physical_rows_exact_through_hold_entry": 253,
+      "entry_simulation_s": 5.040000000000018
+    },
+    "reference_hand_spacing_m_0p16_arm_feedback": {
+      "physical_rows_exact_through_hold_entry": 253,
+      "entry_simulation_s": 5.040000000000018
+    }
+  },
+  "scene_equivalence": {
+    "identical_numeric_fields": 585,
+    "scene_difference": "Only optional OBJ content_type attributes omitted by XML serialization; same compiled model/solver arrays",
+    "asset_hash_groups": 1
+  },
+  "artifact_sha256": {
+    "all_tests_final.txt": "ee9631dd7a286ff838f80d8a5312e76296055fb42b8318ca8ed0d50a4d308c76",
+    "report_tests_final.txt": "1ed4156ef40eb48d724d746b685fc3f01299173d306c602af60c4a309707e0dc",
+    "quality.json": "549a3fba0a6647a5641609bafe1756c722001d44170c813ca106f11c06c91e10",
+    "mutations_verified.json": "d3656f8844fa7ee66995605a5510f699de786e08751c7e6a646ac491c12c75e4",
+    "coverage_final.json": "e1e97ade025d9478f685ee96552fa566e5d498685e3471fe6764588c67f26cee",
+    "acquisition_verification.json": "cdab5a78c208ddf8cb0fcf5934ce02356eb3f46fe15f36e3c703ec6c7cf71385",
+    "scene_equivalence.json": "64c0258da3da6be7592bae6bdf53dbe9e460df632ff8f849a79eb81476e50554",
+    "duration_prefix_verification.json": "8caf0a04e8db9cf69e413b51363591641d444b193d7348f10498e81c25aa4f3b",
+    "campaign_state.json": "3bf3bf938554b9a4f0a744939d2fabf8d6c37339b91eb28a79ba158fd845a550"
+  },
+  "limits": "Scoped software verification and this bounded deterministic physical campaign; no statistical, independent hand capacity, release, transfer or hardware qualification."
+}
