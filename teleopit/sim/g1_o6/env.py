@@ -1,6 +1,7 @@
 """Bounded deterministic controller with explicit acquisition assistance and strict hold gates."""
 
 from collections import deque
+from pathlib import Path
 
 import mujoco
 import numpy as np
@@ -39,6 +40,12 @@ class Environment:
             for s, h in self.hands.items()
         }
         self.reset()
+
+    def save_scene(self, path):
+        """Save this environment's source and exact model, independent of global XML state."""
+        path = Path(path)
+        path.write_text(self.xml)
+        mujoco.mj_saveModel(self.model, str(path.with_suffix(".mjb")), None)
 
     def reset(self):
         mujoco.mj_resetData(self.model, self.data)

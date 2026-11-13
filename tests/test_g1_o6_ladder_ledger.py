@@ -3,6 +3,56 @@
 import pytest
 
 
+def reference_fixture(tmp_path, monkeypatch):
+    import json
+
+    from teleopit.sim.g1_o6_support import ladder_experiment as cli
+    from teleopit.sim.g1_o6_support import ladder_identity
+    from teleopit.sim.g1_o6_support.ladder_campaign import file_hash
+
+    campaign = prepared_campaign(tmp_path, monkeypatch)
+    monkeypatch.setattr(cli, "code_provenance", lambda: {"code": "software fixture"})
+    monkeypatch.setattr(
+        ladder_identity, "verify_reviewed_model", lambda _: {"status": "PASS"}
+    )
+    verification = {}
+    for seconds in (30, 120):
+        path = tmp_path / "reference" / f"{seconds}s"
+        path.mkdir(parents=True)
+        (path / "steps.jsonl").write_text("preserved reference bytes")
+        summary = {"strict_status": "PASS" if seconds == 30 else "FAIL"}
+        (path / "summary.json").write_text(json.dumps(summary))
+        verification[str(seconds)] = {
+            "identical": True,
+            "summary": summary,
+            "new_trace_sha256": file_hash(path / "steps.jsonl"),
+        }
+    (tmp_path / "reference_verification.json").write_text(json.dumps(verification))
+    return campaign, cli
+
+
+def test_reference_import_is_once_only_and_rechecks_verified_bytes(
+    tmp_path, monkeypatch
+):
+    campaign, cli = reference_fixture(tmp_path, monkeypatch)
+    cli.import_reference(campaign)
+    cli.import_reference(campaign)
+    assert len(campaign.state["runs"]) == 2
+    assert sum(r["stage"] == "120s" for r in campaign.state["runs"]) == 1
+    (tmp_path / "reference/30s/steps.jsonl").write_text("changed after comparison")
+    with pytest.raises(ValueError, match="reference trace"):
+        cli.import_reference(campaign)
+
+
+def test_reference_import_rejects_summary_changed_after_comparison(
+    tmp_path, monkeypatch
+):
+    campaign, cli = reference_fixture(tmp_path, monkeypatch)
+    (tmp_path / "reference/30s/summary.json").write_text('{"strict_status": "FAIL"}')
+    with pytest.raises(ValueError, match="reference summary"):
+        cli.import_reference(campaign)
+
+
 def prepared_campaign(tmp_path, monkeypatch):
     from teleopit.sim.g1_o6_support import ladder_campaign as module
 

@@ -4,7 +4,6 @@ import json
 from dataclasses import replace
 from pathlib import Path
 
-import mujoco
 import numpy as np
 
 from .diagnostics import snapshot
@@ -28,8 +27,7 @@ def run_trial(
     annotate(env, initial)
     metadata = resolved(env, initial)
     (output / "resolved.json").write_text(json.dumps(metadata, indent=2) + "\n")
-    # Save actual compiled friction overrides, actuator limits, etc.
-    mujoco.mj_saveLastXML(str(output / "scene.xml"), env.model)
+    env.save_scene(output / "scene.xml")
     rows = [initial]
     with (output / "steps.jsonl").open("w") as stream:
         stream.write(json.dumps(initial) + "\n")

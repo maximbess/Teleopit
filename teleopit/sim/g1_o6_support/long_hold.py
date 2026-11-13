@@ -86,8 +86,6 @@ def run_hold(
 
 
 def prepare_hold(output, seconds, physics_dt, pose, environment, extra):
-    import mujoco
-
     cfg = Config(hold_seconds=seconds, physics_dt=physics_dt)
     env = environment if environment is not None else Environment(cfg, pose=pose)
     if env.config.hold_seconds != seconds or env.config.physics_dt != physics_dt:
@@ -102,7 +100,7 @@ def prepare_hold(output, seconds, physics_dt, pose, environment, extra):
     )
     metadata.update(extra or {})
     write_json(path / "resolved.json", metadata)
-    mujoco.mj_saveLastXML(str(path / "scene.xml"), env.model)
+    env.save_scene(path / "scene.xml")
     return env, path, initial, metadata
 
 

@@ -10,6 +10,7 @@ from .ladder_campaign import (
     LadderCampaign,
     code_provenance,
     conditions,
+    file_hash,
     long_qualified,
     ranked_promotions,
     run_checksums,
@@ -31,14 +32,11 @@ def import_reference(campaign):
         (campaign.root / "reference_verification.json").read_text()
     )
     for seconds, stage in ((30, "screen"), (120, "120s")):
-        if not verification[str(seconds)]["identical"]:
-            raise ValueError(
-                "reference reproduction differs; review numerical evidence before import"
-            )
+        path, result = verified_reference(
+            campaign.root, verification[str(seconds)], seconds
+        )
         if campaign.previous("G0_reference", stage):
             continue
-        path = campaign.root / "reference" / f"{seconds}s"
-        result = json.loads((path / "summary.json").read_text())
         condition = campaign.state["candidates"]["G0_reference"]
         identity = run_identity(
             condition=condition,
@@ -63,6 +61,20 @@ def import_reference(campaign):
             }
         )
         campaign.save()
+
+
+def verified_reference(root, verification, seconds):
+    if not verification["identical"]:
+        raise ValueError(
+            "reference reproduction differs; review numerical evidence before import"
+        )
+    path = root / "reference" / f"{seconds}s"
+    if file_hash(path / "steps.jsonl") != verification["new_trace_sha256"]:
+        raise ValueError("reference trace changed after verified comparison")
+    result = json.loads((path / "summary.json").read_text())
+    if result != verification["summary"]:
+        raise ValueError("reference summary changed after verified comparison")
+    return path, result
 
 
 def screens(campaign, group):

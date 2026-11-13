@@ -126,7 +126,7 @@ def reject_reset(env, path, extra, reasons, status="INFEASIBLE"):
     )
     metadata.update(extra)
     write_json(path / "resolved.json", metadata)
-    mujoco.mj_saveLastXML(str(path / "scene.xml"), env.model)
+    env.save_scene(path / "scene.xml")
     result = {
         "schema": "g1_o6_pose_rejection_v1",
         "software_status": "PASS",

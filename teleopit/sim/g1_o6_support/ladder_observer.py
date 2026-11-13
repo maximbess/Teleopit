@@ -21,6 +21,14 @@ class LadderObserver(PoseObserver):
         )
         self.observed = {}
         self.entry_saved = False
+        self.previous_phase = None
+
+    def physics_reasons(self, env, row, hands, states):
+        reasons = super().physics_reasons(env, row, hands, states)
+        if env.phase != self.previous_phase:
+            reasons.append("phase_transition:" + env.phase)
+            self.previous_phase = env.phase
+        return reasons
 
     def __call__(self, env):
         row = super().__call__(env)
