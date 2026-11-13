@@ -16,6 +16,7 @@ from .initialize import arm_joints, fit_leg
 @dataclass(frozen=True)
 class GraspPose:
     hand_rungs: tuple = (11, 11)
+    foot_rungs: tuple = (4, 4)
     waist_lean_rad: float = 0.3
     hand_tilt_deg: float = 50.0
     grip_offset_m: tuple = (-0.023, 0.0, -0.020)
@@ -24,7 +25,7 @@ class GraspPose:
     finger_preload_Nm: float = 0.12
 
     def __post_init__(self):
-        for name in ("hand_rungs", "grip_offset_m", "closed_pose"):
+        for name in ("hand_rungs", "foot_rungs", "grip_offset_m", "closed_pose"):
             value = getattr(self, name)
             if not isinstance(value, (tuple, list)):
                 raise TypeError(f"{name} must be an array")
@@ -51,18 +52,17 @@ class GraspPose:
             )
 
     def validate_vectors(self):
-        if len(self.hand_rungs) != 2 or any(
-            type(r) is not int or not 1 <= r <= 14 for r in self.hand_rungs
-        ):
-            raise ValueError("hand_rungs must contain two rung numbers in 1..14")
+        for name in ("hand_rungs", "foot_rungs"):
+            if len(getattr(self, name)) != 2 or any(type(r) is not int or r < 1 for r in getattr(self, name)):
+                raise ValueError(name + " must contain two positive rung numbers")
         if len(self.grip_offset_m) != 3 or len(self.closed_pose) != 6:
             raise ValueError("expected a three-axis offset and six finger targets")
 
     def support_targets(self):
         return {
             side + "_" + part: f"left_ladder_rung_{r:02d}"
-            for side, rung in zip(("left", "right"), self.hand_rungs)
-            for part, r in (("hand", rung), ("foot", 4))
+            for side, rung, foot in zip(("left", "right"), self.hand_rungs, self.foot_rungs)
+            for part, r in (("hand", rung), ("foot", foot))
         }
 
 
@@ -97,6 +97,10 @@ def mount_target(env, pose, side, rung):
         + pose.grip_offset_m
     )
     position[0] += env.config.wrist_offset_x
+    if getattr(env, "adapt_reset", False):
+        from .initialize import rung_face_displacement
+
+        position += rung_face_displacement(env.model, rung)
     position[1] += (1 if side == "left" else -1) * pose.hand_spacing_m
     rotation = (
         turn @ Rotation.from_quat(np.array(bench.palm_quat)[[1, 2, 3, 0]]).as_matrix()

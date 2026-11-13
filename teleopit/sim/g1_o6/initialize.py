@@ -37,7 +37,7 @@ ARM_SEEDS = {
 }
 
 
-def initial_stance(model, data, hands, cfg):
+def initial_stance(model, data, hands, cfg, *, foot_rungs=(4, 4), adapt=False):
     # The original pose intersects the next rung at the knee by 0.45 mm.
     # Translate the robot/feet 3 mm back before IK, rather than disabling contact.
     data.qpos[:3] = np.array(LADDER_INITIAL_ROOT_POS) + [-0.003, 0, 0]
@@ -54,6 +54,8 @@ def initial_stance(model, data, hands, cfg):
         )
         for s in hands
     }
+    if adapt:
+        translate_support_frame(model, data, feet, hands, foot_rungs)
     data.qpos[:3] += [cfg.root_offset_x, 0, cfg.root_offset_z]
     reports = {}
     for side in hands:
@@ -63,6 +65,26 @@ def initial_stance(model, data, hands, cfg):
             data.joint(name).qpos[0] = value
     mujoco.mj_forward(model, data)
     return reports
+
+
+def rung_face_displacement(model, rung):
+    """Front/top face movement from the historical 110 by 70 mm box."""
+    size = model.geom(f"left_ladder_rung_{rung:02d}").size
+    return np.array([.110 / 2 - size[0], 0., size[2] - .070 / 2])
+
+
+def translate_support_frame(model, data, feet, hands, foot_rungs):
+    from teleopit.sim.ladder_config import reference_rung_centers
+
+    reference = np.array(reference_rung_centers()[3])
+    shifts = []
+    for side, rung in zip(hands, foot_rungs):
+        shift = data.geom(f"left_ladder_rung_{rung:02d}").xpos - reference
+        shift = shift + rung_face_displacement(model, rung)
+        position, rotation = feet[side]
+        feet[side] = (position + shift, rotation)
+        shifts.append(shift)
+    data.qpos[:3] += np.mean(shifts, axis=0)
 
 
 def fit_leg(model, data, side, target, rotation):

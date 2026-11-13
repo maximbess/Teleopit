@@ -41,7 +41,8 @@ def posture_metrics(env):
 
 def housing_clearance(model, data):
     obstacles = [
-        g for g in range(model.ngeom) if model.geom(g).name.startswith("left_ladder_")
+        g for g in range(model.ngeom) if "_ladder_" in model.geom(g).name
+        and (model.geom_contype[g] or model.geom_conaffinity[g])
     ]
     result = {}
     for side in ("left", "right"):

@@ -79,13 +79,13 @@ def install_hand(root, side):
     return mapping
 
 
-def build_model(cfg):
+def build_model(cfg, *, ladder=None, material=None):
     cfg.validate()
     root = canonical_tree()
     original = mujoco.MjModel.from_xml_string(ET.tostring(root, encoding="unicode"))
     spec = mujoco.MjSpec.from_string(ET.tostring(root, encoding="unicode"))
     apply_g1_collision_overlay(spec)
-    add_ladder(spec)
+    add_ladder(spec, ladder)
     root = ET.fromstring(spec.to_xml())
     hands = {side: install_hand(root, side) for side in ("left", "right")}
     section(root, "option").attrib.update(
@@ -112,7 +112,17 @@ def build_model(cfg):
     # mj_saveLastXML. Configure the source, then compile and audit the result.
     xml = ET.tostring(root, encoding="unicode")
     model = mujoco.MjModel.from_xml_string(xml)
+    from .material import configure_material
+
+    if material is not None and cfg.friction_scale != 1:
+        raise ValueError("selective material requires unchanged global friction scale")
+    material_audit = configure_material(root, model, material)
+    if material_audit is not None:
+        xml = ET.tostring(root, encoding="unicode")
+        model = mujoco.MjModel.from_xml_string(xml)
     audit = inventory(original, model, hands)
+    if material_audit is not None:
+        audit["material"] = material_audit
     return model, xml, hands, audit
 
 

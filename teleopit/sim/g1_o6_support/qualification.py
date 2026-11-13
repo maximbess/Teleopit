@@ -19,6 +19,9 @@ def identity(metadata):
         for k in ("grasp_pose", "controller", "support_targets", "assets")
     }
     value["config"] = config
+    for key in ("ladder", "material", "physical_identity"):
+        if key in metadata:
+            value[key] = metadata[key]
     value["assets"] = portable_assets(value["assets"])
     return hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
 
