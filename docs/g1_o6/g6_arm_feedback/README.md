@@ -5,6 +5,9 @@ control. Root X remains −40 mm, with the original thumb-below-balanced grasp,
 native material and unchanged physical limits. This is a new experiment;
 previous failed trials and the project default remain intact.
 
+The completed outcome is **zero qualified poses in four feedback trials**.
+See [OUTCOMES.md](OUTCOMES.md) for the measured failures and evidence.
+
 The lowered control is reproduced before editing the controller. Its entire
 trace matches the previous `e_00_probe` SHA-256
 `e5e03184430b635b94e5cf76328f5c36489a6b66b3b79eb462fa1f4f7f053a67`.
@@ -70,3 +73,16 @@ the ledger, physical assets and a fresh output directory. Completed evidence
 is immutable. `retry <candidate> <stage> --reason "..."` is reserved for
 technical ERROR/interruption with identical source identity, never a physical
 FAIL. See [WORK_LOG.md](WORK_LOG.md) for validation and campaign decisions.
+
+The portable archive retains original scenes plus additional
+`scene_portable.xml` exports that resolve the included physical assets. The
+exact feedback source is `5a9a6ee24f5db84a05af91b5306f6248f2f0cbd8`; the lowered
+control source is `75293781397feb0a43734cc0860a98a8bee23a09`. The included Git
+bundle and `source/*_source.zip` preserve both history and exact line endings.
+Use the matching revision, source bytes and recorded runtime in a reproduction
+checkout, and a fresh output directory. The archived `reproduce_trial.py`
+accepts `--run <archived-run>` and `--output <fresh-directory>`, verifies the
+complete recorded source/runtime identity, runs the original payload and
+compares the full trajectory hash. It requires no earlier campaign directory.
+The historical `reproduce_lower_control.py` records the initial comparison
+against the previous campaign; use `reproduce_trial.py` for portable replay.
