@@ -79,8 +79,9 @@ def test_transition_window_rejects_a_missing_physics_interval():
         assert_transition_interval(times[:100] + times[120:], 1, 0.001)
 
 
+@pytest.mark.parametrize("explicit_roots", [False, True])
 def test_archive_preserves_original_bytes_and_adds_a_portable_scene(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, explicit_roots
 ):
     from pathlib import Path
     from zipfile import ZipFile
@@ -98,19 +99,32 @@ def test_archive_preserves_original_bytes_and_adds_a_portable_scene(
     monkeypatch.setattr(packager, "ROOT", Path("evidence"))
     monkeypatch.setattr(packager, "DOCS", docs)
     monkeypatch.setattr(packager, "ASSETS", ())
-    monkeypatch.setattr(packager, "collect_files", lambda *args: [original])
+    calls = []
+    monkeypatch.setattr(packager, "collect_files", lambda *args: calls.append(args) or [original])
     monkeypatch.setattr(packager, "implementation_revisions", lambda files: [])
     monkeypatch.setattr(
         packager.subprocess, "check_output", lambda *args, **kw: "software-fixture"
     )
     output = Path("evidence.zip")
-    packager.package(output, Path("portable"))
+    options = {}
+    if explicit_roots:
+        docs = Path("g6_docs")
+        docs.mkdir()
+        options = {"root": Path("g6_evidence"), "docs": docs,
+                   "scene_policy": "Owned scenes; portable files are additional."}
+    packager.package(output, Path("portable"), **options)
+    assert calls[0][0] == options.get("root", Path("evidence"))
+    assert calls[0][1] == docs
+    assert "second_batch" in calls[0][2] and "stages" in calls[0][2]
     with ZipFile(output) as archive:
         assert archive.read(original.as_posix()) == raw
         assert "evidence/run/scene_portable.xml" in archive.namelist()
         manifest = json.loads(archive.read("evidence_manifest.json"))
         assert manifest["original_bytes_preserved"]
+        if explicit_roots:
+            assert manifest["scene_policy"] == options["scene_policy"]
         assert manifest["portable_scenes"][0]["identical_public_numeric_fields"] > 400
+    assert (docs / "artifact.json").exists()
     assert original.read_bytes() == raw
     with pytest.raises(FileExistsError):
         packager.package(output, Path("portable"))

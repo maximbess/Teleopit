@@ -20,28 +20,21 @@ from package_g1_o6_support import (
 
 ROOT = Path("outputs/g1_o6/ladder_material")
 DOCS = Path("docs/g1_o6/ladder_material")
+SCENE_POLICY = "Use reconstructions/<run_id>/scene.mjb or its scene_portable.xml. Original scene.xml is immutable evidence and some exports contain only the auxiliary ladder; consult proof.json. Portable scenes are additional files, never replacements."
+RUNS = (
+    "reference", "runs", "reconstructions", "acquisition_windows",
+    "geometry_views", "videos", "report", "source", "validation",
+    "stages", "second_batch",
+)
 
 
-def package(output, staging):
+def package(output, staging, *, root=None, docs=None, scene_policy=SCENE_POLICY):
+    root, docs = resolved_roots(root, docs)
     if output.exists() or staging.exists():
         raise FileExistsError("choose unused archive and staging paths")
     for name in ASSETS:
         shutil.copytree(name, staging / name)
-    files = collect_files(
-        ROOT,
-        DOCS,
-        (
-            "reference",
-            "runs",
-            "reconstructions",
-            "acquisition_windows",
-            "geometry_views",
-            "videos",
-            "report",
-            "source",
-            "validation",
-        ),
-    )
+    files = collect_files(root, docs, RUNS)
     archive = Archive(output)
     scenes = []
     try:
@@ -74,7 +67,7 @@ def package(output, staging):
                 "physical_assets_included": True,
                 "source_revisions_included": revisions,
                 "original_bytes_preserved": True,
-                "scene_policy": "Use reconstructions/<run_id>/scene.mjb or its scene_portable.xml. Original scene.xml is immutable evidence and some exports contain only the auxiliary ladder; consult proof.json. Portable scenes are additional files, never replacements.",
+                "scene_policy": scene_policy,
                 "portable_scenes": scenes,
                 "files_sha256": dict(archive.hashes),
             },
@@ -96,13 +89,21 @@ def package(output, staging):
     output.with_suffix(".zip.sha256").write_text(
         receipt["sha256"] + "  " + output.name + "\n"
     )
-    (DOCS / "artifact.json").write_text(json.dumps(receipt, indent=2) + "\n")
+    (docs / "artifact.json").write_text(json.dumps(receipt, indent=2) + "\n")
     print(json.dumps(receipt, indent=2))
+
+
+def resolved_roots(root, docs):
+    return (ROOT if root is None else root, DOCS if docs is None else docs)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--staging", type=Path, required=True)
+    parser.add_argument("--root", type=Path, default=ROOT)
+    parser.add_argument("--docs", type=Path, default=DOCS)
+    parser.add_argument("--scene-policy", default=SCENE_POLICY)
     args = parser.parse_args()
-    package(args.output, args.staging)
+    package(args.output, args.staging, root=args.root, docs=args.docs,
+            scene_policy=args.scene_policy)
