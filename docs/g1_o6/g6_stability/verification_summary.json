@@ -1,0 +1,32 @@
+{
+  "status": "PASS",
+  "ledgers": 2,
+  "records": 48,
+  "scored_steps": 26480,
+  "nonzero_scored_applied_steps": 0,
+  "identical_model_fields_per_pair": 584,
+  "default_snapshot_entries": 471,
+  "physical_milestones": {
+    "initial_pose": {
+      "status": "FAIL",
+      "candidate": null
+    },
+    "load_bearing_grasp": {
+      "status": "BLOCKED",
+      "reason": "initial G6 pose not qualified"
+    },
+    "controlled_release": {
+      "status": "BLOCKED",
+      "reason": "initial G6 pose not qualified"
+    },
+    "same_tread_reacquisition": {
+      "status": "BLOCKED",
+      "reason": "initial G6 pose not qualified"
+    },
+    "adjacent_tread_transfer": {
+      "status": "BLOCKED",
+      "reason": "initial G6 pose not qualified"
+    }
+  },
+  "mutations_assertion_killed": 10
+}

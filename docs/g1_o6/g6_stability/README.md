@@ -4,6 +4,8 @@ This opt-in campaign implements [the supplied plan](PLAN.md) on `dex-hand-exp`.
 It starts from reviewed commit `298cd2f555dcf48637384987ef0668e85f219392`.
 The existing default remains unchanged. Physical milestones are reported separately
 from software checks in `outputs/g1_o6/g6_stability/milestones.json`.
+The completed 48-configuration search found no qualifying pose; see
+[OUTCOMES.md](OUTCOMES.md) and [CANDIDATES.csv](CANDIDATES.csv).
 
 ## Run
 
@@ -37,7 +39,9 @@ The native control is hands 8 / feet 3. G6 dimensions, material, gravity, masses
 inertias, actuator limits, collision masks and solver settings remain unchanged.
 All search candidates use the original `HoldController`, 1 ms physics and 20 ms
 control. Scored assistance is zero. A 0.5 ms winner confirmation retains 20 ms
-control. The maximum is 40 distinct configurations including the control.
+control. The initial campaign maximum is 40 distinct configurations including
+the control. A separate eight-case follow-up is recorded under `second_batch`;
+it does not alter the original budget or failed runs.
 
 | Batch | Count | Changes relative to the preceding selected parent |
 |---|---:|---|
@@ -101,3 +105,64 @@ FAIL is a measured physical failure, BLOCKED means a prerequisite or coverage
 is missing, NOT RUN means no eligible attempt, and ERROR is a technical failure.
 Recorded-state videos use separate display data and never qualify physics.
 See [WORK_LOG.md](WORK_LOG.md) for implementation and validation history.
+
+## Delivered evidence and reproduction
+
+The local ZIP and its SHA-256 are listed in [artifact.json](artifact.json).
+Extract it at one root so relative asset paths remain intact. Each run contains
+immutable `scene.xml` / `scene.mjb`, resolved configuration, summaries and raw
+traces. Use the additional `scene_portable.xml` after extraction. The bundle in
+`outputs/g1_o6/g6_stability/source/dex-hand-exp.bundle` contains the source
+history; exact runtime byte snapshots preserve line endings used by the hashes.
+Do not modify or resume the completed ledgers with a later source revision.
+
+For an exact physical reproduction, use a separate checkout of the recorded
+runtime revision with the archived physical assets and its matching source ZIP.
+The native control was run at `298cd2f`; the search at `180b0da`. The archive's
+`reproduce_reference_portable.py` reads the complete frozen reference payload
+without requiring the previous ladder/material campaign directory. Choose a
+fresh output path:
+
+```powershell
+$env:PYTHONPATH = (Get-Location).Path
+# At the reviewed control source, with the archived driver and payload available:
+conda run --no-capture-output -n teleopit python outputs/g1_o6/g6_stability/reproduce_reference_portable.py --source outputs/g1_o6/g6_stability/reference_source.json --output outputs/g1_o6/g6_reproduction/reference
+# At the frozen search source, use the fresh campaign path for all commands:
+conda run --no-capture-output -n teleopit python -m teleopit.sim.g1_o6_support.g6_experiment --output outputs/g1_o6/g6_reproduction prepare
+conda run --no-capture-output -n teleopit python -m teleopit.sim.g1_o6_support.g6_experiment --output outputs/g1_o6/g6_reproduction import-control outputs/g1_o6/g6_reproduction/reference
+conda run --no-capture-output -n teleopit python -m teleopit.sim.g1_o6_support.g6_experiment --output outputs/g1_o6/g6_reproduction --workers 3 batch A --parent control
+conda run --no-capture-output -n teleopit python -m teleopit.sim.g1_o6_support.g6_experiment --output outputs/g1_o6/g6_reproduction --workers 3 batch B --parent a_03
+conda run --no-capture-output -n teleopit python -m teleopit.sim.g1_o6_support.g6_experiment --output outputs/g1_o6/g6_reproduction --workers 3 batch C --parent b_00
+conda run --no-capture-output -n teleopit python -m teleopit.sim.g1_o6_support.g6_experiment --output outputs/g1_o6/g6_reproduction --workers 3 batch D --parent c_05
+```
+
+The archived `run_second_batch.py` records all eight E combinations, their
+hypothesis and an explicit cap of eight before execution. Its `ROOT` points to
+the original campaign; set that data path to the fresh reproduction campaign
+when repeating it. `second_batch/campaign_state.json` retains the exact values.
+No stage is credited merely because a replay or resume command succeeds.
+
+The following commands were used for reporting and independent validation at
+the delivery source. Verification needs the bundled Git history for controller
+identity, the assets, and the reviewed numeric model snapshot in each `source`
+directory. The verifier uses the additional portable XML when present, so it
+can load relocated scenes without changing raw evidence. The archive manifest verifier
+checks raw file bytes without loading any model or depending on those paths.
+
+```powershell
+$env:PYTHONPATH = (Get-Location).Path
+conda run --no-capture-output -n teleopit python scripts/g1_o6_g6_report.py --root outputs/g1_o6/g6_stability
+conda run --no-capture-output -n teleopit python scripts/g1_o6_g6_report.py --root outputs/g1_o6/g6_stability/second_batch
+conda run --no-capture-output -n teleopit python scripts/verify_g1_o6_g6.py --root outputs/g1_o6/g6_stability
+conda run --no-capture-output -n teleopit python scripts/verify_g1_o6_g6.py --root outputs/g1_o6/g6_stability/second_batch
+conda run --no-capture-output -n teleopit python -m pytest tests/test_g1_o6_g6_evidence.py tests/test_g1_o6_ladder_evidence.py -q
+conda run --no-capture-output -n teleopit python -c "from pathlib import Path; from scripts.package_g1_o6_support import verify; print(len(verify(Path('outputs/g1_o6/g6_stability_evidence.zip'))['files_sha256']))"
+```
+
+The ZIP stores every source file needed by these
+commands in its provenance snapshots and Git bundle, rather than relying on an
+external GitHub download. Restore the delivery source in a separate workspace
+before running the analysis scripts. Exact runtime versions are recorded in
+the campaign source provenance. `validation/mutations` retains both the initial
+uncollected mutation and its corrected assertion failure; the consolidated
+receipt explicitly chooses the corrected result.

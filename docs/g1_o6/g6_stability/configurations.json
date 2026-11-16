@@ -1,0 +1,1964 @@
+{
+  "control": {
+    "id": "control",
+    "pose": {
+      "hand_rungs": [
+        8,
+        8
+      ],
+      "foot_rungs": [
+        3,
+        3
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {},
+    "parent": null,
+    "family": "control",
+    "controller": "reference"
+  },
+  "a_00": {
+    "id": "a_00",
+    "pose": {
+      "hand_rungs": [
+        8,
+        8
+      ],
+      "foot_rungs": [
+        3,
+        3
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": -0.04
+    },
+    "parent": "control",
+    "family": "root_offset_x",
+    "controller": "reference"
+  },
+  "a_01": {
+    "id": "a_01",
+    "pose": {
+      "hand_rungs": [
+        8,
+        8
+      ],
+      "foot_rungs": [
+        3,
+        3
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": -0.02
+    },
+    "parent": "control",
+    "family": "root_offset_x",
+    "controller": "reference"
+  },
+  "a_02": {
+    "id": "a_02",
+    "pose": {
+      "hand_rungs": [
+        8,
+        8
+      ],
+      "foot_rungs": [
+        3,
+        3
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.02
+    },
+    "parent": "control",
+    "family": "root_offset_x",
+    "controller": "reference"
+  },
+  "a_03": {
+    "id": "a_03",
+    "pose": {
+      "hand_rungs": [
+        8,
+        8
+      ],
+      "foot_rungs": [
+        3,
+        3
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04
+    },
+    "parent": "control",
+    "family": "root_offset_x",
+    "controller": "reference"
+  },
+  "a_04": {
+    "id": "a_04",
+    "pose": {
+      "hand_rungs": [
+        8,
+        8
+      ],
+      "foot_rungs": [
+        3,
+        3
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_z": -0.04
+    },
+    "parent": "control",
+    "family": "root_offset_z",
+    "controller": "reference"
+  },
+  "a_05": {
+    "id": "a_05",
+    "pose": {
+      "hand_rungs": [
+        8,
+        8
+      ],
+      "foot_rungs": [
+        3,
+        3
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_z": -0.02
+    },
+    "parent": "control",
+    "family": "root_offset_z",
+    "controller": "reference"
+  },
+  "a_06": {
+    "id": "a_06",
+    "pose": {
+      "hand_rungs": [
+        8,
+        8
+      ],
+      "foot_rungs": [
+        3,
+        3
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_z": 0.02
+    },
+    "parent": "control",
+    "family": "root_offset_z",
+    "controller": "reference"
+  },
+  "a_07": {
+    "id": "a_07",
+    "pose": {
+      "hand_rungs": [
+        8,
+        8
+      ],
+      "foot_rungs": [
+        3,
+        3
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_z": 0.04
+    },
+    "parent": "control",
+    "family": "root_offset_z",
+    "controller": "reference"
+  },
+  "a_08": {
+    "id": "a_08",
+    "pose": {
+      "hand_rungs": [
+        8,
+        8
+      ],
+      "foot_rungs": [
+        3,
+        3
+      ],
+      "waist_lean_rad": 0.19999999999999998,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {},
+    "parent": "control",
+    "family": "waist",
+    "controller": "reference"
+  },
+  "a_09": {
+    "id": "a_09",
+    "pose": {
+      "hand_rungs": [
+        8,
+        8
+      ],
+      "foot_rungs": [
+        3,
+        3
+      ],
+      "waist_lean_rad": 0.25,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {},
+    "parent": "control",
+    "family": "waist",
+    "controller": "reference"
+  },
+  "a_10": {
+    "id": "a_10",
+    "pose": {
+      "hand_rungs": [
+        8,
+        8
+      ],
+      "foot_rungs": [
+        3,
+        3
+      ],
+      "waist_lean_rad": 0.35,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {},
+    "parent": "control",
+    "family": "waist",
+    "controller": "reference"
+  },
+  "a_11": {
+    "id": "a_11",
+    "pose": {
+      "hand_rungs": [
+        8,
+        8
+      ],
+      "foot_rungs": [
+        3,
+        3
+      ],
+      "waist_lean_rad": 0.4,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {},
+    "parent": "control",
+    "family": "waist",
+    "controller": "reference"
+  },
+  "b_00": {
+    "id": "b_00",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04
+    },
+    "parent": "a_03",
+    "family": "support_pair",
+    "controller": "reference"
+  },
+  "b_01": {
+    "id": "b_01",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        3,
+        3
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04
+    },
+    "parent": "a_03",
+    "family": "support_pair",
+    "controller": "reference"
+  },
+  "b_02": {
+    "id": "b_02",
+    "pose": {
+      "hand_rungs": [
+        6,
+        6
+      ],
+      "foot_rungs": [
+        1,
+        1
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04
+    },
+    "parent": "a_03",
+    "family": "support_pair",
+    "controller": "reference"
+  },
+  "b_03": {
+    "id": "b_03",
+    "pose": {
+      "hand_rungs": [
+        6,
+        6
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04
+    },
+    "parent": "a_03",
+    "family": "support_pair",
+    "controller": "reference"
+  },
+  "b_04": {
+    "id": "b_04",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04,
+      "foot_offset_x": -0.01
+    },
+    "parent": "a_03",
+    "family": "foot_placement",
+    "controller": "reference"
+  },
+  "b_05": {
+    "id": "b_05",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04,
+      "foot_offset_x": 0.01
+    },
+    "parent": "a_03",
+    "family": "foot_placement",
+    "controller": "reference"
+  },
+  "b_06": {
+    "id": "b_06",
+    "pose": {
+      "hand_rungs": [
+        6,
+        6
+      ],
+      "foot_rungs": [
+        1,
+        1
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04,
+      "foot_offset_x": -0.01
+    },
+    "parent": "a_03",
+    "family": "foot_placement",
+    "controller": "reference"
+  },
+  "b_07": {
+    "id": "b_07",
+    "pose": {
+      "hand_rungs": [
+        6,
+        6
+      ],
+      "foot_rungs": [
+        1,
+        1
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04,
+      "foot_offset_x": 0.01
+    },
+    "parent": "a_03",
+    "family": "foot_placement",
+    "controller": "reference"
+  },
+  "c_00": {
+    "id": "c_00",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 40.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04
+    },
+    "parent": "b_00",
+    "family": "tilt",
+    "controller": "reference"
+  },
+  "c_01": {
+    "id": "c_01",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 45.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04
+    },
+    "parent": "b_00",
+    "family": "tilt",
+    "controller": "reference"
+  },
+  "c_02": {
+    "id": "c_02",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 55.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04
+    },
+    "parent": "b_00",
+    "family": "tilt",
+    "controller": "reference"
+  },
+  "c_03": {
+    "id": "c_03",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 60.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04
+    },
+    "parent": "b_00",
+    "family": "tilt",
+    "controller": "reference"
+  },
+  "c_04": {
+    "id": "c_04",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.028,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04
+    },
+    "parent": "b_00",
+    "family": "grip_offset",
+    "controller": "reference"
+  },
+  "c_05": {
+    "id": "c_05",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.018,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04
+    },
+    "parent": "b_00",
+    "family": "grip_offset",
+    "controller": "reference"
+  },
+  "c_06": {
+    "id": "c_06",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.025
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04
+    },
+    "parent": "b_00",
+    "family": "grip_offset",
+    "controller": "reference"
+  },
+  "c_07": {
+    "id": "c_07",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.015
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04
+    },
+    "parent": "b_00",
+    "family": "grip_offset",
+    "controller": "reference"
+  },
+  "c_08": {
+    "id": "c_08",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.16,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04
+    },
+    "parent": "b_00",
+    "family": "spacing",
+    "controller": "reference"
+  },
+  "c_09": {
+    "id": "c_09",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.19999999999999998,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04
+    },
+    "parent": "b_00",
+    "family": "spacing",
+    "controller": "reference"
+  },
+  "c_10": {
+    "id": "c_10",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0,
+        0,
+        -0.005
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04
+    },
+    "parent": "b_00",
+    "family": "right_asymmetry",
+    "controller": "reference"
+  },
+  "c_11": {
+    "id": "c_11",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0,
+        0,
+        0.005
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04
+    },
+    "parent": "b_00",
+    "family": "right_asymmetry",
+    "controller": "reference"
+  },
+  "d_00": {
+    "id": "d_00",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.018,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.1,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04
+    },
+    "parent": "c_05",
+    "family": "preload",
+    "controller": "reference"
+  },
+  "d_01": {
+    "id": "d_01",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.018,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.14,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04
+    },
+    "parent": "c_05",
+    "family": "preload",
+    "controller": "reference"
+  },
+  "d_02": {
+    "id": "d_02",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.018,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.3,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04
+    },
+    "parent": "c_05",
+    "family": "thumb_closure",
+    "controller": "reference"
+  },
+  "d_03": {
+    "id": "d_03",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.018,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.4,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04
+    },
+    "parent": "c_05",
+    "family": "thumb_closure",
+    "controller": "reference"
+  },
+  "d_04": {
+    "id": "d_04",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.018,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.6,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04
+    },
+    "parent": "c_05",
+    "family": "thumb_closure",
+    "controller": "reference"
+  },
+  "d_05": {
+    "id": "d_05",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.018,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.7,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04
+    },
+    "parent": "c_05",
+    "family": "thumb_closure",
+    "controller": "reference"
+  },
+  "d_06": {
+    "id": "d_06",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.018,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.4500000000000002,
+        1.4500000000000002,
+        1.4500000000000002,
+        1.4500000000000002
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": 0.04
+    },
+    "parent": "c_05",
+    "family": "finger_closure",
+    "controller": "reference"
+  },
+  "e_00": {
+    "id": "e_00",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.02
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": -0.04
+    },
+    "parent": "a_00",
+    "family": "clearance_grasp_repair",
+    "controller": "reference"
+  },
+  "e_01": {
+    "id": "e_01",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.015
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": -0.04
+    },
+    "parent": "a_00",
+    "family": "clearance_grasp_repair",
+    "controller": "reference"
+  },
+  "e_02": {
+    "id": "e_02",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.01
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": -0.04
+    },
+    "parent": "a_00",
+    "family": "clearance_grasp_repair",
+    "controller": "reference"
+  },
+  "e_03": {
+    "id": "e_03",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.028,
+        0.0,
+        -0.015
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": -0.04
+    },
+    "parent": "a_00",
+    "family": "clearance_grasp_repair",
+    "controller": "reference"
+  },
+  "e_04": {
+    "id": "e_04",
+    "pose": {
+      "hand_rungs": [
+        6,
+        6
+      ],
+      "foot_rungs": [
+        1,
+        1
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.015
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": -0.04
+    },
+    "parent": "a_00",
+    "family": "clearance_grasp_repair",
+    "controller": "reference"
+  },
+  "e_05": {
+    "id": "e_05",
+    "pose": {
+      "hand_rungs": [
+        8,
+        8
+      ],
+      "foot_rungs": [
+        3,
+        3
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.015
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.5,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": -0.04
+    },
+    "parent": "a_00",
+    "family": "clearance_grasp_repair",
+    "controller": "reference"
+  },
+  "e_06": {
+    "id": "e_06",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.015
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.6,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": -0.04
+    },
+    "parent": "a_00",
+    "family": "clearance_grasp_repair",
+    "controller": "reference"
+  },
+  "e_07": {
+    "id": "e_07",
+    "pose": {
+      "hand_rungs": [
+        7,
+        7
+      ],
+      "foot_rungs": [
+        2,
+        2
+      ],
+      "waist_lean_rad": 0.3,
+      "hand_tilt_deg": 50.0,
+      "grip_offset_m": [
+        -0.023,
+        0.0,
+        -0.015
+      ],
+      "hand_spacing_m": 0.18,
+      "closed_pose": [
+        0.05,
+        0.7,
+        1.35,
+        1.35,
+        1.35,
+        1.35
+      ],
+      "finger_preload_Nm": 0.12,
+      "right_grip_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reset": {
+      "root_offset_x": -0.04
+    },
+    "parent": "a_00",
+    "family": "clearance_grasp_repair",
+    "controller": "reference"
+  }
+}
