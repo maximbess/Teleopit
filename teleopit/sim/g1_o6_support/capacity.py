@@ -132,7 +132,7 @@ def measured_references(rows, side):
     return references
 
 
-def qualified_source(path, state="initial"):
+def qualified_source(path, state="initial", *, sample_time=None):
     source = Source(path)
     summary = json.loads((source.path / "summary.json").read_text())
     strict = summary.get("strict", summary.get("original_strict_outcome", summary))
@@ -145,8 +145,9 @@ def qualified_source(path, state="initial"):
         raise ValueError("capacity source must contain a qualified coupled hold")
     if state == "settled":
         rows = read_rows(source.path / "steps.jsonl")
-        row = next(r for r in reversed(rows) if r["phase"] == "HOLD")
+        row = source_sample(rows, sample_time)
         source.data.qpos[:] = [*row["base_pose"], *row["joint_positions"]]
+        source.targets = dict(row.get("g6", {}).get("support_targets", source.targets))
         mujoco.mj_forward(source.model, source.data)
         source.sample_reference = {
             "time_s": row["time"],
@@ -155,11 +156,27 @@ def qualified_source(path, state="initial"):
             "row_sha256": hashlib.sha256(
                 json.dumps(row, sort_keys=True).encode()
             ).hexdigest(),
+            "support_targets": source.targets,
+            "state_sha256": sampled_state_key(row, source.targets),
             "initialization": "sampled mount and hand joint configuration; reset velocities zero; motor preload initialized",
         }
     elif state != "initial":
         raise ValueError("source state must be initial or settled")
     return source
+
+
+def source_sample(rows, sample_time):
+    eligible = [r for r in rows if r["phase"] == "HOLD"]
+    return (
+        eligible[-1]
+        if sample_time is None
+        else next(r for r in eligible if r["time"] == sample_time)
+    )
+
+
+def sampled_state_key(row, targets):
+    value = {"qpos": [*row["base_pose"], *row["joint_positions"]], "targets": targets}
+    return hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
 
 
 def run_capacity(

@@ -132,5 +132,7 @@ if __name__ == "__main__":
     parser.add_argument("--coverage", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--prefix", nargs="+", default=["teleopit/sim/"])
+    parser.add_argument("--base", default=BASE)
     args = parser.parse_args()
+    BASE = args.base
     quality(args.coverage, args.output, args.prefix)

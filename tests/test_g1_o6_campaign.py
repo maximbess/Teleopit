@@ -88,8 +88,9 @@ def test_capacity_orchestrator_respects_budget_and_fine_repeats(tmp_path, monkey
     assert outcome["physical_status"] == "PASS"
     assert len(calls) <= 48
     assert calls[-1]["physics_dt"] == 0.0005
-    with pytest.raises(ValueError, match="trial budget"):
-        matrix.evaluate_side(object(), "right", tmp_path, [reference], 0.001, 1)
+    exhausted = matrix.evaluate_side(object(), "right", tmp_path, [reference], 0.001, 1)
+    assert exhausted["loading_status"] == "BLOCKED"
+    assert exhausted["unrun_required_cases"] > 0
 
 
 def test_pose_convergence_checks_all_axes_and_orientation():

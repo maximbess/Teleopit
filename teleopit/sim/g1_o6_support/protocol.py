@@ -1,6 +1,6 @@
 """An explicit finite protocol; transitions depend on measured predicates."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from .config import TransferCriteria
 from .guards import Persistence
@@ -17,6 +17,8 @@ class Step:
 
 
 def transfer_steps(mode, side, cycles, alternating, three_seconds, plateau_seconds):
+    if mode in ("adjacent-first", "adjacent"):
+        return adjacent_steps(mode, side, plateau_seconds)
     cfg = TransferCriteria()
     steps = [
         Step("BASELINE", cfg.reference_s, cfg.reference_s, hold=True),
@@ -45,6 +47,29 @@ def transfer_steps(mode, side, cycles, alternating, three_seconds, plateau_secon
                 ),
             ]
         )
+    return steps
+
+
+def adjacent_steps(mode, first, plateau):
+    cfg = TransferCriteria()
+    steps = transfer_steps("load", first, 1, False, 10, plateau)[:4]
+    order = (
+        [first]
+        if mode == "adjacent-first"
+        else [first, "right" if first == "left" else "left"]
+    )
+    for index, side in enumerate(order):
+        cycle = cycle_steps("reacquire", side, 10, cfg)
+        for step in cycle:
+            if step.name == "APPROACH":
+                step = replace(step, name="REACH", minimum_s=15, timeout_s=30)
+            if step.name == "POST_HOLD":
+                step = replace(step, minimum_s=30, timeout_s=30)
+            steps.append(step)
+        if index == 0 and len(order) == 2:
+            steps.append(
+                Step("DESTINATION_CAPACITY", 0, 1, "destination_capacity", side)
+            )
     return steps
 
 

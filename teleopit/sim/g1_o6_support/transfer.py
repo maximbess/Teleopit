@@ -22,8 +22,9 @@ from .config import TransferCriteria
 from .control import UNLOADED_PHASES, TransferController
 from .guards import released, share_settled, unloading
 from .long_hold import enrich, experiment_metadata
+from .long_hold import summary_row
 from .protocol import Protocol, transfer_steps
-from .qualification import Evidence, demands_covered, identity
+from .qualification import Evidence, demands_covered, identity, targeted_demands_covered
 from .scene_contract import restore_environment
 
 
@@ -50,8 +51,16 @@ def support_positions(env):
 
 
 class TransferTrial:
-    def __init__(self, env, request):
+    def __init__(self, env, request, path=None, proof=None):
+        from .g6_observer import G6Observer
+        from .g6_transfer import AdjacentController
+        from .g6_transfer_results import capacity_share_bounds
+
         self.env, self.request = env, request
+        self.proof = proof
+        self.capacity_shares = capacity_share_bounds(
+            proof, env.mass * abs(env.model.opt.gravity[2])
+        )
         self.cfg = TransferCriteria()
         self.protocol = Protocol(
             transfer_steps(
@@ -63,11 +72,20 @@ class TransferTrial:
                 request["plateau_seconds"],
             )
         )
-        self.controller = TransferController(
+        factory = (
+            AdjacentController
+            if request["mode"].startswith("adjacent")
+            else TransferController
+        )
+        self.controller = factory(
             env, env.hold_controller, self.protocol, request["target_share"]
         )
         env.hold_controller = self.controller
-        self.audit = PhysicsAudit(env)
+        self.audit = (
+            G6Observer(env, path)
+            if env.ladder is not None and path is not None
+            else PhysicsAudit(env)
+        )
         self.rows = []
         self.failures = {}
         self.bad = 0
@@ -82,6 +100,13 @@ class TransferTrial:
 
     def observe(self, env):
         self.audit.phase = self.protocol.phase if env.phase == "HOLD" else env.phase
+        self.audit.selected_side = self.protocol.step.side
+        self.audit.phase_token = str(self.protocol.index) + ":" + self.audit.phase
+        self.audit.experiment_phase_start = (
+            self.protocol.started
+            if env.phase == "HOLD" and self.protocol.started is not None
+            else env.phase_start
+        )
         self.audit.optional_supports = set(env.support_targets) - set(
             self.required_supports()
         )
@@ -105,14 +130,16 @@ class TransferTrial:
             self.failures.setdefault("released_hand_physics_contact", time)
 
     def update(self, row):
-        self.rows.append(row)
         if row["phase"] != "HOLD":
+            self.rows.append(summary_row(row))
             return
         self.controller.latest = row
         if self.hold_start is None:
             self.hold_start = row["time"]
         phase = self.protocol.phase
         row["experiment_phase"] = phase
+        row["experiment_phase_time_s"] = self.protocol.elapsed(row["time"])
+        row["support_targets"] = dict(self.env.support_targets)
         self.controller.enter(self.env, row)
         reasons = self.strict_reasons(row)
         row["failure_reasons"] = reasons
@@ -131,7 +158,10 @@ class TransferTrial:
             "feedback_offset_rad": self.controller.offset.tolist(),
             "motion_tracking": self.controller.motion,
             "required_supports": self.required_supports(),
+            "capacity_per_hand_share_bounds": self.capacity_shares,
+            "feedback_paused": getattr(self.controller, "feedback_paused", False),
         }
+        self.rows.append(summary_row(row))
         if self.bad >= self.env.config.stability_seconds or self.controller.failure:
             self.env.abort(reasons or [self.controller.failure])
             return
@@ -146,6 +176,9 @@ class TransferTrial:
             self.capture_baseline()
         if phase == "UNLOAD_RAMP":
             self.controller.reference = mean_reference(self.rows)
+        if previous == "VERIFY_GRASP" and phase == "RELOAD":
+            side = self.protocol.step.side
+            self.positions[side + "_hand"] = support_positions(self.env)[side + "_hand"]
         self.controller.enter(self.env, row)
 
     def finish_phase(self):
@@ -167,12 +200,20 @@ class TransferTrial:
         baseline = sum(
             self.controller.baseline["supports"][s + "_hand"]["force_world"][2]
             for s in ("left", "right")
-        ) / (self.env.mass * 9.81)
-        if self.request["target_share"] - baseline < 0.02:
-            self.env.abort(["target_not_meaningful_above_baseline"])
+        ) / (self.env.mass * abs(self.env.model.opt.gravity[2]))
+        self.initial_hand_share = baseline
 
     def strict_reasons(self, row):
+        from .g6_gates import required_contact_sides
+
         reasons = failure_reasons(row, self.env.config, self.required_supports())
+        if self.env.ladder is not None:
+            quality = row.get("pose_search", {}).get("hands", {})
+            for side in required_contact_sides(
+                self.protocol.phase, self.protocol.step.side
+            ):
+                if not quality.get(side, {}).get("quality", {}).get("valid", False):
+                    reasons.append("anatomical_grasp:" + side)
         if housing_contact(row):
             reasons.append("housing_contact")
         # Optional selected supports still obey slip and collision limits.
@@ -202,18 +243,51 @@ class TransferTrial:
             row["support_location_motion_m"] = motion
             if max(motion.values()) > self.cfg.support_motion_m:
                 reasons.append("support_location_moved")
+        if self.positions is not None:
+            reasons.extend(self.stationary_motion_reasons())
         return reasons
+
+    def stationary_motion_reasons(self):
+        moved = support_positions(self.env)
+        other = "right" if self.protocol.step.side == "left" else "left"
+        names = {
+            "foot_support_moved": ("left_foot", "right_foot"),
+            "stationary_hand_moved": (other + "_hand",),
+        }
+        return [
+            reason
+            for reason, supports in names.items()
+            if any(
+                np.linalg.norm(moved[n] - self.positions[n]) > self.cfg.support_motion_m
+                for n in supports
+            )
+        ]
 
     def features(self, row):
         side = self.protocol.step.side
         support = row["supports"][side + "_hand"]
         weight = self.env.mass * abs(self.env.model.opt.gravity[2])
         features = {
-            "share": share_settled(row, self.request["target_share"], weight),
+            "share": share_settled(
+                row,
+                self.request["target_share"],
+                weight,
+                capacity_shares=self.capacity_shares,
+            ),
             "grasp": support["loaded"]
             and support["opposing"]
             and row["posture"]["thumb_below_fingers_above"][side],
         }
+        if self.env.ladder is not None:
+            features["grasp"] &= (
+                row.get("pose_search", {})
+                .get("hands", {})
+                .get(side, {})
+                .get("quality", {})
+                .get("valid", False)
+            )
+        if self.protocol.phase == "DESTINATION_CAPACITY":
+            features["destination_capacity"] = self.destination_capacity()
         reference = self.controller.reference
         if reference is not None:
             features.update(load_acceptance(reference, row, side, features))
@@ -228,6 +302,14 @@ class TransferTrial:
             features.update(self.open_features(row, side))
         return features
 
+    def destination_capacity(self):
+        return self.proof is not None and targeted_demands_covered(
+            self.rows,
+            self.proof.target_wrenches,
+            self.proof.source["metadata"]["support_targets"],
+            capacity_runs=self.proof.runs["capacity_runs"],
+        )
+
     def open_features(self, row, side):
         controller, env = self.controller, self.env
         actual = env.data.qpos[env.act_qpos[env.hand_act[side]]]
@@ -236,6 +318,9 @@ class TransferTrial:
         row["release_clearance"] = clearance
         site = env.data.site(env.hands[side]["mount"])
         position, rotation = controller.mounts[side]
+        if self.protocol.phase == "REACH":
+            position = np.asarray(controller.plans[side]["waypoints_world_m"][-1])
+            rotation = np.asarray(controller.plans[side]["rotation_world"])
         error = np.linalg.norm(site.xpos - position)
         angle = Rotation.from_matrix(rotation @ site.xmat.reshape(3, 3).T).magnitude()
         opened = released(start, actual, 0, self.cfg.clearance_m)
@@ -311,7 +396,14 @@ def run_transfer(
 
 def validate_request(request):
     allowed = {
-        "mode": ("load", "unload", "release", "reacquire"),
+        "mode": (
+            "load",
+            "unload",
+            "release",
+            "reacquire",
+            "adjacent-first",
+            "adjacent",
+        ),
         "side": ("left", "right"),
         "target_share": (0.05, 0.1, 0.2, 0.3),
         "cycles": (1, 3),
@@ -326,6 +418,10 @@ def validate_request(request):
         request["cycles"] != 1 or request["alternating"]
     ):
         raise ValueError("cycles and alternating sides apply only to reacquisition")
+    if request["mode"].startswith("adjacent") and request["target_share"] != 0.3:
+        raise ValueError(
+            "adjacent transfer requires the qualified 30 percent allocation"
+        )
 
 
 def execute_transfer(proof, path, request):
@@ -344,8 +440,13 @@ def execute_transfer(proof, path, request):
         )
     write_json(path / "resolved.json", metadata)
     env.save_scene(path / "scene.xml")
-    trial = TransferTrial(env, request)
-    integrate_transfer(trial, initial, path)
+    trial = TransferTrial(env, request, path, proof)
+    try:
+        integrate_transfer(trial, initial, path)
+    finally:
+        close = getattr(trial.audit, "close", None)
+        if close:
+            close()
     result = transfer_result(trial, proof, path)
     write_json(path / "summary.json", result)
     write_csv(path / "physics_events.csv", trial.audit.events.rows)
@@ -361,21 +462,33 @@ def integrate_transfer(trial, initial, path):
         stream.write(json.dumps(initial) + "\n")
         while env.phase not in ("ABORT", "HOLD_COMPLETE"):
             row = env.step(trial.observe, advance_phase=env.phase != "HOLD")
-            enrich(env, row, telemetry, trial.hold_start)
+            enrich(env, row, telemetry, trial.hold_start, trial.audit)
             trial.update(row)
             stream.write(json.dumps(row) + "\n")
 
 
 def transfer_result(trial, proof, path):
+    from .g6_transfer_results import (
+        adjacent_progress,
+        load_measurements,
+        transfer_motion_gate,
+    )
+
     env, request = trial.env, trial.request
     audit = trial.audit.report()
-    physical = (
-        env.phase == "HOLD_COMPLETE"
-        and audit["no_external_support"]
-        and not audit["unintended_support_steps"]
-        and not audit["housing_contact_steps"]
+    contact = (
+        trial.audit.contact_report()
+        if hasattr(trial.audit, "contact_report")
+        else {"status": "NOT RUN"}
     )
-    covered = demands_covered({"path": str(path)}, proof.passed_wrenches)
+    motion = transfer_motion_gate(request, trial.rows)
+    physical = physical_transfer_passed(env, audit, contact, motion)
+    covered = demands_covered(
+        {"path": str(path)},
+        proof.passed_wrenches,
+        proof.target_wrenches if proof.is_g6 else None,
+        proof.runs["capacity_runs"] if proof.is_g6 else None,
+    )
     result = {
         "schema": "g1_o6_transfer_v1",
         "software_status": "PASS",
@@ -391,7 +504,31 @@ def transfer_result(trial, proof, path):
         "first_failures": trial.failures,
         "phase_transitions": trial.protocol.events,
         "physics_audit": audit,
+        "contact_quality": contact,
+        "load_measurements": load_measurements(
+            trial.rows, env.mass * abs(env.model.opt.gravity[2]), env.config.control_dt
+        ),
+        "initial_hand_share": getattr(trial, "initial_hand_share", None),
+        "plateau_convergence": motion["plateau_convergence"],
+        "destination_convergence": motion["destination_convergence"],
+        "final_support_targets": dict(env.support_targets),
+        "reach_plans": getattr(trial.controller, "plans", {}),
+        "adjacent_progress": adjacent_progress(
+            request, trial.protocol.events, physical, covered
+        ),
         "maximum_reset_drift_m": max(r["base_drift_m"] for r in trial.rows),
         "final_reset_drift_m": trial.rows[-1]["base_drift_m"],
     }
     return result
+
+
+def physical_transfer_passed(env, audit, contact, motion):
+    return (
+        env.phase == "HOLD_COMPLETE"
+        and audit["no_external_support"]
+        and not audit["unintended_support_steps"]
+        and not audit["housing_contact_steps"]
+        and (env.ladder is None or contact["status"] == "PASS")
+        and motion["passed"]
+        and audit.get("native_hand_friction", {"status": "PASS"})["status"] == "PASS"
+    )

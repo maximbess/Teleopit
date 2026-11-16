@@ -11,7 +11,7 @@ from .guards import vertical_reactions
 from .kinematics import Clearance, arm_target
 
 CRITERIA = TransferCriteria()
-OPEN_PHASES = {"OPEN", "RETRACT", "THREE_SUPPORT_HOLD", "APPROACH"}
+OPEN_PHASES = {"OPEN", "RETRACT", "THREE_SUPPORT_HOLD", "APPROACH", "REACH"}
 UNLOADED_PHASES = {
     "UNLOAD_RAMP",
     "UNLOAD_SETTLE",
@@ -28,7 +28,10 @@ def loading_fraction(phase, fraction):
 
 def redistribute(targets, selected, fraction):
     lost = targets[selected] * 0.9 * fraction
-    return {n: f - lost if n == selected else f + lost / 3 for n, f in targets.items()}
+    return {
+        n: f - lost if n == selected else f + lost / 2 if n.endswith("foot") else f
+        for n, f in targets.items()
+    }
 
 
 def bounded_feedback(offset, jacobian, error, kp, effort, dt, cfg=CRITERIA):
@@ -131,6 +134,12 @@ class TransferController:
         phase = self.protocol.phase
         if phase == "BASELINE":
             return
+        self.feedback_paused = unsafe_feedback(
+            env, self.latest, phase, self.protocol.step.side
+        )
+        if self.feedback_paused:
+            self.offset *= max(0, 1 - env.config.control_dt)
+            return
         self.target_forces = self.force_targets(env)
         actual = vertical_reactions(self.latest)
         names = list(env.support_targets)
@@ -166,6 +175,11 @@ class TransferController:
             n: f + (increase / 2 if n.endswith("hand") else -increase / 2)
             for n, f in base.items()
         }
+        fraction_loaded = loading_fraction(phase, fraction)
+        for hand in ("left_hand", "right_hand"):
+            targets[hand] = base[hand] + fraction_loaded * (
+                self.target_share * weight / 2 - base[hand]
+            )
         if phase in UNLOADED_PHASES | {"RELOAD"}:
             unload = {"UNLOAD_RAMP": fraction, "RELOAD": 1 - fraction}.get(phase, 1)
             targets = redistribute(targets, side + "_hand", unload)
@@ -208,3 +222,17 @@ class TransferController:
             result["qpos"] - self.arm_previous[ids], -step, step
         )
         self.arm_previous[ids] = desired[ids]
+
+
+def unsafe_feedback(env, row, phase, selected):
+    from .g6_gates import required_contact_sides
+
+    if row["base_drift_m"] >= 0.9 * env.config.max_drift_m:
+        return True
+    if any(
+        v["loaded"] and v["max_slip"] >= 0.5 * env.config.max_slip_m_s
+        for v in row["supports"].values()
+    ):
+        return True
+    required = required_contact_sides(phase, selected)
+    return any(not row["supports"][s + "_hand"]["opposing"] for s in required)

@@ -134,7 +134,9 @@ def evaluate_side(source, side, path, references, dt, budget):
         return result
     cases = [c for c in declared if c["within_budget"]]
     if len(cases) + 1 > budget:
-        raise ValueError("capacity matrix exceeds the declared trial budget")
+        result["reason"] = "declared cases exceed the trial budget; loading not run"
+        result["unrun_required_cases"] = len(cases)
+        return result
     for case in cases:
         result["trials"].append(run_case(source, side, path, case, dt))
     repeat_boundaries(source, side, path, dt, result, cases, budget)
@@ -166,6 +168,11 @@ def repeat_boundaries(source, side, path, dt, result, cases, budget):
 
 
 def summarize_matrix(result, references):
+    if incomplete_matrix(result):
+        result.update(
+            loading_status="BLOCKED", reserve_qualified=False, physical_status="BLOCKED"
+        )
+        return
     result["loading_status"] = (
         "PASS" if all(trial_passes(c["result"]) for c in result["trials"]) else "FAIL"
     )
@@ -174,6 +181,13 @@ def summarize_matrix(result, references):
         trial_passes(c["result"]) for c in reserves
     )
     result["physical_status"] = result["loading_status"]
+
+
+def incomplete_matrix(result):
+    return not result["trials"] or any(
+        result.get(k)
+        for k in ("out_of_budget_cases", "unrun_boundary_cases", "unrun_required_cases")
+    )
 
 
 class ReplayTrial(CapacityTrial):

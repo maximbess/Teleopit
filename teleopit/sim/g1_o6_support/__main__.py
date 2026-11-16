@@ -37,7 +37,16 @@ def main():
     transfer = commands.add_parser("transfer")
     transfer.add_argument("--evidence", required=True)
     transfer.add_argument(
-        "--mode", choices=("load", "unload", "release", "reacquire"), default="load"
+        "--mode",
+        choices=(
+            "load",
+            "unload",
+            "release",
+            "reacquire",
+            "adjacent-first",
+            "adjacent",
+        ),
+        default="load",
     )
     transfer.add_argument("--side", choices=("left", "right"), default="left")
     transfer.add_argument(
@@ -46,7 +55,9 @@ def main():
     transfer.add_argument("--cycles", type=int, choices=(1, 3), default=1)
     transfer.add_argument("--alternating", action="store_true")
     transfer.add_argument("--three-seconds", type=int, choices=(1, 3, 10), default=1)
-    transfer.add_argument("--plateau-seconds", type=int, choices=(10, 30, 60), default=10)
+    transfer.add_argument(
+        "--plateau-seconds", type=int, choices=(10, 30, 60), default=10
+    )
     transfer.add_argument(
         "--physics-dt", type=float, choices=(0.001, 0.0005), default=0.001
     )

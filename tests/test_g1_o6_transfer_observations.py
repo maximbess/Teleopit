@@ -131,14 +131,17 @@ def test_clearance_and_tracking_are_measured_and_serializable(trial):
     assert "support_location_moved" in task.strict_reasons(row)
 
 
-def test_phase_entry_captures_reference_and_rejects_an_already_loaded_baseline(trial):
+def test_phase_entry_measures_already_loaded_baseline_before_controlled_settling(trial):
     task, row = trial
     task.rows = [row]
     phase(task, "LOAD_RAMP")
     task.on_transition("BASELINE", row)
-    assert task.env.phase == "ABORT"
-    assert task.env.abort_reasons == ["target_not_meaningful_above_baseline"]
-    task.env.phase = "HOLD"
+    assert task.env.phase == "HOLD"
+    expected = sum(
+        row["supports"][s + "_hand"]["force_world"][2] for s in ("left", "right")
+    ) / (task.env.mass * 9.81)
+    assert task.initial_hand_share == expected
+    assert not task.env.hold_passed
     phase(task, "UNLOAD_RAMP")
     task.on_transition("LOADED_HOLD", row)
     assert task.controller.reference["supports"] == row["supports"]

@@ -115,6 +115,7 @@ def test_transfer_runner_short_hold_only_integration_retains_capacity_block(
         source=source,
         identity=identity(source["metadata"]),
         passed_wrenches={"left": [], "right": []},
+        is_g6=False,
     )
     monkeypatch.setattr(
         transfer,
@@ -209,6 +210,8 @@ def test_capacity_accounting_rejects_fixture_and_changed_physics(short_hold):
         "controller": source["controller"],
         "fixed_base": False,
         "gravity_world_m_s2": [0, 0, -9.81],
+        "source_environment_spec": source["environment_spec"],
+        "source_initial": source["initial"],
     }
     # Pure acceptance predicate on synthetic records; never written as evidence.
     result = {
