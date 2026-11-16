@@ -56,6 +56,7 @@ def initial_stance(model, data, hands, cfg, *, foot_rungs=(4, 4), adapt=False):
     }
     if adapt:
         translate_support_frame(model, data, feet, hands, foot_rungs)
+    feet = offset_feet(feet, cfg.foot_offset_x)
     data.qpos[:3] += [cfg.root_offset_x, 0, cfg.root_offset_z]
     reports = {}
     for side in hands:
@@ -65,6 +66,12 @@ def initial_stance(model, data, hands, cfg, *, foot_rungs=(4, 4), adapt=False):
             data.joint(name).qpos[0] = value
     mujoco.mj_forward(model, data)
     return reports
+
+
+def offset_feet(feet, offset):
+    return (
+        {s: (p + [offset, 0, 0], r) for s, (p, r) in feet.items()} if offset else feet
+    )
 
 
 def rung_face_displacement(model, rung):

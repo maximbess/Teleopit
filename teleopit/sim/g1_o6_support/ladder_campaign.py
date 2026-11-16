@@ -128,6 +128,7 @@ def screen_passes(result):
         and audit.get("no_external_support") is True
         and audit.get("unintended_support_steps") == 0
         and audit.get("housing_contact_steps") == 0
+        and audit.get("native_hand_friction", {"status": "PASS"})["status"] == "PASS"
     )
 
 
@@ -224,6 +225,9 @@ def run_condition(payload, output, seconds, dt):
 
 class LadderCampaign(Campaign):
     """Reuse atomic persistence and frozen decisions; isolate the new budget."""
+
+    trial_function = staticmethod(run_condition)
+    stages = STAGES
 
     def __init__(self, root, workers=3):
         self.root, self.workers = Path(root), workers
@@ -390,10 +394,10 @@ class LadderCampaign(Campaign):
         with ProcessPoolExecutor(max_workers=workers) as pool:
             jobs = {
                 pool.submit(
-                    run_condition,
+                    self.trial_function,
                     r["payload"],
                     self.root / r["output"],
-                    *STAGES[r["stage"]],
+                    *self.stages[r["stage"]],
                 ): r
                 for r in records
             }

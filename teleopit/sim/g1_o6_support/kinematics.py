@@ -72,7 +72,7 @@ def structural_neighbors(model, a, b):
 
 
 class Clearance:
-    def __init__(self, env, side):
+    def __init__(self, env, side, *, include_arm=False):
         self.model = env.model
         self.target = env.support_targets[side + "_hand"]
         self.hand = {
@@ -81,6 +81,8 @@ class Clearance:
             if region(env.model, env.model.geom_bodyid[g]) == side + "_hand"
             and env.model.geom_contype[g]
         }
+        if include_arm:
+            self.hand.update(arm_collision_geoms(env.model, side))
         self.pairs = [
             (g, o)
             for g in self.hand
@@ -111,3 +113,15 @@ class Clearance:
             "external_contact_count": contacts,
             "target_rung": self.target,
         }
+
+
+def arm_collision_geoms(model, side):
+    return {
+        g
+        for g in range(model.ngeom)
+        if model.geom_contype[g]
+        and model.body(model.geom_bodyid[g]).name.startswith(side + "_")
+        and any(
+            part in model.body(model.geom_bodyid[g]).name for part in ("wrist", "elbow")
+        )
+    }

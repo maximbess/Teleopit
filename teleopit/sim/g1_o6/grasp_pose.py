@@ -23,9 +23,16 @@ class GraspPose:
     hand_spacing_m: float = 0.18
     closed_pose: tuple = (0.05, 0.5, 1.35, 1.35, 1.35, 1.35)
     finger_preload_Nm: float = 0.12
+    right_grip_offset_m: tuple = (0.0, 0.0, 0.0)
 
     def __post_init__(self):
-        for name in ("hand_rungs", "foot_rungs", "grip_offset_m", "closed_pose"):
+        for name in (
+            "hand_rungs",
+            "foot_rungs",
+            "grip_offset_m",
+            "closed_pose",
+            "right_grip_offset_m",
+        ):
             value = getattr(self, name)
             if not isinstance(value, (tuple, list)):
                 raise TypeError(f"{name} must be an array")
@@ -41,6 +48,7 @@ class GraspPose:
             self.finger_preload_Nm,
             *self.grip_offset_m,
             *self.closed_pose,
+            *self.right_grip_offset_m,
         ]
         if any(type(v) not in (int, float) for v in values):
             raise ValueError("pose values must be numbers")
@@ -57,7 +65,11 @@ class GraspPose:
                 type(r) is not int or r < 1 for r in getattr(self, name)
             ):
                 raise ValueError(name + " must contain two positive rung numbers")
-        if len(self.grip_offset_m) != 3 or len(self.closed_pose) != 6:
+        if (
+            len(self.grip_offset_m) != 3
+            or len(self.right_grip_offset_m) != 3
+            or len(self.closed_pose) != 6
+        ):
             raise ValueError("expected a three-axis offset and six finger targets")
 
     def support_targets(self):
@@ -101,6 +113,8 @@ def mount_target(env, pose, side, rung):
         + pose.grip_offset_m
     )
     position[0] += env.config.wrist_offset_x
+    if side == "right":
+        position += pose.right_grip_offset_m
     if getattr(env, "adapt_reset", False):
         from .initialize import rung_face_displacement
 

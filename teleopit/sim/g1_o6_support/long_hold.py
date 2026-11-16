@@ -113,7 +113,7 @@ def summary_row(row):
     return {
         k: v
         for k, v in row.items()
-        if k not in ("diagnostic_v1", "pose_search", "support_measurement")
+        if k not in ("diagnostic_v1", "pose_search", "support_measurement", "g6")
     }
 
 
@@ -184,4 +184,5 @@ def long_qualified(result, seconds):
         and audit["no_external_support"]
         and not audit["unintended_support_steps"]
         and not audit["housing_contact_steps"]
+        and audit.get("native_hand_friction", {"status": "PASS"})["status"] == "PASS"
     )

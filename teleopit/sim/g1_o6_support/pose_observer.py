@@ -133,12 +133,18 @@ class PoseObserver(PhysicsAudit):
             hand["clearance_by_obstacle_m"] = self.clearance.sample(env, side)
         if row["phase"] == "HOLD":
             self.control_valid.append(
-                all(h["quality"]["valid"] for h in hands.values())
+                all(
+                    hands[s]["quality"]["valid"]
+                    for s in self.required_contact_sides(env)
+                )
             )
         return {
             "hands": hands,
             "controller_state": getattr(env.hold_controller, "state", dict)(),
         }
+
+    def required_contact_sides(self, env):
+        return set(env.hands)
 
     def enrich(self, env, row):
         row["pose_search"] = self.control_sample(env, row)

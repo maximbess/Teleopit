@@ -16,6 +16,7 @@ class Config:
     delay_steps: int = 0
     root_offset_x: float = 0.0
     root_offset_z: float = 0.0
+    foot_offset_x: float = 0.0
     wrist_offset_x: float = 0.0
     disturbance_N: float = 0.0
     max_drift_m: float = 0.03
