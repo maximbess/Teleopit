@@ -19,9 +19,13 @@ def identity(metadata):
         for k in ("grasp_pose", "controller", "support_targets", "assets")
     }
     value["config"] = config
-    for key in ("ladder", "material", "physical_identity"):
+    for key in ("ladder", "material", "physical_identity", "environment_spec"):
         if key in metadata:
-            value[key] = metadata[key]
+            value[key] = (
+                dict(metadata[key]) if key == "physical_identity" else metadata[key]
+            )
+    if "physical_identity" in value:
+        value["physical_identity"].pop("physics_dt", None)
     value["assets"] = portable_assets(value["assets"])
     return hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
 
@@ -88,10 +92,20 @@ def capacity_matches(meta, source):
         ("source_support_targets", "support_targets"),
     )
     return (
-        all(meta[a] == source[b] for a, b in pairs)
+        all(meta.get(a) == source.get(b) for a, b in pairs)
+        and capacity_scene_matches(meta, source)
         and portable_assets(meta["assets"]) == portable_assets(source["assets"])
         and comparable_config(meta.get("source_config", {}))
         == comparable_config(source["config"])
+    )
+
+
+def capacity_scene_matches(meta, source):
+    keys = ("ladder", "material", "physical_identity", "environment_spec", "initial")
+    return all(
+        "source_" + key in meta and meta["source_" + key] == source[key]
+        for key in keys
+        if key in source
     )
 
 
@@ -169,13 +183,15 @@ def transition_prerequisites(request, qualified):
 
 def load_prerequisites(request, experiments, has):
     checks = {}
-    previous = {0.1: 0.05, 0.2: 0.1}.get(request["target_share"])
+    previous = {0.1: 0.05, 0.2: 0.1, 0.3: 0.2}.get(request["target_share"])
     if previous:
         checks["previous_load_level"] = any(
             e["mode"] == "load" and e["target_share"] == previous for e in experiments
         )
     if request["plateau_seconds"] == 30:
         checks["ten_second_load_plateau"] = has("load", plateau_seconds=10)
+    if request["plateau_seconds"] == 60:
+        checks["thirty_second_load_plateau"] = has("load", plateau_seconds=30)
     return checks
 
 

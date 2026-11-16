@@ -26,7 +26,10 @@ from .measurements import late_drift, load_shares
 
 
 def experiment_metadata(env, initial, experiment):
+    from .scene_contract import environment_metadata
+
     metadata = resolved(env, initial)
+    metadata.update(environment_metadata(env))
     metadata.update(
         experiment_schema="g1_o6_support_v1",
         experiment=experiment,
@@ -146,6 +149,7 @@ def hold_result(env, rows, seconds, audit):
         "schema": "g1_o6_long_hold_v1",
         "software_status": "PASS",
         "strict_status": "PASS" if strict["static_hold_passed"] else "FAIL",
+        "required_contact_diagnostics": env.ladder is not None,
         "strict": strict,
         "drift_assessment": late_drift(held, seconds),
         "physics_audit": audit.report(),
@@ -168,7 +172,15 @@ def long_qualified(result, seconds):
         seconds >= 120
         and result["strict_status"] == "PASS"
         and result["drift_assessment"]["status"] == "PASS"
-        and result.get("contact_quality", {"status": "PASS"})["status"] == "PASS"
+        and result.get(
+            "contact_quality",
+            {
+                "status": "FAIL"
+                if result.get("required_contact_diagnostics")
+                else "PASS"
+            },
+        )["status"]
+        == "PASS"
         and audit["no_external_support"]
         and not audit["unintended_support_steps"]
         and not audit["housing_contact_steps"]

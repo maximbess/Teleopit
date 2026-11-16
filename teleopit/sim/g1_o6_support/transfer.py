@@ -4,14 +4,10 @@ import copy
 import json
 from dataclasses import asdict
 
-import mujoco
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from teleopit.sim.g1_o6.config import Config
 from teleopit.sim.g1_o6.diagnostics import failure_reasons, snapshot
-from teleopit.sim.g1_o6.env import Environment
-from teleopit.sim.g1_o6.grasp_pose import GraspPose
 from teleopit.sim.g1_o6.posture_report import housing_contact
 from teleopit.sim.o6_diagnostics.io import (
     manifest,
@@ -28,6 +24,7 @@ from .guards import released, share_settled, unloading
 from .long_hold import enrich, experiment_metadata
 from .protocol import Protocol, transfer_steps
 from .qualification import Evidence, demands_covered, identity
+from .scene_contract import restore_environment
 
 
 def mean_reference(rows, seconds=2):
@@ -316,10 +313,10 @@ def validate_request(request):
     allowed = {
         "mode": ("load", "unload", "release", "reacquire"),
         "side": ("left", "right"),
-        "target_share": (0.05, 0.1, 0.2),
+        "target_share": (0.05, 0.1, 0.2, 0.3),
         "cycles": (1, 3),
         "three_seconds": (1, 3, 10),
-        "plateau_seconds": (10, 30),
+        "plateau_seconds": (10, 30, 60),
         "physics_dt": (0.001, 0.0005),
     }
     for key, values in allowed.items():
@@ -333,8 +330,7 @@ def validate_request(request):
 
 def execute_transfer(proof, path, request):
     source = proof.source["metadata"]
-    cfg = Config(**{**source["config"], "physics_dt": request["physics_dt"]})
-    env = Environment(cfg, pose=GraspPose(**source["grasp_pose"]))
+    env = restore_environment(source, request["physics_dt"])
     initial = snapshot(env)
     metadata = experiment_metadata(env, initial, request)
     metadata.update(
@@ -347,7 +343,7 @@ def execute_transfer(proof, path, request):
             "current assets/controller/physics differ from qualified evidence"
         )
     write_json(path / "resolved.json", metadata)
-    mujoco.mj_saveLastXML(str(path / "scene.xml"), env.model)
+    env.save_scene(path / "scene.xml")
     trial = TransferTrial(env, request)
     integrate_transfer(trial, initial, path)
     result = transfer_result(trial, proof, path)

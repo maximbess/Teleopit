@@ -1,5 +1,6 @@
 """Bounded sampled capacity; a failed zero-fixture settle blocks later loading."""
 
+from dataclasses import asdict
 from functools import partial
 from itertools import pairwise
 
@@ -15,6 +16,7 @@ from teleopit.sim.o6_diagnostics.io import (
 
 from .capacity import (
     CapacityConfig,
+    CapacityBounds,
     CapacityTrial,
     measured_references,
     qualified_source,
@@ -22,7 +24,8 @@ from .capacity import (
 )
 
 
-def load_cases(references):
+def load_cases(references, bounds=None):
+    bounds = bounds or CapacityBounds()
     cases = []
     for i, reference in enumerate(references):
         measured = np.asarray(reference["wrench_world_at_mount"])
@@ -35,16 +38,16 @@ def load_cases(references):
                 (0.5, 1, 1.2, 1.5, 2) if family == "combined" else (0.5, 1, 1.5, 2)
             ):
                 wrench = scale * measured * mask
-                if np.linalg.norm(wrench[:3]) <= 50 and np.linalg.norm(wrench[3:]) <= 3:
-                    cases.append(
-                        {
-                            "name": f"sample_{i}_{family}_{scale:g}",
-                            "family": family,
-                            "scale": scale,
-                            "wrench": wrench.tolist(),
-                            "reference": reference,
-                        }
-                    )
+                cases.append(
+                    {
+                        "name": f"sample_{i}_{family}_{scale:g}",
+                        "family": family,
+                        "scale": scale,
+                        "wrench": wrench.tolist(),
+                        "reference": reference,
+                        "within_budget": bounds.covers(wrench),
+                    }
+                )
     return cases
 
 
@@ -106,6 +109,13 @@ def run_case(source, side, path, case, dt):
 
 
 def evaluate_side(source, side, path, references, dt, budget):
+    bounds = getattr(source, "capacity_bounds", CapacityBounds())
+    declared = load_cases(references, bounds)
+    path.mkdir(parents=True, exist_ok=True)
+    write_json(
+        path / "declared_matrix.json",
+        {"bounds": asdict(bounds), "cases": declared, "trial_budget": budget},
+    )
     zero = run_capacity(source, side, path / "zero", physics_dt=dt)
     result = {
         "side": side,
@@ -113,6 +123,8 @@ def evaluate_side(source, side, path, references, dt, budget):
         "loading_status": "BLOCKED",
         "reserve_qualified": False,
         "trial_budget": budget,
+        "declared_bounds": asdict(bounds),
+        "out_of_budget_cases": [c for c in declared if not c["within_budget"]],
         "trials": [{"name": "zero", "result": zero}],
     }
     if not trial_passes(zero):
@@ -120,7 +132,7 @@ def evaluate_side(source, side, path, references, dt, budget):
             "Zero-load settling/retention failed; ramp, plateau and recovery cannot be qualified."
         )
         return result
-    cases = load_cases(references)
+    cases = [c for c in declared if c["within_budget"]]
     if len(cases) + 1 > budget:
         raise ValueError("capacity matrix exceeds the declared trial budget")
     for case in cases:
@@ -201,10 +213,11 @@ def run_replay(source, side, output, rows, dt):
     time = [r["time"] for r in selected]
     wrenches = [r["wrist_world_on_hand"][side] for r in selected]
     values = np.asarray(wrenches)
+    bounds = getattr(source, "capacity_bounds", CapacityBounds())
     if (
         time[-1] - time[0] < 9.98
-        or np.max(np.linalg.norm(values[:, :3], axis=1)) > 50
-        or np.max(np.linalg.norm(values[:, 3:], axis=1)) > 3
+        or np.max(np.linalg.norm(values[:, :3], axis=1)) > bounds.force_N
+        or np.max(np.linalg.norm(values[:, 3:], axis=1)) > bounds.moment_Nm
     ):
         raise ValueError("replay needs 10 s within the declared load limits")
     return run_hand(
@@ -216,6 +229,7 @@ def run_replay(source, side, output, rows, dt):
         protocol="support_replay_v1",
         trial_factory=partial(ReplayTrial, time=time, wrenches=wrenches),
         load_reference={
+            "declared_search_bounds": asdict(bounds),
             "axes": "world",
             "origin": "wrist_mount",
             "follower": False,
@@ -225,8 +239,11 @@ def run_replay(source, side, output, rows, dt):
     )
 
 
-def run_matrix(source_path, output, *, state="settled", dt=0.001, prior_trials=0):
+def run_matrix(
+    source_path, output, *, state="settled", dt=0.001, prior_trials=0, bounds=None
+):
     source = qualified_source(source_path, state)
+    source.capacity_bounds = bounds or CapacityBounds()
     path = output_directory(output)
     rows = read_rows(source.path / "steps.jsonl")
     result = {

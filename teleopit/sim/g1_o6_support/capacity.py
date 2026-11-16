@@ -2,7 +2,7 @@
 
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 import mujoco
 import numpy as np
@@ -21,6 +21,32 @@ class CapacityConfig(DiagnosticConfig):
     load_ramp_s: float = 3.0
     ramp_down_s: float = 3.0
     recovery_s: float = 10.0
+
+
+@dataclass(frozen=True)
+class CapacityBounds:
+    force_N: float = 50.0
+    moment_Nm: float = 3.0
+
+    def __post_init__(self):
+        if not all(np.isfinite(v) and v > 0 for v in (self.force_N, self.moment_Nm)):
+            raise ValueError("capacity search bounds must be finite and positive")
+
+    def covers(self, wrench):
+        return bool(
+            np.linalg.norm(wrench[:3]) <= self.force_N
+            and np.linalg.norm(wrench[3:]) <= self.moment_Nm
+        )
+
+    @classmethod
+    def for_demands(cls, references, planned_force_N, reserve=1.2):
+        demands = [np.asarray(r["wrench_world_at_mount"]) for r in references]
+        force = max([planned_force_N, *(np.linalg.norm(w[:3]) for w in demands)])
+        moment = max([0.01, *(np.linalg.norm(w[3:]) for w in demands)])
+        return cls(
+            force_N=float(np.ceil(force * reserve)),
+            moment_Nm=float(np.ceil(moment * reserve * 10) / 10),
+        )
 
 
 def capacity_durations(cfg):
@@ -136,12 +162,15 @@ def qualified_source(path, state="initial"):
     return source
 
 
-def run_capacity(source, side, output, *, wrench=None, physics_dt=None, reference=None):
+def run_capacity(
+    source, side, output, *, wrench=None, physics_dt=None, reference=None, bounds=None
+):
     value = np.zeros(6) if wrench is None else np.asarray(wrench)
     if value.shape != (6,) or not np.isfinite(value).all():
         raise ValueError("expected six finite load components")
-    if np.linalg.norm(value[:3]) > 50 or np.linalg.norm(value[3:]) > 3:
-        raise ValueError("test wrench exceeds the predeclared 50 N / 3 Nm budget")
+    bounds = bounds or getattr(source, "capacity_bounds", CapacityBounds())
+    if not bounds.covers(value):
+        raise ValueError("test wrench exceeds the predeclared capacity search budget")
     return run_hand(
         source,
         side,
@@ -151,6 +180,11 @@ def run_capacity(source, side, output, *, wrench=None, physics_dt=None, referenc
         config=CapacityConfig(),
         protocol="support_capacity_v1",
         trial_factory=CapacityTrial,
-        load_reference=reference
-        or {"kind": "gravity_only", "axes": "world", "origin": "wrist_mount"},
+        load_reference={
+            **(
+                reference
+                or {"kind": "gravity_only", "axes": "world", "origin": "wrist_mount"}
+            ),
+            "declared_search_bounds": asdict(bounds),
+        },
     )

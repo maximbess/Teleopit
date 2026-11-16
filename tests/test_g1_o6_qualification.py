@@ -84,7 +84,7 @@ def test_missing_prerequisites_block_before_creating_a_simulator(tmp_path, monke
     )
     monkeypatch.setattr(
         transfer,
-        "Environment",
+        "restore_environment",
         lambda *a, **kw: (_ for _ in ()).throw(
             AssertionError("must not construct a blocked simulation")
         ),

@@ -17,6 +17,7 @@ class TransferCriteria:
     share_tolerance: float = 0.01
     minimum_per_hand_share: float = 0.005
     maximum_per_hand_share: float = 0.15
+    per_hand_balance_tolerance: float = 0.01
     offset_bound_rad: float = 0.08
     offset_rate_rad_s: float = 0.005
     ramp_s: float = 10.0

@@ -49,7 +49,7 @@ def unloading(reference, row, side, cfg=CRITERIA):
     }
 
 
-def share_settled(row, target, weight, cfg=CRITERIA):
+def share_settled(row, target, weight, cfg=CRITERIA, *, capacity_shares=None):
     shares = [
         row["supports"][s + "_hand"]["force_world"][2] / weight
         for s in ("left", "right")
@@ -57,10 +57,19 @@ def share_settled(row, target, weight, cfg=CRITERIA):
     return bool(
         abs(sum(shares) - target) <= cfg.share_tolerance
         and all(
-            cfg.minimum_per_hand_share <= v <= cfg.maximum_per_hand_share
-            for v in shares
+            cfg.minimum_per_hand_share
+            <= v
+            <= operating_bound(side, target, cfg, capacity_shares)
+            and abs(v - target / 2) <= cfg.per_hand_balance_tolerance + 1e-12
+            for side, v in zip(("left", "right"), shares)
         )
     )
+
+
+def operating_bound(side, target, cfg, capacity_shares):
+    if capacity_shares is None:
+        return cfg.maximum_per_hand_share
+    return min(capacity_shares[side], target / 2 + cfg.per_hand_balance_tolerance)
 
 
 def released(start, actual, contacts, clearance, cfg=CRITERIA):

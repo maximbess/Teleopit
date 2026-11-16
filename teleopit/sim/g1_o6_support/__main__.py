@@ -32,6 +32,8 @@ def main():
     )
     matrix.add_argument("--prior-trials", type=int, choices=range(9), default=0)
     matrix.add_argument("--output", required=True)
+    matrix.add_argument("--force-bound-N", type=float, default=50)
+    matrix.add_argument("--moment-bound-Nm", type=float, default=3)
     transfer = commands.add_parser("transfer")
     transfer.add_argument("--evidence", required=True)
     transfer.add_argument(
@@ -39,12 +41,12 @@ def main():
     )
     transfer.add_argument("--side", choices=("left", "right"), default="left")
     transfer.add_argument(
-        "--target-share", type=float, choices=(0.05, 0.1, 0.2), default=0.05
+        "--target-share", type=float, choices=(0.05, 0.1, 0.2, 0.3), default=0.05
     )
     transfer.add_argument("--cycles", type=int, choices=(1, 3), default=1)
     transfer.add_argument("--alternating", action="store_true")
     transfer.add_argument("--three-seconds", type=int, choices=(1, 3, 10), default=1)
-    transfer.add_argument("--plateau-seconds", type=int, choices=(10, 30), default=10)
+    transfer.add_argument("--plateau-seconds", type=int, choices=(10, 30, 60), default=10)
     transfer.add_argument(
         "--physics-dt", type=float, choices=(0.001, 0.0005), default=0.001
     )
@@ -58,6 +60,7 @@ def main():
             args.output, seconds=args.seconds, physics_dt=args.physics_dt, pose=pose
         )
     elif args.command == "capacity-matrix":
+        from .capacity import CapacityBounds
         from .capacity_matrix import run_matrix
 
         result = run_matrix(
@@ -66,6 +69,7 @@ def main():
             state=args.state,
             dt=args.physics_dt,
             prior_trials=args.prior_trials,
+            bounds=CapacityBounds(args.force_bound_N, args.moment_bound_Nm),
         )
     elif args.command == "transfer":
         from .transfer import run_transfer

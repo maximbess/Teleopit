@@ -171,6 +171,8 @@ def run_hand(
 
 
 def hand_metadata(source, h, cfg, protocol, only, wrench):
+    from teleopit.sim.g1_o6_support.scene_contract import capacity_source_metadata
+
     return {
         "schema": "o6_hand_diagnostic_v2",
         **code_state(),
@@ -182,6 +184,7 @@ def hand_metadata(source, h, cfg, protocol, only, wrench):
         "source_grasp_pose": source.metadata["grasp_pose"],
         "source_config": source.metadata["config"],
         "source_support_targets": source.targets,
+        **capacity_source_metadata(source.metadata),
         "controller": h.controller,
         "source_sample": h.source_sample,
         "initial_qpos": h.data.qpos.tolist(),
