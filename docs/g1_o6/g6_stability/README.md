@@ -109,6 +109,8 @@ See [WORK_LOG.md](WORK_LOG.md) for implementation and validation history.
 ## Delivered evidence and reproduction
 
 The local ZIP and its SHA-256 are listed in [artifact.json](artifact.json).
+That outer receipt is committed separately from the ZIP; the archive itself
+contains `evidence_manifest.json` with every included file checksum.
 Extract it at one root so relative asset paths remain intact. Each run contains
 immutable `scene.xml` / `scene.mjb`, resolved configuration, summaries and raw
 traces. Use the additional `scene_portable.xml` after extraction. The bundle in
