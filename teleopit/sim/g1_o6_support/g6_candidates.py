@@ -9,6 +9,7 @@ import numpy as np
 from teleopit.sim.g1_o6.grasp_pose import GraspPose
 
 from .ladder_campaign import digest
+from .g6_arm import ArmFeedback
 
 
 @dataclass(frozen=True)
@@ -20,10 +21,12 @@ class G6Candidate:
     reset: dict = field(default_factory=dict)
     parent: str | None = None
     family: str = "control"
-    controller: str = "reference"
+    controller: str | ArmFeedback = "reference"
 
     def __post_init__(self):
-        if not re.fullmatch(r"[a-z0-9_]+", self.id) or self.controller != "reference":
+        if not re.fullmatch(r"[a-z0-9_]+", self.id) or not (
+            self.controller == "reference" or isinstance(self.controller, ArmFeedback)
+        ):
             raise ValueError("unknown candidate/controller")
         limits = {"root_offset_x": 0.08, "root_offset_z": 0.06, "foot_offset_x": 0.02}
         if any(
@@ -42,13 +45,16 @@ class G6Candidate:
             {
                 "pose": asdict(self.pose),
                 "reset": self.reset,
-                "controller": self.controller,
+                "controller": self.record()["controller"],
             }
         )
 
     @classmethod
     def from_dict(cls, value):
-        return cls(**{**value, "pose": GraspPose(**value["pose"])})
+        controller = value.get("controller", "reference")
+        if isinstance(controller, dict):
+            controller = ArmFeedback(**controller)
+        return cls(**{**value, "pose": GraspPose(**value["pose"]), "controller": controller})
 
 
 def variant(parent, batch, index, *, pose=None, reset=None, family):

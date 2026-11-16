@@ -9,7 +9,7 @@ from teleopit.sim.g1_o6.config import Config
 from teleopit.sim.g1_o6.env import Environment
 from teleopit.sim.g1_o6.grasp_pose import GraspPose
 from teleopit.sim.g1_o6.material import Material
-from teleopit.sim.g1_o6.metadata import controller_settings
+from teleopit.sim.g1_o6.metadata import resolved_controller
 from teleopit.sim.ladder_config import LadderConfig, compiled_ladder
 
 from .ladder_identity import assert_preserved, physical_identity
@@ -34,6 +34,8 @@ def environment_metadata(env):
             physical_identity=physical_identity(env.model),
             required_contact_diagnostics=True,
         )
+    if hasattr(env, "arm_feedback"):
+        result["environment_spec"]["arm_feedback"] = asdict(env.arm_feedback)
     return result
 
 
@@ -41,12 +43,18 @@ def restore_environment(metadata, physics_dt):
     spec = metadata.get("environment_spec")
     if spec is None:
         raise ValueError("resolved environment specification is required")
-    env = Environment(
+    factory, options = Environment, {}
+    if "arm_feedback" in spec:
+        from .g6_arm import ArmEnvironment, ArmFeedback
+
+        factory, options = ArmEnvironment, {"arm_feedback": ArmFeedback(**spec["arm_feedback"])}
+    env = factory(
         Config(**{**metadata["config"], "physics_dt": physics_dt}),
         pose=GraspPose(**metadata["grasp_pose"]),
         ladder=LadderConfig(**spec["ladder"]) if spec["ladder"] else None,
         material=Material(**spec["material"]) if spec["material"] else None,
         adapt_reset=spec["adapt_reset"],
+        **options,
     )
     verify_environment(env, metadata)
     return env
@@ -59,7 +67,7 @@ def verify_environment(env, metadata):
             raise ValueError("compiled environment differs: " + key)
     if "physical_identity" in metadata:
         assert_preserved(physical_identity(env.model), metadata["physical_identity"])
-    if canonical(controller_settings(env.pose, env.config)) != metadata["controller"]:
+    if canonical(resolved_controller(env)) != metadata["controller"]:
         raise ValueError("unsupported or changed source controller")
     initial = metadata["initial"]
     np.testing.assert_array_equal(

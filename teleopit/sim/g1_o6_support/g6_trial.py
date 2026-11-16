@@ -7,6 +7,7 @@ from teleopit.sim.g1_o6.env import Environment
 from teleopit.sim.ladder_config import geometry_matrix
 
 from .g6_candidates import G6Candidate
+from .g6_arm import ArmEnvironment, ArmFeedback
 from .g6_observer import G6Observer
 from .g6_reach import next_tread_reach
 from .ladder_identity import assert_preserved, physical_identity
@@ -15,10 +16,14 @@ from .pose_trial import reject_reset, reset_report
 
 
 def make_environment(candidate, seconds, dt):
-    return Environment(
+    factory, options = Environment, {}
+    if isinstance(candidate.controller, ArmFeedback):
+        factory, options = ArmEnvironment, {"arm_feedback": candidate.controller}
+    return factory(
         Config(hold_seconds=seconds, physics_dt=dt, **candidate.reset),
         pose=candidate.pose,
         ladder=geometry_matrix()["G6"],
+        **options,
     )
 
 

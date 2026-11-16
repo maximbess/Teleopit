@@ -7,16 +7,19 @@ from scipy.spatial.transform import Rotation
 from teleopit.sim.g1_o6.initialize import arm_joints
 from teleopit.sim.g1_o6.metadata import controller_settings
 
+DEFAULT_RATE_RAD_S = .005
+OFFSET_BOUND_RAD = .03
 
-def bounded_correction(offset, rate, command, bounds, effort, dt):
-    delta = np.clip(dt * rate, -0.005 * dt, 0.005 * dt)
+
+def bounded_correction(offset, rate, command, bounds, effort, dt, *, rate_limit=DEFAULT_RATE_RAD_S):
+    delta = np.clip(dt * rate, -rate_limit * dt, rate_limit * dt)
     delta = np.clip(
         delta,
         np.minimum(bounds[:, 0] - command, 0),
         np.maximum(bounds[:, 1] - command, 0),
     )
     delta[effort >= 0.98] = 0
-    return np.clip(offset + delta, -0.03, 0.03)
+    return np.clip(offset + delta, -OFFSET_BOUND_RAD, OFFSET_BOUND_RAD)
 
 
 def rung_pose(env, data, side):
@@ -88,19 +91,28 @@ class ArmReference:
         rate, error = correction_rate(
             env, self.scratch, side, self.reference[side], model.jnt_dofadr[joints]
         )
+        self.offset[side] = self.step_offset(env, desired, side, indices, rate)
+        desired[indices] += self.offset[side]
+        self.errors[side] = error.tolist()
+
+    def step_offset(self, env, desired, side, indices, rate):
+        return self.bounded_step(env, desired, side, indices, rate, DEFAULT_RATE_RAD_S)
+
+    def bounded_step(self, env, desired, side, indices, rate, rate_limit):
+        model = env.model
+        joints = model.actuator_trnid[indices, 0]
         effort = np.abs(env.data.actuator_force[indices]) / np.max(
             np.abs(model.actuator_forcerange[indices]), axis=1
         )
-        self.offset[side] = bounded_correction(
+        return bounded_correction(
             self.offset[side],
             rate,
             desired[indices] + self.offset[side],
             model.jnt_range[joints],
             effort,
             env.config.control_dt,
+            rate_limit=rate_limit,
         )
-        desired[indices] += self.offset[side]
-        self.errors[side] = error.tolist()
 
     def state(self):
         return {
@@ -119,8 +131,8 @@ class ArmReference:
             **controller_settings(env.pose, env.config),
             "schema": "g1_o6_bounded_arm_reference_v1",
             "mode": "arm_feedback",
-            "offset_bound_rad": 0.03,
-            "offset_rate_rad_s": 0.005,
+            "offset_bound_rad": OFFSET_BOUND_RAD,
+            "offset_rate_rad_s": DEFAULT_RATE_RAD_S,
             "feedback_gain_per_s": 1.0,
             "jacobian_position_weight": 10.0,
             "damping_squared": 1e-4,

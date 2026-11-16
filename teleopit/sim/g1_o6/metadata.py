@@ -44,7 +44,7 @@ def resolved(env, initial):
         ),
         "config": asdict(env.config),
         "grasp_pose": asdict(env.pose),
-        "controller": controller_settings(env.pose, env.config),
+        "controller": resolved_controller(env),
         "units": {
             "position": "m",
             "joint_angle": "rad",
@@ -68,3 +68,8 @@ def resolved(env, initial):
         "ik": env.ik,
         "initial": initial,
     }
+
+
+def resolved_controller(env):
+    metadata = getattr(env.hold_controller, "metadata", None)
+    return metadata(env) if metadata is not None else controller_settings(env.pose, env.config)

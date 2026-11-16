@@ -53,13 +53,13 @@ class G6Campaign(LadderCampaign):
     trial_function = staticmethod(run_candidate)
     stages = STAGES
 
-    def __init__(self, root, workers=3):
+    def __init__(self, root, workers=3, *, spec=None):
         if not 1 <= workers <= 6:
             raise ValueError("workers must be in 1..6")
         self.root, self.workers = Path(root), workers
         self.root.mkdir(parents=True, exist_ok=True)
         self.path = self.root / "campaign_state.json"
-        spec = json.loads(json.dumps(specification()))
+        spec = json.loads(json.dumps(specification() if spec is None else spec))
         if self.path.exists():
             self.state = json.loads(self.path.read_text())
             if self.state["spec_sha256"] != digest(spec):
@@ -71,7 +71,7 @@ class G6Campaign(LadderCampaign):
                 "spec_sha256": digest(spec),
                 "runs": [],
                 "decisions": [],
-                "candidates": {"control": G6Candidate("control").record()},
+                "candidates": spec.get("candidates", {"control": G6Candidate("control").record()}),
             }
             self.save()
 
@@ -159,10 +159,10 @@ class G6Campaign(LadderCampaign):
             "command": f'python -m teleopit.sim.g1_o6_support.g6_experiment --output "{self.root.as_posix()}" trial {name} {stage}',
         }
 
-    def import_control(self, path):
+    def import_control(self, path, *, stage="screen"):
         path = Path(path).resolve()
         checksums = run_checksums(path)
-        previous = self.previous("control", "screen")
+        previous = self.previous("control", stage)
         if previous:
             if checksums != previous["files_sha256"]:
                 raise ValueError("reference evidence changed")
@@ -170,9 +170,9 @@ class G6Campaign(LadderCampaign):
         result = json.loads((path / "summary.json").read_text())
         self.state["runs"].append(
             {
-                "id": "control_screen",
+                "id": "control_" + stage,
                 "candidate": "control",
-                "stage": "screen",
+                "stage": stage,
                 "status": "COMPLETE",
                 "imported_control": True,
                 "output": str(path.relative_to(self.root.resolve())),
