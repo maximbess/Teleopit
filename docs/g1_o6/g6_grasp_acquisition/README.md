@@ -1,5 +1,8 @@
 # Bounded native G6 grasp acquisition
 
+Completed outcome: **thumb opposition established; stable G1 pose not qualified**.
+See [measured outcomes and evidence](OUTCOMES.md) and [work log](WORK_LOG.md).
+
 This experiment keeps hands on tread 7, feet on tread 2, root X −40 mm and
 the original G6 geometry/material. It changes named thumb targets and, for
 selected variants, closure timing. Original physical/contact/convergence
