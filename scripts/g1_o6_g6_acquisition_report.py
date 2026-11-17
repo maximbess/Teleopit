@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 
 from scripts.g1_o6_g6_report import read, report
 from scripts.g1_o6_g6_arm_report import verify_run as verify_arm
+from scripts.verify_g1_o6_g6 import verified_history
 from teleopit.sim.g1_o6_support.pose_contacts import FINGERS, contact_group
 
 
@@ -151,16 +152,17 @@ def plot_contacts(path, output):
 
 
 def verify(root):
-    report(root)
     state = read(root / "campaign_state.json")
+    completed, recoveries = verified_history(state["runs"])
+    report(root)
     checks = {}
-    for record in state["runs"]:
+    for record in completed:
         path = root / record["output"]
         output = root / "report" / (record["id"] + "_commands.json")
         checks[record["id"]] = verify_run(path, output)
         if (path / "steps.jsonl").exists():
             plot_contacts(path, root / "report" / (record["id"] + "_acquisition.png"))
-    (root / "report/acquisition_verification.json").write_text(json.dumps(checks, indent=2) + "\n")
+    (root / "report/acquisition_verification.json").write_text(json.dumps({"runs": checks, "technical_recoveries": recoveries}, indent=2) + "\n")
     print(json.dumps({"status": "PASS", "runs": len(checks)}))
 
 

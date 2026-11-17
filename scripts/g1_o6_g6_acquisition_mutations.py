@@ -9,6 +9,7 @@ BASE = "teleopit/sim/g1_o6_support/"
 LAW = "tests/test_g1_o6_g6_acquisition.py"
 CAMPAIGN = "tests/test_g1_o6_g6_acquisition_campaign.py"
 EVIDENCE = "tests/test_g1_o6_g6_acquisition_evidence.py"
+RECOVERY = "tests/test_g1_o6_g6_evidence_recovery.py"
 runner.MUTATIONS = (
     ("thumb_axes_swapped", BASE + "g6_acquisition.py",
      '{"rh_thumb_cmc_pitch": pitch, "rh_thumb_cmc_yaw": yaw}',
@@ -34,6 +35,16 @@ runner.MUTATIONS = (
      '"valid": ordered and opposed', '"valid": opposed', EVIDENCE, "requires_real"),
     ("unloaded_thumb_accepted", "scripts/g1_o6_g6_acquisition_report.py",
      'contact["normal_force"] < .05', 'contact["normal_force"] < 0', EVIDENCE, "requires_real"),
+    ("physical_failure_retried", "scripts/verify_g1_o6_g6.py",
+     'assert previous["status"] in ("ERROR", "RUNNING")', 'assert True', RECOVERY, "physical_retry"),
+    ("experiment_identity_rewritten", "scripts/verify_g1_o6_g6.py",
+     'assert record["identity"] == previous["identity"] == digest(record["payload"])',
+     'assert record["identity"] == digest(record["payload"])', RECOVERY, "changed_experiment"),
+    ("unfinished_attempt_ignored", "scripts/verify_g1_o6_g6.py",
+     'assert all(r["status"] == "COMPLETE" for r in previous.values()), "unfinished attempt lacks completed recovery"',
+     'assert True', RECOVERY, "unfinished"),
+    ("original_attempt_tampered", "scripts/verify_g1_o6_g6.py",
+     'assert previous["identity"] == digest(previous["payload"])', 'assert True', RECOVERY, "changed_prior_payload"),
 )
 
 if __name__ == "__main__":

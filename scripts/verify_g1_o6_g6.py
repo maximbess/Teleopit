@@ -10,7 +10,7 @@ import mujoco
 
 from scripts.package_g1_o6_support import compare_numeric_fields
 from scripts.verify_g1_o6_ladder_campaign import verify_forces, verify_material
-from teleopit.sim.g1_o6_support.ladder_campaign import file_hash
+from teleopit.sim.g1_o6_support.ladder_campaign import digest, file_hash
 from teleopit.sim.g1_o6_support.scene_contract import canonical
 from teleopit.sim.g1_o6_support.ladder_identity import (
     assert_preserved,
@@ -22,6 +22,34 @@ from teleopit.sim.ladder_config import compiled_ladder, geometry_matrix
 
 def read(path):
     return json.loads(path.read_text())
+
+
+def validate_retry(record, previous):
+    assert previous["status"] in ("ERROR", "RUNNING")
+    assert record.get("retry_of") == previous["id"]
+    assert record.get("technical_retry_reason", "").strip()
+    assert previous["identity"] == digest(previous["payload"])
+    assert record["identity"] == previous["identity"] == digest(record["payload"])
+    assert record["output"] != previous["output"]
+
+
+def verified_history(records):
+    assert len({r["id"] for r in records}) == len(records), "duplicate attempt ID"
+    previous, completed, recoveries = {}, [], []
+    for record in records:
+        assert record["status"] in ("COMPLETE", "ERROR", "RUNNING")
+        key = record["candidate"], record["stage"]
+        prior = previous.get(key)
+        if prior is None:
+            assert not record.get("retry_of")
+        else:
+            validate_retry(record, prior)
+            recoveries.append({"failed_attempt": prior["id"], "recovered_by": record["id"], "identity": record["identity"]})
+        previous[key] = record
+        if record["status"] == "COMPLETE":
+            completed.append(record)
+    assert all(r["status"] == "COMPLETE" for r in previous.values()), "unfinished attempt lacks completed recovery"
+    return completed, recoveries
 
 
 def check_source(root, state):
@@ -107,6 +135,7 @@ def verify_record(root, record, reference):
 
 def verify(root):
     state = read(root / "campaign_state.json")
+    completed, recoveries = verified_history(state["runs"])
     reference = next(
         d["value"] for d in state["decisions"] if d["name"] == "reference_physics"
     )
@@ -122,8 +151,9 @@ def verify(root):
         "software_status": "PASS",
         "source": check_source(root, state),
         "counts": counts,
+        "technical_recoveries": recoveries,
         "default_preservation": verify_reviewed_model(root / "source/reviewed_model.npz"),
-        "runs": [verify_record(root, r, reference) for r in state["runs"]],
+        "runs": [verify_record(root, r, reference) for r in completed],
     }
     (root / "verification.json").write_text(json.dumps(result, indent=2))
     print(json.dumps({"status": "PASS", "counts": counts, "runs": len(result["runs"])}))
