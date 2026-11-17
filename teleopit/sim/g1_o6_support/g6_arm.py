@@ -57,6 +57,10 @@ def feedback_contacts(env):
             env.data.geom(env.support_targets[side + "_hand"]).xpos[2])
         for side in env.hands
     }
+    return hands, inhibition_reasons(env, row)
+
+
+def inhibition_reasons(env, row):
     structural = {"drift", "angle", "penetration", "joint_limits", "mimic",
                   "effort", "numerical", "unintended_support"}
     # Complete original gates still score every HOLD step. Assistance makes
@@ -64,7 +68,7 @@ def feedback_contacts(env):
     reasons = sorted(set(failure_reasons(row, env.config, ())) & structural)
     reasons.extend(side + "_slip" for side in env.hands
         if row["supports"][side + "_hand"]["max_slip"] >= env.config.max_slip_m_s)
-    return hands, reasons
+    return reasons
 
 
 def thumb_gap(env, data, side):

@@ -6,13 +6,13 @@ from dataclasses import asdict
 import numpy as np
 
 from teleopit.sim.g1_o6.config import Config
-from teleopit.sim.g1_o6.env import Environment
 from teleopit.sim.g1_o6.grasp_pose import GraspPose
 from teleopit.sim.g1_o6.material import Material
 from teleopit.sim.g1_o6.metadata import resolved_controller
 from teleopit.sim.ladder_config import LadderConfig, compiled_ladder
 
 from .ladder_identity import assert_preserved, physical_identity
+from .g6_controllers import controller_from_spec, environment_factory
 
 
 def canonical(value):
@@ -36,6 +36,8 @@ def environment_metadata(env):
         )
     if hasattr(env, "arm_feedback"):
         result["environment_spec"]["arm_feedback"] = asdict(env.arm_feedback)
+    if hasattr(env, "grasp_acquisition"):
+        result["environment_spec"]["grasp_acquisition"] = asdict(env.grasp_acquisition)
     return result
 
 
@@ -43,11 +45,7 @@ def restore_environment(metadata, physics_dt):
     spec = metadata.get("environment_spec")
     if spec is None:
         raise ValueError("resolved environment specification is required")
-    factory, options = Environment, {}
-    if "arm_feedback" in spec:
-        from .g6_arm import ArmEnvironment, ArmFeedback
-
-        factory, options = ArmEnvironment, {"arm_feedback": ArmFeedback(**spec["arm_feedback"])}
+    factory, options = environment_factory(controller_from_spec(spec))
     env = factory(
         Config(**{**metadata["config"], "physics_dt": physics_dt}),
         pose=GraspPose(**metadata["grasp_pose"]),
