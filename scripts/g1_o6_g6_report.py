@@ -27,7 +27,7 @@ def summarize(record, candidate):
         "pose": candidate["pose"],
         "reset": candidate["reset"],
         "status": record["status"],
-        "reset_status": result.get("reset_status", "FEASIBLE"),
+        "reset_status": result.get("reset_status", "FEASIBLE" if record["status"] == "COMPLETE" else "UNVERIFIED"),
         "achieved_hold_s": strict.get("unsupported_hold_seconds", 0),
         "strict": result.get("strict_status", "ERROR"),
         "contact": result.get("contact_quality", {}).get("status", "NOT RUN"),

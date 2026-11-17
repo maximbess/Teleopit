@@ -72,3 +72,13 @@ def test_acquisition_report_lists_recovery_without_inventing_error_run_files(tmp
     assert visited == ["recovered"]
     assert evidence["runs"] == {"recovered": {"status": "PASS"}}
     assert evidence["technical_recoveries"][0]["failed_attempt"] == "original"
+
+
+def test_candidate_table_requires_completed_reset_evidence():
+    from scripts.g1_o6_g6_report import summarize
+    failed, recovered = attempts()
+    candidate = {"pose": {}, "reset": {}}
+    assert summarize(failed, candidate)["reset_status"] == "UNVERIFIED"
+    assert summarize(recovered, candidate)["reset_status"] == "FEASIBLE"
+    recovered["result"]["reset_status"] = "INFEASIBLE"
+    assert summarize(recovered, candidate)["reset_status"] == "INFEASIBLE"

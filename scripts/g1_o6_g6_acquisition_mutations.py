@@ -45,6 +45,8 @@ runner.MUTATIONS = (
      'assert True', RECOVERY, "unfinished"),
     ("original_attempt_tampered", "scripts/verify_g1_o6_g6.py",
      'assert previous["identity"] == digest(previous["payload"])', 'assert True', RECOVERY, "changed_prior_payload"),
+    ("startup_reset_assumed", "scripts/g1_o6_g6_report.py",
+     'else "UNVERIFIED"', 'else "FEASIBLE"', RECOVERY, "requires_completed_reset"),
 )
 
 if __name__ == "__main__":
