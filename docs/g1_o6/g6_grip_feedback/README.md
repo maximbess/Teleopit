@@ -6,7 +6,7 @@ The initial experiment permits three refinements. After five seconds of unsuppor
 
 The first pair regulates target-tread normal loads with gains of 0.04 and 0.12 rad/(N·s), a 0.08 N deadband, a 0.70 N thumb target and a 1.40 N target for each finger. Loss of thumb opposition requests bounded thumb closure. If both configurations fail, a third configuration regulates each palm's captured height with a shared finger closure rate of 6 rad/(m·s). Each finger also responds to loads below 1.00 N. The thumbs retain the higher-gain opposition feedback.
 
-The runner tests a fresh 5 s matched control and requires its complete control trace to match the archived probe. Each candidate advances through fresh 5, 30, 60 and 120 s holds. A stable pose requires a second nominal 120 s hold and a 120 s hold at 0.5 ms. Both thumbs must have loaded opposing contact normals on their target tread. All four left fingers must carry at least 0.05 N on their tread. These checks run at each native physics step and 20 ms control endpoint, alongside positive knee clearance, zero right-knee/rung-3 contact, a force residual strictly below 25 N, and all original physical and anatomical gates. The final 30 s convergence limits apply to the floating base, center of mass and palms.
+The runner tests a fresh 5 s matched control and requires its complete control trace to match the archived probe. Each candidate advances through fresh 5, 30, 60 and 120 s holds. A stable pose requires a second nominal 120 s hold and a 120 s hold at 0.5 ms. Both thumbs must have loaded opposing contact normals on their target tread. All four left fingers must carry at least 0.05 N on their tread. These checks run at each native physics step and 20 ms control endpoint, alongside positive knee clearance, zero right-knee/rung-3 contact, a force residual strictly below 25 N, and all original physical and anatomical gates. Shorter holds screen physical support and record any available drift window. Each 120 s hold must pass convergence over its final 30 s. Translation excursion and slope limits are 2 mm and 0.05 mm/s. Rotation excursion and slope limits are 0.01 rad and 0.0005 rad/s. The limits apply to the floating base, center of mass and palms wherever the corresponding signal is defined.
 
 ```powershell
 conda run --no-capture-output -n teleopit python -m teleopit.sim.g1_o6_support.g6_grip_feedback_experiment --output outputs/g1_o6/g6_grip_feedback run
@@ -24,3 +24,5 @@ Both pressure gains lost left-thumb opposition between controller observations. 
 conda run --no-capture-output -n teleopit python -m teleopit.sim.g1_o6_support.g6_grip_preview_experiment --output outputs/g1_o6/g6_grip_preview run
 conda run --no-capture-output -n teleopit python -m scripts.verify_g1_o6_g6_grip_preview --root outputs/g1_o6/g6_grip_preview
 ```
+
+The measured outcomes include the stage decisions, native minima, first failures and both full-source revisions. [Experiment results](OUTCOMES.md)
