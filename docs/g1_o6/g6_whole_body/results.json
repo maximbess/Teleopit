@@ -1,0 +1,403 @@
+{
+  "simulator": "MuJoCo",
+  "code_revision": "f59ae0af8cc24ce0214aa63073c8a9c681a25884",
+  "configuration_sha256": "283d2510220715a0a3a7756b705a1ab7cab3b12b4b1f93394c912ef868ba5c27",
+  "matched_parent_steps_sha256": "186c3973bcca9af3a76b9a27d50cf513802530ac9078a8926017239fda5c77af",
+  "qualification": {
+    "initial_pose": "FAIL",
+    "candidate": null
+  },
+  "stage_counts": {
+    "probe": 5,
+    "screen": 0,
+    "60s": 0,
+    "120s": 0,
+    "repeat": 0,
+    "fine": 0
+  },
+  "verification": {
+    "source_files": 112,
+    "reviewed_model_and_reset_fields": 471,
+    "native_hand_friction": [
+      [
+        1.8,
+        1.8,
+        0.02,
+        0.002,
+        0.002
+      ]
+    ],
+    "physics_steps": 50300,
+    "unsupported_steps": 25100,
+    "nonzero_applied_force_steps": 0
+  },
+  "runs": [
+    {
+      "run": "control_probe",
+      "unsupported_seconds": 5.0200000000000005,
+      "strict": "PASS",
+      "reason": [],
+      "anatomical_contact": "PASS",
+      "left_fingers": {
+        "hold_steps": 5020,
+        "minimum_N": {
+          "index": 1.2142435419431399,
+          "middle": 0.9745087944415504,
+          "ring": 0.7091162857621341,
+          "pinky": 0.743056958531291
+        },
+        "unloaded_steps": {
+          "index": 0,
+          "middle": 0,
+          "ring": 0,
+          "pinky": 0
+        },
+        "first_unloaded_hold_s": {
+          "index": null,
+          "middle": null,
+          "ring": null,
+          "pinky": null
+        }
+      },
+      "force_balance": {
+        "peak_N": 21.71705065728973,
+        "violations": []
+      },
+      "body_commands": {
+        "control_updates": 503,
+        "peak_offset_rad": 0.0,
+        "peak_rate_rad_s": 0.0
+      },
+      "arm_command_maxima": {
+        "translation_m": 0.00499999975151294,
+        "rotation_rad": 0.029999993657008034,
+        "offset_rad": 0.029540886570843528,
+        "rate_rad_s": 0.020000000000013323
+      },
+      "unintended_support_steps": 0,
+      "housing_contact_steps": 0,
+      "evidence_sha256": {
+        "scene.mjb": "07ca432dfe3098bf0abfaf847bbb6bcc3b9717e21f7dfa30e99917b503ad39c6",
+        "resolved.json": "db4cb92e8673a1b79c33751d07beb54a66a73f57e3412dee0c8f98d276d8cf06",
+        "summary.json": "2e6a0372ad839a10fbabe1351462546988578e7626ea4d968b77a921a1d489ea",
+        "steps.jsonl": "186c3973bcca9af3a76b9a27d50cf513802530ac9078a8926017239fda5c77af",
+        "physics_contacts.jsonl.gz": "692e97ca1300f0a319c20855f70ebd74855907880f6446199ab293c2d5c3612d",
+        "applied_forces.jsonl.gz": "4bfe971e9906e154ce1d3b7eaaa93bc0e29dd7059029032496bf23c804449890"
+      }
+    },
+    {
+      "run": "stance_low_probe",
+      "unsupported_seconds": 5.0200000000000005,
+      "strict": "FAIL",
+      "reason": [
+        "full_interval_not_stable"
+      ],
+      "anatomical_contact": "PASS",
+      "left_fingers": {
+        "hold_steps": 5020,
+        "minimum_N": {
+          "index": 1.30370303865641,
+          "middle": 1.0251932451534187,
+          "ring": 0.7190100608987882,
+          "pinky": 0.7884121943408243
+        },
+        "unloaded_steps": {
+          "index": 0,
+          "middle": 0,
+          "ring": 0,
+          "pinky": 0
+        },
+        "first_unloaded_hold_s": {
+          "index": null,
+          "middle": null,
+          "ring": null,
+          "pinky": null
+        }
+      },
+      "force_balance": {
+        "peak_N": 30.413041862791637,
+        "violations": [
+          {
+            "hold_s": 4.6400000000000565,
+            "residual_N": 30.413041862791637,
+            "residual_world_N": [
+              -0.41144938114664914,
+              1.2774912395989775,
+              -30.383413911004446
+            ],
+            "support_z_N": {
+              "left_hand": 4.278278417406669,
+              "left_foot": 142.50822271053062,
+              "right_hand": 4.7736075139870495,
+              "right_foot": 152.39208806707123
+            }
+          }
+        ]
+      },
+      "body_commands": {
+        "control_updates": 503,
+        "peak_offset_rad": 0.021043885783353755,
+        "peak_rate_rad_s": 0.012468371271939782
+      },
+      "arm_command_maxima": {
+        "translation_m": 0.004999999458445632,
+        "rotation_rad": 0.02999999702592364,
+        "offset_rad": 0.02886208964973358,
+        "rate_rad_s": 0.020000000000013323
+      },
+      "unintended_support_steps": 0,
+      "housing_contact_steps": 0,
+      "evidence_sha256": {
+        "scene.mjb": "07ca432dfe3098bf0abfaf847bbb6bcc3b9717e21f7dfa30e99917b503ad39c6",
+        "resolved.json": "ed4e5dd24e0dd8725178db28b198ddf9df09150bf5847bd22f4f745550355800",
+        "summary.json": "5c203ef255ad28e9a88211ff4eb2f504b3347e5b632d49447042005368a16674",
+        "steps.jsonl": "0477973c4b2c032687424bf63ac1489f83f1022f5b7d40b3f697694bfa578754",
+        "physics_contacts.jsonl.gz": "d6649196ae3a3f44f8fd670b95fec51d91d271ef51ef9e70cec599cb77a4a25e",
+        "applied_forces.jsonl.gz": "2028d5ea6b33d7122d5fe43102f04d5f55ca760496572611a962534289825da6"
+      }
+    },
+    {
+      "run": "stance_high_probe",
+      "unsupported_seconds": 5.0200000000000005,
+      "strict": "FAIL",
+      "reason": [
+        "full_interval_not_stable"
+      ],
+      "anatomical_contact": "PASS",
+      "left_fingers": {
+        "hold_steps": 5020,
+        "minimum_N": {
+          "index": 1.2055771012981624,
+          "middle": 1.0610174360880662,
+          "ring": 0.7689998813203355,
+          "pinky": 0.7390548341972248
+        },
+        "unloaded_steps": {
+          "index": 0,
+          "middle": 0,
+          "ring": 0,
+          "pinky": 0
+        },
+        "first_unloaded_hold_s": {
+          "index": null,
+          "middle": null,
+          "ring": null,
+          "pinky": null
+        }
+      },
+      "force_balance": {
+        "peak_N": 25.866494007343483,
+        "violations": [
+          {
+            "hold_s": 0.6000000000002004,
+            "residual_N": 25.827815974112966,
+            "residual_world_N": [
+              -5.505950910490336,
+              0.09035180193133063,
+              -25.233953695681606
+            ],
+            "support_z_N": {
+              "left_hand": 3.9181467893194353,
+              "left_foot": 167.8653483960869,
+              "right_hand": -4.469919562846234,
+              "right_foot": 141.7880813017583
+            }
+          },
+          {
+            "hold_s": 2.420000000000808,
+            "residual_N": 25.866494007343483,
+            "residual_world_N": [
+              2.846302134034863,
+              7.668197592987089,
+              24.53920989087937
+            ],
+            "support_z_N": {
+              "left_hand": 4.568131670568816,
+              "left_foot": 181.4848482611609,
+              "right_hand": 2.348286804545684,
+              "right_foot": 170.47355377460391
+            }
+          }
+        ]
+      },
+      "body_commands": {
+        "control_updates": 503,
+        "peak_offset_rad": 0.037647015651548876,
+        "peak_rate_rad_s": 0.02137124070249582
+      },
+      "arm_command_maxima": {
+        "translation_m": 0.004999999586406145,
+        "rotation_rad": 0.029999996338993338,
+        "offset_rad": 0.028626008172095707,
+        "rate_rad_s": 0.020000000000013323
+      },
+      "unintended_support_steps": 0,
+      "housing_contact_steps": 0,
+      "evidence_sha256": {
+        "scene.mjb": "07ca432dfe3098bf0abfaf847bbb6bcc3b9717e21f7dfa30e99917b503ad39c6",
+        "resolved.json": "4cd3968ee170087215a15dc2d12847bb90642d64ce5e088b5269c1279e316685",
+        "summary.json": "f4ec55a3026b99f556b693949190c3fa49472932d41d7a39ea7b4bb55ad4b5c5",
+        "steps.jsonl": "a4b18b7886de9357834491d4241362c4d001d85976fb0b849d47612e0ba1fa17",
+        "physics_contacts.jsonl.gz": "8f2791c53a47582851dc7b2b16359a08f465bd64be399f03ec13d7a638984c42",
+        "applied_forces.jsonl.gz": "2028d5ea6b33d7122d5fe43102f04d5f55ca760496572611a962534289825da6"
+      }
+    },
+    {
+      "run": "wrench_low_probe",
+      "unsupported_seconds": 5.0200000000000005,
+      "strict": "FAIL",
+      "reason": [
+        "full_interval_not_stable"
+      ],
+      "anatomical_contact": "PASS",
+      "left_fingers": {
+        "hold_steps": 5020,
+        "minimum_N": {
+          "index": 1.343569120080564,
+          "middle": 1.1790569850674495,
+          "ring": 0.9575795369450801,
+          "pinky": 1.0427123276133696
+        },
+        "unloaded_steps": {
+          "index": 0,
+          "middle": 0,
+          "ring": 0,
+          "pinky": 0
+        },
+        "first_unloaded_hold_s": {
+          "index": null,
+          "middle": null,
+          "ring": null,
+          "pinky": null
+        }
+      },
+      "force_balance": {
+        "peak_N": 31.442759900660946,
+        "violations": [
+          {
+            "hold_s": 1.0200000000003406,
+            "residual_N": 31.442759900660946,
+            "residual_world_N": [
+              -0.8626548974363867,
+              1.2320558068846952,
+              -31.406767028576226
+            ],
+            "support_z_N": {
+              "left_hand": 4.284280655874312,
+              "left_foot": 142.48580031962854,
+              "right_hand": 3.6522438107562882,
+              "right_foot": 152.5065188051646
+            }
+          },
+          {
+            "hold_s": 1.180000000000394,
+            "residual_N": 27.289740736309188,
+            "residual_world_N": [
+              -0.9167265529403443,
+              1.0531619561433196,
+              -27.25399808791803
+            ],
+            "support_z_N": {
+              "left_hand": 4.3838732160704,
+              "left_foot": 144.56311598940334,
+              "right_hand": 3.7656736288115544,
+              "right_foot": 154.36894969779675
+            }
+          }
+        ]
+      },
+      "body_commands": {
+        "control_updates": 503,
+        "peak_offset_rad": 0.05762181478423273,
+        "peak_rate_rad_s": 0.05999999999998168
+      },
+      "arm_command_maxima": {
+        "translation_m": 0.004999998653476208,
+        "rotation_rad": 0.022534217429779166,
+        "offset_rad": 0.029198371389302813,
+        "rate_rad_s": 0.020000000000013323
+      },
+      "unintended_support_steps": 0,
+      "housing_contact_steps": 0,
+      "evidence_sha256": {
+        "scene.mjb": "07ca432dfe3098bf0abfaf847bbb6bcc3b9717e21f7dfa30e99917b503ad39c6",
+        "resolved.json": "7adf5275e79dc00dd7a6a9ee6b1ababddaaf67d3e838a954881f558488968703",
+        "summary.json": "4f74c997bfe2547a32eedb52713a35c6480517318b382c3b6914a3f860e42334",
+        "steps.jsonl": "c7ec3a341a548c63c5ec4e780f265ac75592065b4377078787f80c1e7cadc12c",
+        "physics_contacts.jsonl.gz": "a6190b3dc1fda6d6a24e693d62d7204b7cdcfc4cd88269d32eeb355ef6d0ec3c",
+        "applied_forces.jsonl.gz": "f936074f4aec3004eb085b073a003d92db609c69ad4946409f4a22f2503f5bc4"
+      }
+    },
+    {
+      "run": "wrench_high_probe",
+      "unsupported_seconds": 5.0200000000000005,
+      "strict": "FAIL",
+      "reason": [
+        "full_interval_not_stable"
+      ],
+      "anatomical_contact": "PASS",
+      "left_fingers": {
+        "hold_steps": 5020,
+        "minimum_N": {
+          "index": 1.3692370418096804,
+          "middle": 1.1987249106721747,
+          "ring": 1.026430109040842,
+          "pinky": 1.049006495911822
+        },
+        "unloaded_steps": {
+          "index": 0,
+          "middle": 0,
+          "ring": 0,
+          "pinky": 0
+        },
+        "first_unloaded_hold_s": {
+          "index": null,
+          "middle": null,
+          "ring": null,
+          "pinky": null
+        }
+      },
+      "force_balance": {
+        "peak_N": 25.67369568360868,
+        "violations": [
+          {
+            "hold_s": 0.9200000000003072,
+            "residual_N": 25.67369568360868,
+            "residual_world_N": [
+              -0.513176613332046,
+              0.7830435875807363,
+              -25.656619858391807
+            ],
+            "support_z_N": {
+              "left_hand": 4.579430697966502,
+              "left_foot": 144.98869264768337,
+              "right_hand": 4.003262600616427,
+              "right_foot": 155.1076048153419
+            }
+          }
+        ]
+      },
+      "body_commands": {
+        "control_updates": 503,
+        "peak_offset_rad": 0.06467137698544129,
+        "peak_rate_rad_s": 0.05999999999998168
+      },
+      "arm_command_maxima": {
+        "translation_m": 0.004999999558633931,
+        "rotation_rad": 0.017472299272025482,
+        "offset_rad": 0.029937590349903398,
+        "rate_rad_s": 0.020000000000013323
+      },
+      "unintended_support_steps": 0,
+      "housing_contact_steps": 0,
+      "evidence_sha256": {
+        "scene.mjb": "07ca432dfe3098bf0abfaf847bbb6bcc3b9717e21f7dfa30e99917b503ad39c6",
+        "resolved.json": "239726196766c2e6c09a20a388a76929e96a298fa819f6e5b7332f9592a8840b",
+        "summary.json": "480bccaf141fdfdfd1e0616ed3e37675b83c9da3d0a6d989d837325b277b4d57",
+        "steps.jsonl": "04c8bc7c11e4f6c1be37558aa77e2fd308efc61137e5a817163a0e9183c268ed",
+        "physics_contacts.jsonl.gz": "752106c766a5365010ea7a7c6f0118ad9cb39bc27b927043f9fe92ca0601761b",
+        "applied_forces.jsonl.gz": "f936074f4aec3004eb085b073a003d92db609c69ad4946409f4a22f2503f5bc4"
+      }
+    }
+  ]
+}

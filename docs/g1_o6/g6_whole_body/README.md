@@ -8,8 +8,16 @@ The first pair uses damped differential inverse kinematics on each stance leg an
 
 Every candidate starts fresh at each stage. Promotion requires the original physical and anatomical gates and a minimum of 0.05 N on **each** left non-thumb finger on its intended tread at **every** unsupported physics step. The stages are 5, 30, 60 and 120 seconds at 1 ms. A qualified 120-second result must also pass a fresh nominal repeat and a 120-second run at 0.5 ms. Each long run retains the original final 30-second convergence criteria on the base, COM and both wrists. The search ends on the first fully confirmed candidate or after exhausting the four configurations.
 
-Run from a clean checkout of the experiment revision with the G1 assets installed:
+Run from a clean checkout of the experiment revision with the G1 assets installed.
 
 ```powershell
 conda run --no-capture-output -n teleopit python -m teleopit.sim.g1_o6_support.g6_whole_body_experiment --output outputs/g1_o6/g6_whole_body run
 ```
+
+Recheck the saved commands, per-step left-finger contacts and force-balance violations with the command below. The full model, material, applied-force and source checks for the archived run use `python -m scripts.verify_g1_o6_g6 --root outputs/g1_o6/g6_whole_body`.
+
+```powershell
+conda run --no-capture-output -n teleopit python -m scripts.verify_g1_o6_g6_whole_body --root outputs/g1_o6/g6_whole_body
+```
+
+[Measured outcomes](OUTCOMES.md) · [Machine-readable results](results.json)
