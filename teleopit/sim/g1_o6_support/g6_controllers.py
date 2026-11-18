@@ -6,6 +6,7 @@ from .g6_acquisition import GraspAcquisition, GraspEnvironment
 from .g6_arm import ArmEnvironment, ArmFeedback
 from .g6_whole_body import WholeBody, WholeBodyEnvironment
 from .g6_ground_reaction import GroundReaction, GroundReactionEnvironment
+from .g6_knee import KneeClearance, KneeEnvironment
 
 Controller = str | ArmFeedback | GraspAcquisition
 
@@ -16,6 +17,8 @@ def valid_controller(value):
 
 def parse_controller(value):
     if isinstance(value, dict):
+        if "coordination" in value:
+            return KneeClearance(**value)
         if "governor" in value:
             return GroundReaction(**value)
         if "balance" in value:
@@ -28,6 +31,8 @@ def parse_controller(value):
 
 
 def environment_factory(controller):
+    if isinstance(controller, KneeClearance):
+        return KneeEnvironment, {"grasp_acquisition": controller}
     if isinstance(controller, GroundReaction):
         return GroundReactionEnvironment, {"grasp_acquisition": controller}
     if isinstance(controller, WholeBody):

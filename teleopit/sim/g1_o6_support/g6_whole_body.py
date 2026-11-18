@@ -142,6 +142,9 @@ class WholeBodyReference:
 
     def leg_targets(self, env, levers, force, moment):
         reactions = foot_wrenches(force, moment, levers["left"], levers["right"])
+        return self.reaction_targets(env, reactions)
+
+    def reaction_targets(self, env, reactions):
         # Reaction torque is supplied at the contact. Command its inverse at
         # the joint through the existing position servo and its native gain.
         return [-self.chains[s].jacobian(env).T @ reactions[s] / self.chains[s].kp for s in env.hands]
