@@ -15,3 +15,9 @@ Run from the repository root with the native assets installed. Use a fresh outpu
 ```powershell
 conda run --no-capture-output -n teleopit python -m teleopit.sim.g1_o6_support.g6_knee_experiment --output outputs/g1_o6/g6_knee_clearance run
 ```
+
+Reconstruct the signed gap from every saved joint configuration and cross-check the native contacts, control endpoints, finger loads, servo bounds and convergence with the following command. Add `--run-id` to verify one completed trial.
+
+```powershell
+conda run --no-capture-output -n teleopit python -m scripts.verify_g1_o6_g6_knee --root outputs/g1_o6/g6_knee_clearance
+```

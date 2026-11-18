@@ -157,3 +157,28 @@ def test_geometric_touch_counts_even_without_a_newton_of_knee_load():
     unknown = ClearanceTrace()
     unknown.observe(.001, float('nan'), [])
     assert unknown.minimum_m==0.
+
+
+def test_palm_refinement_unlocks_only_after_two_measured_stance_failures(tmp_path):
+    from teleopit.sim.g1_o6_support.g6_knee_experiment import KneeCampaign, PARENT_TRACE, COORDINATED
+    from test_g1_o6_g6_ground_reaction import passing_hold
+
+    campaign = KneeCampaign(tmp_path)
+    campaign.state['runs'].append({'id':'control_probe','candidate':'control','stage':'probe','status':'COMPLETE',
+                                   'files_sha256':{'steps.jsonl':PARENT_TRACE}})
+    for name in campaign.first_pair:
+        with pytest.raises(ValueError):
+            campaign.validate_stage(COORDINATED[0],'probe')
+        result = passing_hold()
+        result['physics_audit'].update(scored_steps=120000, knee_rung3={
+            'native':dict(samples=120000,minimum_m=-.0001,contact_steps=1),
+            'control':dict(samples=6000,minimum_m=.001,contact_steps=0)})
+        result['physics_audit']['ground_reaction']['physics'] = {'peak_N':22.}
+        campaign.state['runs'].append({'id':name+'_probe','candidate':name,'stage':'probe','status':'COMPLETE','result':result})
+        with pytest.raises(ValueError):
+            campaign.validate_stage(name,'screen')
+    actual = campaign.audit_first_pair()
+    assert len(actual['actors'])==2
+    assert all(a['right_knee_to_rung3']['native']['contact_steps']==1 for a in actual['actors'].values())
+    campaign.validate_stage(COORDINATED[0],'probe')
+    assert KneeCampaign(tmp_path).audit_first_pair() == actual
