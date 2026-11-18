@@ -64,6 +64,21 @@ def test_body_command_bounds_include_effort_joint_limits_and_backoff():
     assert np.all(np.abs(backed_off) < np.abs(current))
 
 
+def test_commanded_foot_reactions_sum_to_requested_pelvis_force_and_moment():
+    from teleopit.sim.g1_o6_support.g6_whole_body import foot_wrenches
+
+    force, moment = np.array([4., -3., 10.]), np.array([.6, 1.8, -2.])
+    left, right = np.array([.03, .11, -.75]), np.array([.01, -.12, -.73])
+    legs = foot_wrenches(force, moment, left, right)
+    np.testing.assert_allclose(legs['left'][:3] + legs['right'][:3], force)
+    achieved = (np.cross(left, legs['left'][:3]) + np.cross(right, legs['right'][:3])
+                + legs['left'][3:] + legs['right'][3:])
+    np.testing.assert_allclose(achieved, moment)
+    # The two foot forces supply the moment perpendicular to their separation.
+    # Only its parallel component must be commanded as an ankle moment.
+    np.testing.assert_allclose(np.cross(legs['left'][3:], left - right), 0., atol=1e-12)
+
+
 def test_whole_body_profile_round_trips_without_changing_parent_physics():
     from teleopit.sim.g1_o6.diagnostics import snapshot
     from teleopit.sim.g1_o6_support.g6_candidates import G6Candidate

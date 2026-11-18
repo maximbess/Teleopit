@@ -34,6 +34,10 @@ def test_promotion_refuses_even_one_unloaded_finger_and_requires_long_convergenc
 def test_second_pair_requires_two_measured_failures_and_an_immutable_premise(tmp_path):
     from teleopit.sim.g1_o6_support.g6_whole_body_experiment import PARENT_TRACE, WholeBodyCampaign
     campaign = WholeBodyCampaign(tmp_path)
+    with pytest.raises(ValueError, match="matched acquisition control"):
+        campaign.validate_stage('stance_low', 'probe')
+    with pytest.raises(ValueError, match="one fresh probe"):
+        campaign.validate_stage('control', 'screen')
     campaign.state['runs'].append({'id':'control_probe','candidate':'control','stage':'probe',
                                    'status':'COMPLETE','files_sha256':{'steps.jsonl':PARENT_TRACE}})
     with pytest.raises(ValueError):
@@ -52,3 +56,36 @@ def test_second_pair_requires_two_measured_failures_and_an_immutable_premise(tmp
     assert audit['premise'] and audit['removed_assignment']
     campaign.audit_stance()
     assert sum(d['name']=='stance_premise' for d in campaign.state['decisions']) == 1
+
+
+@pytest.mark.parametrize('both_fail', [False, True])
+def test_search_promotes_fresh_stages_and_requires_the_full_confirmation(tmp_path, monkeypatch, both_fail):
+    from teleopit.sim.g1_o6_support import g6_whole_body_experiment as search
+
+    campaign = search.WholeBodyCampaign(tmp_path)
+    def run_trials(requests):
+        for name, stage in requests:
+            campaign.validate_stage(name, stage)
+            result = passed()
+            result['strict']['unsupported_hold_seconds'] = search.STAGES[stage][0]
+            result['strict']['final_diagnostics'] = {'supports': {}}
+            result['physics_audit']['short_drift'] = {'maximum_translation_slope_m_s': .1 if name.endswith('high') else .05}
+            if name == 'stance_low' and stage == 'repeat':
+                result['drift_assessment']['status'] = 'FAIL'
+            if both_fail and name == 'stance_high' and stage == 'fine':
+                result['contact_quality']['minimum_group_normal_N']['left']['finger'] = 0
+            campaign.state['runs'].append(dict(candidate=name, stage=stage, output=name+'_'+stage,
+                id=name+'_'+stage, status='COMPLETE', result=result, files_sha256={'steps.jsonl':search.PARENT_TRACE}))
+    def read_evidence(path):
+        name, stage = path.name.rsplit('_', 1)
+        seconds, dt = search.STAGES[stage]
+        return {'path':str(path),'summary':campaign.previous(name, stage)['result'],
+                'metadata':{'experiment':{'requested_hold_s':seconds}, 'config':{'physics_dt':dt}}}
+    monkeypatch.setattr(campaign, 'run_many', run_trials)
+    monkeypatch.setattr(search, 'read_run', read_evidence)
+    assert campaign.run_search() == {'initial_pose':'PASS','candidate':'wrench_low' if both_fail else 'stance_high'}
+    assert campaign.previous('stance_low', 'fine') is None
+    assert campaign.previous('stance_high', 'fine')['status'] == 'COMPLETE'
+    assert (campaign.previous('wrench_low', 'probe') is not None) == both_fail
+    with pytest.raises(ValueError):
+        campaign.validate_preceding('stance_low', 'fine')
