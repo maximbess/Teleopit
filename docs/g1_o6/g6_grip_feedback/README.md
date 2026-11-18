@@ -11,3 +11,9 @@ The runner tests a fresh 5 s matched control and requires its complete control t
 ```powershell
 conda run --no-capture-output -n teleopit python -m teleopit.sim.g1_o6_support.g6_grip_feedback_experiment --output outputs/g1_o6/g6_grip_feedback run
 ```
+
+The verifier reconstructs thumb opposition from native contact normals on each intended tread, replays knee geometry from the recorded joint positions and checks force balance at both cadences. It also reconstructs each commanded closure limit from the previous contact loads and palm heights, then checks the applied targets against native preload, slew and delay.
+
+```powershell
+conda run --no-capture-output -n teleopit python -m scripts.verify_g1_o6_g6_grip_feedback --root outputs/g1_o6/g6_grip_feedback
+```

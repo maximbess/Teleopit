@@ -27,11 +27,12 @@ def captured_ceiling(saved, previous, ceiling):
     return expected.copy()
 
 
-def check_grip(state, previous, native, limited, ceiling, step, previous_limited=None, limits=None):
+def check_grip(state, previous, native, limited, ceiling, step, previous_limited=None, limits=None, feedback_cap=None):
     if not equal(state["uncapped_targets_rad"], native):
         raise ValueError("original native preload differs")
     ceiling = captured_ceiling(state["ceiling_rad"], previous, ceiling)
-    desired = native if ceiling is None else np.minimum(native, ceiling)
+    effective = ceiling if feedback_cap is None else feedback_cap
+    desired = native if effective is None else np.minimum(native, effective)
     if limits is not None:
         desired = np.clip(desired, limits[:, 0], limits[:, 1])
     start = previous if previous_limited is None else previous_limited
@@ -91,19 +92,23 @@ class GripAudit:
         self.max_retreat, self.max_prevented = 0., 0.
         self.held, self.capped = 0, 0
 
+    def feedback_cap(self, previous, control, native):
+        return None
+
     def observe(self, previous, row):
         control = row["pose_search"]["controller_state"]
         original = np.asarray([*previous["base_pose"], *previous["joint_positions"]])[self.qpos]
         native = np.minimum(self.closed, original+self.preload)
         last = np.asarray(previous["applied_position_targets_rad"])[self.act]
+        feedback = self.feedback_cap(previous, control, native)
         self.ceiling = check_grip(control["settled_grip"], last, native, limited_targets(row), self.ceiling,
-                                  self.step, limited_targets(previous), self.limits)
+                                  self.step, limited_targets(previous), self.limits, feedback)
         self.capture = check_capture(previous, control, self.capture)
         assert (self.capture is None) == (self.ceiling is None)
         self.max_retreat = max(self.max_retreat, check_retreat(previous, control))
         if self.ceiling is not None:
             self.held += 1
-            excess = float(np.max(native-self.ceiling))
+            excess = float(np.max(native - (self.ceiling if feedback is None else feedback)))
             self.capped += int(excess > 1e-10)
             self.max_prevented = max(self.max_prevented, excess)
 
@@ -113,9 +118,9 @@ class GripAudit:
                 "ceiling_rad": None if self.ceiling is None else self.ceiling.tolist()}
 
 
-def verify_grip(path, meta):
+def verify_grip(path, meta, audit_type=GripAudit):
     model = mujoco.MjModel.from_binary_path(str(path / "scene.mjb"))
-    audit = GripAudit(model, meta)
+    audit = audit_type(model, meta)
     with (path / "steps.jsonl").open() as stream:
         rows = map(json.loads, stream)
         previous = next(rows)

@@ -16,6 +16,12 @@ def test_pressure_servo_uses_opposition_and_individual_loads_with_bounded_travel
     assert rates[0, 0] == 0. and rates[1, 0] > 0.
     assert rates[0, 2] > 0. and rates[0, 4] < 0. and rates[0, 3] == 0.
     assert np.max(abs(rates)) == pytest.approx(.04)
+    assert rates[0, 4] == pytest.approx(-.0384)
+    near = np.full((2, 5), 1.35)
+    near[:, 0] = .55
+    slow = pressure_rates(replace(profile, pressure_gain=.04), near, [True, True], np.zeros(2))
+    np.testing.assert_allclose(slow[:, 0], .0028)
+    np.testing.assert_array_equal(slow[:, 2:], 0.)
     anchor = np.full((2, 6), .4)
     cap = anchor.copy()
     for _ in range(300):
@@ -30,6 +36,8 @@ def test_pressure_servo_uses_opposition_and_individual_loads_with_bounded_travel
     coupled = replace(profile, grip_law="palm")
     motion = pressure_rates(coupled, np.full((2, 5), 1.5), [True, True], np.array([.002, -.002]))
     assert np.all(motion[0, 2:] > 0) and np.all(motion[1, 2:] < 0)
+    reserve = pressure_rates(coupled, loads, [True, True], np.zeros(2))
+    assert reserve[0, 2] > 0 and reserve[0, 4] == 0.
     with pytest.raises(ValueError):
         replace(profile, pressure_gain=10.)
 
@@ -64,6 +72,15 @@ def test_grip_stage_requires_uninterrupted_opposition_at_both_cadences_and_every
             record[key] = 0
     audit["knee_rung3"]["native"]["contact_steps"] = 1
     assert not passes(value, "120s")
+    audit["knee_rung3"]["native"]["contact_steps"] = 0
+    for fields, key, bad in ((audit["grip_support"]["control"], "samples", 5999),
+                             (audit["ground_reaction"]["control"], "peak_N", 25.),
+                             (audit["extrema"], "force_balance", 25.),
+                             (audit["native_hand_friction"], "status", "FAIL"),
+                             (value["drift_assessment"], "status", "FAIL")):
+        previous, fields[key] = fields[key], bad
+        assert not passes(value, "120s")
+        fields[key] = previous
 
 
 def test_real_feedback_replays_through_native_preview_and_restores_at_half_timestep():
@@ -95,3 +112,31 @@ def test_real_feedback_replays_through_native_preview_and_restores_at_half_times
         assert ref.last.peak_N == pytest.approx(max(forces), abs=1e-8)
     assert np.max(abs(ref.cap - ref.grip.ceiling.reshape(2, 6))) > 0
     assert np.all(env.data.ctrl[ref.fingers] <= ref.uncapped + 1e-12)
+    before = ref.cap.copy()
+    ref.parent.inhibition = ["right_slip"]
+    ref.uncapped = ref.cap.ravel() - .015
+    np.testing.assert_array_equal(ref.grip_targets(env, 5.2), ref.uncapped)
+    np.testing.assert_array_equal(ref.cap, before)
+
+
+def test_palm_closure_requires_two_terminal_pressure_failures_with_named_actors(tmp_path):
+    from teleopit.sim.g1_o6_support.g6_grip_feedback_experiment import GripCampaign, PARENT_TRACE
+
+    campaign = GripCampaign(tmp_path)
+    assert campaign.state["specification"]["budgets"]["probe"] == 4
+    campaign.state["runs"].append({"id": "control_probe", "stage": "probe", "candidate": "control",
+                                   "status": "COMPLETE", "files_sha256": {"steps.jsonl": PARENT_TRACE}})
+    for name in campaign.first_pair:
+        with pytest.raises(ValueError):
+            campaign.validate_stage("palm_height", "probe")
+        result = {"strict": {"unsupported_hold_seconds": 29., "final_diagnostics": {"supports": {}}},
+                  "contact_quality": {"status": "FAIL", "minimum_group_normal_N": {}},
+                  "strict_status": "FAIL", "drift_assessment": {"status": "NOT RUN"},
+                  "physics_audit": {"knee_rung3": {}, "ground_reaction": {},
+                                    "grip_support": {"native": {"loss_steps": {"right_thumb": 1}}}}}
+        campaign.state["runs"].append({"id": name + "_screen", "candidate": name, "stage": "screen",
+                                       "status": "COMPLETE", "result": result})
+    actors = campaign.audit_first_pair()["actors"]
+    assert set(actors) == {"pressure_low_screen", "pressure_high_screen"}
+    assert all(a["grip_support"]["native"]["loss_steps"]["right_thumb"] == 1 for a in actors.values())
+    campaign.validate_stage("palm_height", "probe")
