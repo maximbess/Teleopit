@@ -4,6 +4,14 @@ import numpy as np
 import pytest
 
 
+def test_refinement_specs_reproduce_both_frozen_campaigns():
+    from teleopit.sim.g1_o6_support import g6_knee_experiment, g6_knee_retention_experiment
+    from teleopit.sim.g1_o6_support.ladder_campaign import digest
+
+    assert digest(g6_knee_experiment.specification()) == "d57ec28c00c35647589f6e5d89d4a4877dd0eb9b988643d49db4fc34d10327ad"
+    assert digest(g6_knee_retention_experiment.specification()) == "f072da13feb29751a1c13c31302b183c71474dc4fa98c3f21dd811d627f96225"
+
+
 def test_retained_grip_starts_at_verified_grasp_and_permits_the_original_opening():
     from teleopit.sim.g1_o6_support.g6_knee_retention import SettledGrip
 

@@ -29,10 +29,17 @@ def candidates():
                       for name, (law, gain) in CONFIGURATIONS.items()]]
 
 
+def experiment_spec(schema, entries):
+    """The parent takes one probe slot. Only the refinements can advance."""
+    count = len(entries)
+    return {"schema": schema, "geometry": "G6", "native_mu": 1.8, "stages": STAGES,
+            "candidates": {c.id: c.record() for c in entries}, "candidate_limit": count,
+            "budgets": {stage: count if stage == "probe" else count - 1 for stage in STAGES},
+            "parent_probe_steps_sha256": PARENT_TRACE}
+
+
 def specification():
-    return {"schema": "g6_knee_clearance_v1", "geometry": "G6", "native_mu": 1.8, "stages": STAGES,
-            "candidates": {c.id: c.record() for c in candidates()}, "candidate_limit": 4,
-            "budgets": {s: (4 if s == "probe" else 3) for s in STAGES}, "parent_probe_steps_sha256": PARENT_TRACE,
+    return {**experiment_spec("g6_knee_clearance_v1", candidates()),
             "stance_clearance_target_m": GAP_TARGET_M, "stance": STANCE, "coordinated": COORDINATED,
             "qualification": "positive right knee/rung-3 distance and zero pair contacts at every physics and control sample, both force peaks <25 N, uninterrupted left finger loading and all original gates"}
 

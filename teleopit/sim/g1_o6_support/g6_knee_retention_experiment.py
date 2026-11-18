@@ -4,10 +4,9 @@ import json
 from dataclasses import replace
 from pathlib import Path
 
-from .g6_campaign import STAGES
 from .g6_knee import CONFIGURATIONS
 from .g6_knee_experiment import (
-    KneeCampaign, KneeObserver, PARENT_TRACE, candidates as knee_candidates, passes as knee_passes,
+    KneeCampaign, KneeObserver, candidates as knee_candidates, experiment_spec, passes as knee_passes,
     specification as knee_specification,
 )
 from .g6_knee_retention import CAPTURE_S, RetainedKnee, RetainedReference
@@ -22,11 +21,22 @@ def candidates():
 
 
 def specification():
-    return {"schema": "g6_knee_retention_v1", "geometry": "G6", "native_mu": 1.8, "stages": STAGES,
-            "candidates": {c.id: c.record() for c in candidates()}, "candidate_limit": 2,
-            "budgets": {stage: (2 if stage == "probe" else 1) for stage in STAGES},
-            "parent_probe_steps_sha256": PARENT_TRACE, "prior_specification": digest(knee_specification()),
+    return {**experiment_spec("g6_knee_retention_v1", candidates()), "prior_specification": digest(knee_specification()),
             "qualification": "original G6 knee-clearance criteria, plus a measured bilateral grasp capture"}
+
+
+def terminal_failure(prior, records, name):
+    runs = [r for r in records if r["candidate"] == name and r["status"] == "COMPLETE"]
+    if not runs or knee_passes(runs[-1]["result"], runs[-1]["stage"]):
+        raise ValueError("expected a terminal physical failure for each preceding refinement")
+    final = runs[-1]
+    raw = prior / final["output"] / "summary.json"
+    checksum = file_hash(raw)
+    if checksum != final["files_sha256"]["summary.json"] or json.loads(raw.read_text()) != final["result"]:
+        raise ValueError("preceding physical failure does not match raw evidence")
+    return {"id": final["id"], "identity": final["identity"], "summary_sha256": checksum,
+            "strict": final["result"]["strict"]["failure_reasons"],
+            "native_knee": final["result"]["physics_audit"]["knee_rung3"]["native"]}
 
 
 def prior_failures(prior):
@@ -36,20 +46,7 @@ def prior_failures(prior):
     state = json.loads((prior / "campaign_state.json").read_text())
     if state["spec_sha256"] != digest(knee_specification()):
         raise ValueError("unexpected preceding knee campaign")
-    evidence = {}
-    for name in CONFIGURATIONS:
-        runs = [r for r in state["runs"] if r["candidate"] == name and r["status"] == "COMPLETE"]
-        if not runs or knee_passes(runs[-1]["result"], runs[-1]["stage"]):
-            raise ValueError("expected a terminal physical failure for each preceding refinement")
-        final = runs[-1]
-        raw = prior / final["output"] / "summary.json"
-        checksum = file_hash(raw)
-        if checksum != final["files_sha256"]["summary.json"] or json.loads(raw.read_text()) != final["result"]:
-            raise ValueError("preceding physical failure does not match raw evidence")
-        evidence[name] = {"id": final["id"], "identity": final["identity"], "summary_sha256": checksum,
-                          "strict": final["result"]["strict"]["failure_reasons"],
-                          "native_knee": final["result"]["physics_audit"]["knee_rung3"]["native"]}
-    return evidence
+    return {name: terminal_failure(prior, state["runs"], name) for name in CONFIGURATIONS}
 
 
 class RetentionObserver(KneeObserver):

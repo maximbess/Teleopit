@@ -16,17 +16,21 @@ def equal(first, second):
     return np.allclose(first, second, rtol=0., atol=1e-10)
 
 
+def captured_ceiling(saved, previous, ceiling):
+    if saved is None:
+        if ceiling is not None:
+            raise ValueError("captured ceiling disappeared")
+        return None
+    expected = previous if ceiling is None else ceiling
+    if not equal(saved, expected):
+        raise ValueError("grip ceiling changed or differs from the preceding applied command")
+    return expected.copy()
+
+
 def check_grip(state, previous, native, limited, ceiling, step, previous_limited=None, limits=None):
     if not equal(state["uncapped_targets_rad"], native):
         raise ValueError("original native preload differs")
-    saved = state["ceiling_rad"]
-    if saved is not None:
-        expected = previous if ceiling is None else ceiling
-        if not equal(saved, expected):
-            raise ValueError("grip ceiling changed or differs from the preceding applied command")
-        ceiling = expected.copy()
-    elif ceiling is not None:
-        raise ValueError("captured ceiling disappeared")
+    ceiling = captured_ceiling(state["ceiling_rad"], previous, ceiling)
     desired = native if ceiling is None else np.minimum(native, ceiling)
     if limits is not None:
         desired = np.clip(desired, limits[:, 0], limits[:, 1])
@@ -40,15 +44,27 @@ def limited_targets(row):
     return np.concatenate([row["pose_search"]["hands"][s]["motion"]["rate_limited_target_rad"] for s in ("left","right")])
 
 
+def eligible_grasp(previous, control):
+    elapsed = previous["hold_time_s"]
+    if elapsed is None or elapsed < 5. - 1e-9 or control["inhibition"]:
+        return False
+    hands = previous["pose_search"]["hands"]
+    return all(hands[side]["quality"]["valid"] and hands[side]["quality"]["minimum_finger_normal_N"] >= .35
+               for side in ("left", "right"))
+
+
 def check_capture(previous, control, captured):
     saved = control["settled_grip"]["capture_s"]
-    if captured is not None and saved != captured:
-        raise ValueError("grasp capture time changed")
-    if saved is None or captured is not None:
-        return saved
-    assert saved >= 5. - 1e-9 and abs(saved - previous["hold_time_s"]) < 1e-9 and not control["inhibition"]
-    for hand in previous["pose_search"]["hands"].values():
-        assert hand["quality"]["valid"] and hand["quality"]["minimum_finger_normal_N"] >= .35
+    if captured is not None:
+        if saved != captured:
+            raise ValueError("grasp capture time changed")
+        return captured
+    eligible = eligible_grasp(previous, control)
+    if saved is None:
+        if eligible:
+            raise ValueError("first eligible bilateral grasp was not captured")
+        return None
+    assert eligible and abs(saved - previous["hold_time_s"]) < 1e-9
     return saved
 
 

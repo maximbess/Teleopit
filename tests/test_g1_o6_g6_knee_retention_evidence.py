@@ -37,3 +37,21 @@ def test_capture_matches_measured_opposition_and_knee_guard():
     ctl['settled_grip']['retreat_m']=-.003
     with pytest.raises(AssertionError):
         check_retreat(previous,ctl)
+
+
+def test_first_eligible_capture_and_persistent_ceiling_are_measured():
+    from scripts.verify_g1_o6_g6_knee_retention import check_capture, check_grip
+
+    hand = {"quality": {"valid": True, "minimum_finger_normal_N": .35}}
+    previous = {"hold_time_s": 5., "pose_search": {"hands": {"left": hand, "right": hand}}}
+    control = {"settled_grip": {"capture_s": None}, "inhibition": ["slip"]}
+    assert check_capture(previous, control, None) is None
+    control["inhibition"] = []
+    with pytest.raises(ValueError, match="eligible"):
+        check_capture(previous, control, None)
+
+    native = np.array([.12, .21])
+    applied = np.array([.11, .20])
+    state = {"uncapped_targets_rad": native, "ceiling_rad": None}
+    with pytest.raises(ValueError, match="disappeared"):
+        check_grip(state, applied, native, applied, applied, .02)
