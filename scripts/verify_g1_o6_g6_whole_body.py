@@ -120,7 +120,7 @@ def verify_run(path, report):
             "arm_commands": verify_arm(path, report / (path.name + "_arm.json"))}
 
 
-def verify(root, run_id=None):
+def verify(root, run_id=None, *, verify_function=verify_run):
     state = read(root / "campaign_state.json")
     report = root / "report"
     report.mkdir(exist_ok=True)
@@ -128,7 +128,7 @@ def verify(root, run_id=None):
     if not records or any(r["status"] != "COMPLETE" for r in records):
         raise ValueError("verification requires completed runs")
     for record in records:
-        result = verify_run(root / record["output"], report)
+        result = verify_function(root / record["output"], report)
         (report / (record["id"] + "_verification.json")).write_text(json.dumps(result, indent=2) + "\n")
         print(record["id"], result["status"], flush=True)
 
