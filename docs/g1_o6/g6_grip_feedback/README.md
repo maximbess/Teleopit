@@ -1,0 +1,13 @@
+# Bounded grip feedback on G6
+
+The G1 starts with both hands on rung 7 and both feet on rung 2. The matched control is the preceding settled-grip controller with the foot-specific 16 N force preview and a knee-clearance guard. The new configurations use its acquisition, native friction, arm and leg limits, finite 0.12 Nm finger preload and physical gates. [Matched control measurements](../g6_knee_clearance/OUTCOMES.md)
+
+The experiment permits three refinements. After five seconds of unsupported HOLD, capture requires both anatomically valid grasps, at least 0.35 N on every non-thumb finger and no structural or slip inhibition. The controller captures the twelve applied servo targets and each palm's height above its tread. It adjusts the closure limits for thumb pitch and the four fingers of each hand. Thumb yaw retains its captured limit. Every limit stays within 0.12 rad of capture and changes by at most 0.04 rad/s. The native closing command limits the applied preload. Inhibition freezes the feedback limits, and the existing backoff still acts on the body.
+
+The first pair regulates target-tread normal loads with gains of 0.04 and 0.12 rad/(N·s), a 0.08 N deadband, a 0.70 N thumb target and a 1.40 N target for each finger. Loss of thumb opposition requests bounded thumb closure. If both configurations fail, a third configuration regulates each palm's captured height with a shared finger closure rate of 6 rad/(m·s). Each finger also responds to loads below 1.00 N. The thumbs retain the higher-gain opposition feedback.
+
+The runner tests a fresh 5 s matched control and requires its complete control trace to match the archived probe. Each candidate advances through fresh 5, 30, 60 and 120 s holds. A stable pose requires a second nominal 120 s hold and a 120 s hold at 0.5 ms. Both thumbs must have loaded opposing contact normals on their target tread. All four left fingers must carry at least 0.05 N on their tread. These checks run at each native physics step and 20 ms control endpoint, alongside positive knee clearance, zero right-knee/rung-3 contact, a force residual strictly below 25 N, and all original physical and anatomical gates. The final 30 s convergence limits apply to the floating base, center of mass and palms.
+
+```powershell
+conda run --no-capture-output -n teleopit python -m teleopit.sim.g1_o6_support.g6_grip_feedback_experiment --output outputs/g1_o6/g6_grip_feedback run
+```

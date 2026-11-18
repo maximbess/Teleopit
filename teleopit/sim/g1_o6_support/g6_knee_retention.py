@@ -36,9 +36,12 @@ class SettledGrip:
     def __init__(self):
         self.ceiling, self.capture_s = None, None
 
-    def command(self, elapsed, hands, inhibition, original, applied):
+    def capture(self, elapsed, hands, inhibition, applied):
         if self.ceiling is None and elapsed >= CAPTURE_S - 1e-9 and not inhibition and loaded_grasp(hands):
             self.ceiling, self.capture_s = applied.copy(), elapsed
+
+    def command(self, elapsed, hands, inhibition, original, applied):
+        self.capture(elapsed, hands, inhibition, applied)
         return original if self.ceiling is None else np.minimum(original, self.ceiling)
 
 
@@ -54,9 +57,12 @@ class RetainedReference(GroundReactionReference):
         if env.phase == "HOLD":
             self.uncapped = command[self.fingers]
             elapsed = env.data.time - env.phase_start
-            command[self.fingers] = self.grip.command(elapsed, self.parent.quality, self.parent.inhibition,
-                                                       self.uncapped, env.data.ctrl[self.fingers])
+            command[self.fingers] = self.grip_targets(env, elapsed)
         return command
+
+    def grip_targets(self, env, elapsed):
+        return self.grip.command(elapsed, self.parent.quality, self.parent.inhibition,
+                                 self.uncapped, env.data.ctrl[self.fingers])
 
     def wrench_targets(self, env, pelvis, translation, rotation, levers):
         self.gap = self.knee.distance(env.data)

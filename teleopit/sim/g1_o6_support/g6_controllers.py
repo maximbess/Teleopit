@@ -8,8 +8,19 @@ from .g6_whole_body import WholeBody, WholeBodyEnvironment
 from .g6_ground_reaction import GroundReaction, GroundReactionEnvironment
 from .g6_knee import KneeClearance, KneeEnvironment
 from .g6_knee_retention import RetainedEnvironment, RetainedKnee
+from .g6_grip_feedback import GripEnvironment, GripFeedback
 
 Controller = str | ArmFeedback | GraspAcquisition
+
+# More specific profiles precede their parent dataclasses in both dispatches.
+PROFILES = (
+    ("grip_law", GripFeedback, GripEnvironment),
+    ("grip_retention", RetainedKnee, RetainedEnvironment),
+    ("coordination", KneeClearance, KneeEnvironment),
+    ("governor", GroundReaction, GroundReactionEnvironment),
+    ("balance", WholeBody, WholeBodyEnvironment),
+    ("order", GraspAcquisition, GraspEnvironment),
+)
 
 
 def valid_controller(value):
@@ -18,15 +29,7 @@ def valid_controller(value):
 
 def parse_controller(value):
     if isinstance(value, dict):
-        if "grip_retention" in value:
-            return RetainedKnee(**value)
-        if "coordination" in value:
-            return KneeClearance(**value)
-        if "governor" in value:
-            return GroundReaction(**value)
-        if "balance" in value:
-            return WholeBody(**value)
-        factory = GraspAcquisition if "order" in value else ArmFeedback
+        factory = next((profile for key, profile, _ in PROFILES if key in value), ArmFeedback)
         return factory(**value)
     if not valid_controller(value):
         raise ValueError("unknown G6 controller")
@@ -34,16 +37,9 @@ def parse_controller(value):
 
 
 def environment_factory(controller):
-    if isinstance(controller, RetainedKnee):
-        return RetainedEnvironment, {"grasp_acquisition": controller}
-    if isinstance(controller, KneeClearance):
-        return KneeEnvironment, {"grasp_acquisition": controller}
-    if isinstance(controller, GroundReaction):
-        return GroundReactionEnvironment, {"grasp_acquisition": controller}
-    if isinstance(controller, WholeBody):
-        return WholeBodyEnvironment, {"grasp_acquisition": controller}
-    if isinstance(controller, GraspAcquisition):
-        return GraspEnvironment, {"grasp_acquisition": controller}
+    for _, profile, factory in PROFILES:
+        if isinstance(controller, profile):
+            return factory, {"grasp_acquisition": controller}
     if isinstance(controller, ArmFeedback):
         return ArmEnvironment, {"arm_feedback": controller}
     if controller != "reference":
