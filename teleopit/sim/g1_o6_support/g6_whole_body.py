@@ -106,9 +106,12 @@ class WholeBodyReference:
         bounds = np.clip(self.limits - baseline[:, None], -BODY_OFFSET_RAD, BODY_OFFSET_RAD)
         frozen = abs(env.data.actuator_force[self.indices]) >= .98 * self.effort_limit
         increment = -self.offset if self.parent.inhibition else self.increment(env, pelvis, torso)
-        self.offset = bounded_offset(self.offset, increment, bounds, frozen, env.config.control_dt)
+        self.offset = self.select_offset(env, command, baseline, increment, bounds, frozen)
         command[self.indices] = baseline + self.offset
         return command
+
+    def select_offset(self, env, command, baseline, increment, bounds, frozen):
+        return bounded_offset(self.offset, increment, bounds, frozen, env.config.control_dt)
 
     def increment(self, env, pelvis, torso):
         position, orientation, torso_orientation = self.anchor
@@ -127,10 +130,17 @@ class WholeBodyReference:
         return np.concatenate([*legs, waist_step])
 
     def wrench_targets(self, env, pelvis, translation, rotation, levers):
+        force, moment = self.pelvis_wrench(env, pelvis, translation, rotation)
+        return self.leg_targets(env, levers, force, moment)
+
+    def pelvis_wrench(self, env, pelvis, translation, rotation):
         velocity = np.zeros(6)
         mujoco.mj_objectVelocity(env.model, env.data, mujoco.mjtObj.mjOBJ_BODY, pelvis, velocity, 0)
         force = bounded(self.profile.gain * (900 * translation - 40 * velocity[3:]), 30.)
         moment = bounded(self.profile.gain * (90 * rotation - 5 * velocity[:3]), 5.)
+        return force, moment
+
+    def leg_targets(self, env, levers, force, moment):
         reactions = foot_wrenches(force, moment, levers["left"], levers["right"])
         # Reaction torque is supplied at the contact. Command its inverse at
         # the joint through the existing position servo and its native gain.
@@ -149,7 +159,9 @@ class WholeBodyReference:
 
 
 class WholeBodyEnvironment(GraspEnvironment):
+    reference_type = WholeBodyReference
+
     def reset(self):
         row = super().reset()
-        self.hold_controller = WholeBodyReference(self)
+        self.hold_controller = self.reference_type(self)
         return row

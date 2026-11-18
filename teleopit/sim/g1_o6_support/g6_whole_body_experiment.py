@@ -66,13 +66,21 @@ def measured_actors(record):
 
 class WholeBodyCampaign(G6Campaign):
     trial_function = staticmethod(run_acquisition_candidate)
+    spec_factory = staticmethod(specification)
+    passes = staticmethod(eligible)
+    actors = staticmethod(measured_actors)
+    first_pair, second_pair = PAIRS.values()
+    audit_key = "stance_premise"
+    premise = "Both legs can realize the required pelvis twist with fixed feet on the tread."
+    replacement = "Replace independent fixed-foot kinematic corrections with a shared desired ground reaction distributed through both native leg servos."
+    module = "teleopit.sim.g1_o6_support.g6_whole_body_experiment"
 
     def __init__(self, root, workers=2):
-        super().__init__(root, workers, spec=specification())
+        super().__init__(root, workers, spec=self.spec_factory())
 
     def payload(self, name, stage, provenance):
         payload = super().payload(name, stage, provenance)
-        payload["command"] = (f'python -m teleopit.sim.g1_o6_support.g6_whole_body_experiment '
+        payload["command"] = (f'python -m {self.module} '
                               f'--output "{self.root.as_posix()}" trial {name} {stage}')
         return payload
 
@@ -81,36 +89,39 @@ class WholeBodyCampaign(G6Campaign):
             raise ValueError("the matched control has one fresh probe")
         if name != "control":
             control = self.previous("control", "probe")
-            if not control or control.get("files_sha256", {}).get("steps.jsonl") != PARENT_TRACE:
+            expected = self.state["specification"]["parent_probe_steps_sha256"]
+            if not control or control.get("files_sha256", {}).get("steps.jsonl") != expected:
                 raise ValueError("matched acquisition control has not reproduced its parent trace")
-        if name in PAIRS["wrench"] and not any(d["name"] == "stance_premise" for d in self.state["decisions"]):
+        if name in self.second_pair and not any(d["name"] == self.audit_key for d in self.state["decisions"]):
             raise ValueError("the second family requires two measured first-family failures")
         super().validate_stage(name, stage, records)
 
     def validate_preceding(self, name, stage):
         super().validate_preceding(name, stage)
         prior = PRECEDING.get(stage)
-        if prior and not eligible(self.previous(name, prior)["result"], prior):
+        if prior and not self.passes(self.previous(name, prior)["result"], prior):
             raise ValueError("preceding stage failed continuous left finger loading or physical qualification")
 
-    def audit_stance(self):
-        def measure():
-            actors = {}
-            for name in PAIRS["stance"]:
-                completed = [r for r in self.state["runs"] if r["candidate"] == name and r["status"] == "COMPLETE"]
-                if not completed or eligible(completed[-1]["result"], completed[-1]["stage"]):
-                    raise ValueError("the stance pair has not produced two terminal physical failures")
-                actors[completed[-1]["id"]] = measured_actors(completed[-1])
-            return {"premise": "Both legs can realize the required pelvis twist with fixed feet on the tread.",
-                    "actors": actors, "removed_assignment": "Replace independent fixed-foot kinematic corrections with a shared desired ground reaction distributed through both native leg servos."}
-        return self.decision("stance_premise", measure)
+    def measured_failures(self):
+        actors = {}
+        for name in self.first_pair:
+            completed = [r for r in self.state["runs"] if r["candidate"] == name and r["status"] == "COMPLETE"]
+            if not completed or self.passes(completed[-1]["result"], completed[-1]["stage"]):
+                raise ValueError("the first pair has not produced two terminal physical failures")
+            actors[completed[-1]["id"]] = self.actors(completed[-1])
+        return {"premise": self.premise, "actors": actors, "removed_assignment": self.replacement}
+
+    def audit_first_pair(self):
+        return self.decision(self.audit_key, self.measured_failures)
+
+    audit_stance = audit_first_pair
 
     def run_pair(self, names):
         for stage in ("probe", "screen", "60s"):
             if not names:
                 return None
             self.run_many([(name, stage) for name in names])
-            names = [name for name in names if eligible(self.previous(name, stage)["result"], stage)]
+            names = [name for name in names if self.passes(self.previous(name, stage)["result"], stage)]
         for name in sorted(names, key=lambda n: rank_record(self.previous(n, "60s"))):
             if self.confirm(name):
                 return name
@@ -119,7 +130,7 @@ class WholeBodyCampaign(G6Campaign):
     def confirm(self, name):
         for stage in ("120s", "repeat", "fine"):
             self.run_many([(name, stage)])
-            if not eligible(self.previous(name, stage)["result"], stage):
+            if not self.passes(self.previous(name, stage)["result"], stage):
                 return False
         evidence = [read_run(self.root / self.previous(name, s)["output"]) for s in PRECEDING]
         if not initial_pose_gate(evidence):
@@ -128,30 +139,30 @@ class WholeBodyCampaign(G6Campaign):
 
     def run_search(self):
         self.run_many([("control", "probe")])
-        candidate = self.run_pair(PAIRS["stance"])
+        candidate = self.run_pair(self.first_pair)
         if not candidate:
-            self.audit_stance()
-            candidate = self.run_pair(PAIRS["wrench"])
+            self.audit_first_pair()
+            candidate = self.run_pair(self.second_pair)
         result = {"initial_pose": "PASS" if candidate else "FAIL", "candidate": candidate}
         write_json(self.root / "milestones.json", result)
         return result
 
 
-def main():
+def main(campaign_type=WholeBodyCampaign, output=Path("outputs/g1_o6/g6_whole_body")):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, default=Path("outputs/g1_o6/g6_whole_body"))
+    parser.add_argument("--output", type=Path, default=output)
     parser.add_argument("--workers", type=int, default=2)
     sub = parser.add_subparsers(dest="action", required=True)
     sub.add_parser("run")
     for action in ("trial", "retry"):
         command = sub.add_parser(action)
-        command.add_argument("candidate", choices=[c.id for c in candidates()])
+        command.add_argument("candidate", choices=list(campaign_type.spec_factory()["candidates"]))
         command.add_argument("stage", choices=list(STAGES))
         if action == "retry":
             command.add_argument("--reason", required=True)
     args = parser.parse_args()
     with campaign_lock(args.output):
-        campaign = WholeBodyCampaign(args.output, args.workers)
+        campaign = campaign_type(args.output, args.workers)
         if args.action == "run":
             print(json.dumps(campaign.run_search()), flush=True)
         elif args.action == "trial":
