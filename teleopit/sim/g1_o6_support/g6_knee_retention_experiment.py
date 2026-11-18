@@ -25,9 +25,9 @@ def specification():
             "qualification": "original G6 knee-clearance criteria, plus a measured bilateral grasp capture"}
 
 
-def terminal_failure(prior, records, name):
+def terminal_failure(prior, records, name, gate=knee_passes):
     runs = [r for r in records if r["candidate"] == name and r["status"] == "COMPLETE"]
-    if not runs or knee_passes(runs[-1]["result"], runs[-1]["stage"]):
+    if not runs or gate(runs[-1]["result"], runs[-1]["stage"]):
         raise ValueError("expected a terminal physical failure for each preceding refinement")
     final = runs[-1]
     raw = prior / final["output"] / "summary.json"
@@ -39,14 +39,14 @@ def terminal_failure(prior, records, name):
             "native_knee": final["result"]["physics_audit"]["knee_rung3"]["native"]}
 
 
-def prior_failures(prior):
+def prior_failures(prior, *, specification=knee_specification, names=CONFIGURATIONS, gate=knee_passes):
     milestone = prior / "milestones.json"
     if not milestone.is_file() or json.loads(milestone.read_text()).get("initial_pose") != "FAIL":
         raise ValueError("the preceding three-configuration knee search must be exhausted")
     state = json.loads((prior / "campaign_state.json").read_text())
-    if state["spec_sha256"] != digest(knee_specification()):
+    if state["spec_sha256"] != digest(specification()):
         raise ValueError("unexpected preceding knee campaign")
-    return {name: terminal_failure(prior, state["runs"], name) for name in CONFIGURATIONS}
+    return {name: terminal_failure(prior, state["runs"], name, gate) for name in names}
 
 
 class RetentionObserver(KneeObserver):

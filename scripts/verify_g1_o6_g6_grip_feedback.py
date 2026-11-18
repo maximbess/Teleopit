@@ -97,11 +97,17 @@ class FeedbackAudit(GripAudit):
         self.anchor_height = self.previous_cap = None
         self.peak_travel = self.peak_speed = 0.
 
+    def nominal_cap(self, control):
+        return control["grip_feedback_cap_rad"]
+
+    def executed_cap(self, control, nominal, previous, anchor, native):
+        return nominal
+
     def feedback_cap(self, previous, control, native):
         anchor = control["settled_grip"]["ceiling_rad"]
-        saved = control["grip_feedback_cap_rad"]
+        saved = self.nominal_cap(control)
         if anchor is None:
-            assert saved is None
+            assert saved is None and control["grip_feedback_cap_rad"] is None
             return None
         anchor = np.asarray(anchor).reshape(2, 6)
         cap = np.asarray(saved).reshape(2, 6)
@@ -112,6 +118,7 @@ class FeedbackAudit(GripAudit):
         loads, opposed = zip(*(grasp_sample(raw, s) for s in SIDES))
         check_cap(cap, self.previous_cap, anchor, native.reshape(2, 6), np.asarray(loads),
                   opposed, self.anchor_height-heights, self.dt, self.spec, control["inhibition"])
+        cap = self.executed_cap(control, cap, self.previous_cap, anchor, native.reshape(2, 6))
         self.peak_travel = max(self.peak_travel, float(np.max(abs(cap-anchor))))
         self.peak_speed = max(self.peak_speed, float(np.max(abs(cap-self.previous_cap))) / self.dt)
         self.previous_cap = cap
@@ -122,10 +129,10 @@ class FeedbackAudit(GripAudit):
                 "peak_feedback_rate_rad_s": self.peak_speed}
 
 
-def verify_run(path, report):
+def verify_run(path, report, *, adaptive_type=FeedbackAudit):
     checked = verify_knee(path, report)
     meta, audit = read(path / "resolved.json"), read(path / "summary.json")["physics_audit"]
-    kind = FeedbackAudit if "grip_feedback" in meta["controller"] else GripAudit
+    kind = adaptive_type if "grip_feedback" in meta["controller"] else GripAudit
     commands = verify_grip(path, meta, kind)
     assert commands["capture_s"] == audit["settled_grip"]["capture_s"]
     return {**checked, "grip_support": contacts_at_both_rates(path, meta, audit["grip_support"]),

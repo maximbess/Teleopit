@@ -101,14 +101,20 @@ class ContactPreview:
             samples.append(self.contacts(model))
         mujoco.mj_forward(model, data)
         samples.append(self.contacts(model))
+        return self.summarize(samples)
+
+    @staticmethod
+    def summarize(samples):
         balances, fingers = zip(*samples)
         return Forecast(float(max(balances)), float(min(fingers)))
 
 
 class GroundReactionReference(WholeBodyReference):
+    preview_type = ContactPreview
+
     def __init__(self, env):
         super().__init__(env)
-        self.preview = ContactPreview(env)
+        self.preview = self.preview_type(env)
         self.last, self.choice, self.count = None, None, 0
 
     def leg_targets(self, env, levers, force, moment):
