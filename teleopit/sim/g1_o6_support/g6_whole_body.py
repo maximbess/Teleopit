@@ -93,7 +93,7 @@ class WholeBodyReference:
         self.anchor = self.latch_time = None
 
     def desired(self, env, amount):
-        command = self.parent.desired(env, amount)
+        command = self.grasp_command(env, amount)
         if env.phase != "HOLD":
             return command
         pelvis = env.data.body("pelvis")
@@ -109,6 +109,9 @@ class WholeBodyReference:
         self.offset = self.select_offset(env, command, baseline, increment, bounds, frozen)
         command[self.indices] = baseline + self.offset
         return command
+
+    def grasp_command(self, env, amount):
+        return self.parent.desired(env, amount)
 
     def select_offset(self, env, command, baseline, increment, bounds, frozen):
         return bounded_offset(self.offset, increment, bounds, frozen, env.config.control_dt)

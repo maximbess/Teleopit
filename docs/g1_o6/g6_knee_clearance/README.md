@@ -21,3 +21,16 @@ Reconstruct the signed gap from every saved joint configuration and cross-check 
 ```powershell
 conda run --no-capture-output -n teleopit python -m scripts.verify_g1_o6_g6_knee --root outputs/g1_o6/g6_knee_clearance
 ```
+
+## Conditional settled-grip trial
+
+The initial 30 s screens showed that stronger stance feedback increased knee approach while all eight non-thumb finger targets continued advancing. A separate follow-up ledger reserves one final configuration if the three first-ledger configurations all fail. It checks their terminal summaries against their original hashes before starting. The total search bound is four refinements.
+
+The final configuration uses the matched foot-specific ground-reaction parent. When clearance falls below 35 mm it requests a pelvis retreat along the measured approach axis, capped at 8 mm. After five seconds of HOLD, it captures the twelve applied finger and thumb servo targets at an update with both anatomically valid grasps, at least 0.35 N on each non-thumb finger, and no structural or slip inhibition. Each subsequent hand command takes the smaller of the native preload command and its captured target. The original opening response, joint limits, delay and command slew still apply. The parent's native force preview receives the complete capped command before choosing leg targets. The new ledger uses the same force, clearance, finger and pose gates and the same fresh stages.
+
+Keep the first ledger at `g6_knee_clearance` beside the follow-up output directory when reproducing the conditional trial.
+
+```powershell
+conda run --no-capture-output -n teleopit python -m teleopit.sim.g1_o6_support.g6_knee_retention_experiment --output outputs/g1_o6/g6_knee_retention run
+conda run --no-capture-output -n teleopit python -m scripts.verify_g1_o6_g6_knee_retention --root outputs/g1_o6/g6_knee_retention
+```

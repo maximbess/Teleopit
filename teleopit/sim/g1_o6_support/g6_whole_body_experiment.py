@@ -140,7 +140,7 @@ class WholeBodyCampaign(G6Campaign):
     def run_search(self):
         self.run_many([("control", "probe")])
         candidate = self.run_pair(self.first_pair)
-        if not candidate:
+        if not candidate and self.second_pair:
             self.audit_first_pair()
             candidate = self.run_pair(self.second_pair)
         result = {"initial_pose": "PASS" if candidate else "FAIL", "candidate": candidate}
