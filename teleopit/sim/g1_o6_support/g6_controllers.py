@@ -4,6 +4,7 @@ from teleopit.sim.g1_o6.env import Environment
 
 from .g6_acquisition import GraspAcquisition, GraspEnvironment
 from .g6_arm import ArmEnvironment, ArmFeedback
+from .g6_whole_body import WholeBody, WholeBodyEnvironment
 
 Controller = str | ArmFeedback | GraspAcquisition
 
@@ -14,6 +15,8 @@ def valid_controller(value):
 
 def parse_controller(value):
     if isinstance(value, dict):
+        if "balance" in value:
+            return WholeBody(**value)
         factory = GraspAcquisition if "order" in value else ArmFeedback
         return factory(**value)
     if not valid_controller(value):
@@ -22,6 +25,8 @@ def parse_controller(value):
 
 
 def environment_factory(controller):
+    if isinstance(controller, WholeBody):
+        return WholeBodyEnvironment, {"grasp_acquisition": controller}
     if isinstance(controller, GraspAcquisition):
         return GraspEnvironment, {"grasp_acquisition": controller}
     if isinstance(controller, ArmFeedback):

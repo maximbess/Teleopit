@@ -1,0 +1,5 @@
+# G6 whole-body stabilization work log
+
+1. Read the prior acquisition trace at HOLD entry and at 5, 30, 60, 72, 76, 79, 82 and 106.9 seconds. Used the saved MuJoCo model to reconstruct ankle, pelvis, torso and wrist motion in world axes. At 79 seconds, both feet had yawed over 3°, the left wrist had risen 21 mm, and the left pinky carried 0.09 N. These measurements motivated feedback through the stance legs and waist.
+2. Wrote six failing controller, restoration and promotion tests before implementing the experiment. All six failed on the absent whole-body modules. Retained the acquired parent's existing grasp and arm law. Set the body bounds, candidate pairs, promotion rules and stopping condition before the first trial.
+3. Tested the two corrections on real model kinematics. Adjusted the comparison to use the parent's native joint-clipped command, which is what the simulated servos receive. Checked that computing the correction leaves the live generalized state, controls and externally applied forces untouched.

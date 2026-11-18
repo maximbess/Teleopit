@@ -55,7 +55,7 @@ def arm_mapping(model, metadata):
 def verify_run(path, output):
     metadata = read(path / "resolved.json")
     controller = metadata["controller"]
-    if controller.get("mode") != "g6_acquisition_arm_feedback":
+    if controller.get("mode") not in ("g6_acquisition_arm_feedback", "g6_whole_body"):
         return {"status": "NOT_APPLICABLE", "reason": "unchanged reference controller"}
     model = mujoco.MjModel.from_binary_path(str(path / "scene.mjb"))
     mounts = {side: value["mount"] for side, value in metadata["model"]["hands"].items()}
