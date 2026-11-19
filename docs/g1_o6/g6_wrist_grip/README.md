@@ -9,3 +9,9 @@ The matched control must reproduce its archived probe trace. Each refinement sta
 ```powershell
 conda run --no-capture-output -n teleopit python -m teleopit.sim.g1_o6_support.g6_wrist_grip_experiment --output outputs/g1_o6/g6_wrist_grip run
 ```
+
+The verifier reconstructs each captured pad point from the logged contact centroids, uses the saved model and joint positions to rebuild its Jacobian, and checks the arm command after effort freezing, joint and Cartesian projection, slew and delay. It also replays the original grip, contact, knee-clearance and force checks.
+
+```powershell
+conda run --no-capture-output -n teleopit python -m scripts.verify_g1_o6_g6_wrist_grip --root outputs/g1_o6/g6_wrist_grip
+```

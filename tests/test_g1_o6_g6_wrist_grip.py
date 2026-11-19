@@ -14,6 +14,8 @@ def test_wrist_velocity_seats_the_thumb_and_recovers_tangential_contact_location
     assert np.linalg.norm(missing[:2]) == pytest.approx(.002)
     assert missing[2] == pytest.approx(.002)
     assert pad_velocity(zero, 1.0, True)[2] < 0
+    np.testing.assert_allclose(pad_velocity(np.array([.0005, -.0002, .03]), .55, True),
+                               [.0004, -.00016, .0004])
     j = np.column_stack((np.eye(3), np.zeros(3), np.eye(3)))
     offset = np.full(7, .01)
     for distributed in (False, True):
@@ -66,3 +68,23 @@ def test_wrist_campaign_keeps_prior_support_gates_and_requires_active_feedback()
     assert wrist_exercised(audit)
     audit["wrist_grip"]["capture_s"] = 4.
     assert not wrist_exercised(audit)
+
+
+def test_conditional_arm_redistribution_requires_two_terminal_wrist_trials(tmp_path):
+    from teleopit.sim.g1_o6_support.g6_wrist_grip_experiment import WristCampaign, PARENT_TRACE
+
+    campaign = WristCampaign(tmp_path)
+    state = campaign.state
+    assert state["specification"]["budgets"]["probe"] == 4
+    state["runs"].append({"id":"control_probe", "stage":"probe", "candidate":"control",
+                          "status":"COMPLETE", "files_sha256":{"steps.jsonl":PARENT_TRACE}})
+    for name in ("right_wrist", "both_wrists"):
+        with pytest.raises(ValueError):
+            campaign.validate_stage("distributed_arms", "probe")
+        result = {"strict":{"unsupported_hold_seconds":28.,"final_diagnostics":{"supports":{}}},
+                  "strict_status":"FAIL","contact_quality":{"status":"FAIL","minimum_group_normal_N":{}},
+                  "drift_assessment":{"status":"NOT RUN"}, "physics_audit":{"knee_rung3":{},"ground_reaction":{},
+                  "grip_support":{"native":{"loss_steps":{"right_thumb":1}}}}}
+        state["runs"].append({"id":name+"_screen","stage":"screen","candidate":name,"status":"COMPLETE","result":result})
+    assert set(campaign.audit_first_pair()["actors"]) == {"both_wrists_screen", "right_wrist_screen"}
+    campaign.validate_stage("distributed_arms","probe")
