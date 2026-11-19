@@ -1,17 +1,21 @@
 # Bounded wrist and grip feedback on G6
 
+[Measured hold results](OUTCOMES.md) · [Trial measurements and hashes](results.json) · [Work log](WORK_LOG.md)
+
 The matched G1 starts with both O6 hands on rung 7 and both feet on rung 2. The preceding grip controller first lost right-thumb opposition at 40.563 s. Its distal pad had migrated along the underside of the tread, and every available grip command predicted that loss. The wrist experiment retains its bilateral native-interval grip preview, finite finger preload, body controller and knee guard. [Preceding trial](../g6_grip_feedback/OUTCOMES.md)
 
 The experiment fixes three configurations in advance. The first regulates the right wrist, the second regulates both wrists, and the third lets all seven joints of each arm regulate its thumb contact. The third requires terminal failures from both wrist configurations. All three capture a material point on the distal thumb corresponding to the force-weighted tread-contact centroid when the original settled grasp is captured. They correct its two tangential position errors and its underside-normal load using the actual tread axes. The target is 0.65 N. An unopposed thumb contributes zero effective load. Tangential and normal speed requests are each bounded at 2 mm/s. In the wrist configurations the three wrist joints correct the pad velocity while the shoulder and elbow commands recenter. Each selected joint operates inside the original 0.03 rad correction, 0.02 rad/s slew, 5 mm mount displacement, 0.03 rad mount rotation and 98% effort freeze limits. The original structural and slip backoff takes priority.
 
 The matched control must reproduce its archived probe trace. Each refinement starts from a fresh reset for the 5, 30 and 60 s screens. Qualification requires a nominal 120 s hold, a fresh 120 s repeat and a 120 s hold with a 0.5 ms timestep. The physical and anatomical gates include both opposed thumbs, four loaded left fingers, strictly positive right-knee clearance from rung 3, no knee contact and force residual below 25 N at every native step and every control endpoint. The original final-30-second convergence, friction and unassisted-support gates apply.
 
+The recorded campaign lives in `outputs/g1_o6/g6_wrist_grip` and uses simulator revision `f621b79`. Run a fresh campaign from the repository root with its own output directory.
+
 ```powershell
-conda run --no-capture-output -n teleopit python -m teleopit.sim.g1_o6_support.g6_wrist_grip_experiment --output outputs/g1_o6/g6_wrist_grip run
+conda run --no-capture-output -n teleopit python -m teleopit.sim.g1_o6_support.g6_wrist_grip_experiment --output outputs/g1_o6/g6_wrist_grip_replay run
 ```
 
 The verifier reconstructs each captured pad point from the logged contact centroids, uses the saved model and joint positions to rebuild its Jacobian, and checks the arm command after effort freezing, joint and Cartesian projection, slew and delay. It also replays the original grip, contact, knee-clearance and force checks.
 
 ```powershell
-conda run --no-capture-output -n teleopit python -m scripts.verify_g1_o6_g6_wrist_grip --root outputs/g1_o6/g6_wrist_grip
+conda run --no-capture-output -n teleopit python -m scripts.verify_g1_o6_g6_wrist_grip --root outputs/g1_o6/g6_wrist_grip_replay
 ```
