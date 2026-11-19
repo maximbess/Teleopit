@@ -92,6 +92,8 @@ class StabilizedAcquisition(AcquisitionArmReference):
 
 
 class GraspEnvironment(Environment):
+    stabilizer_type = StabilizedAcquisition
+
     def __init__(self, *args, grasp_acquisition, **kwargs):
         self.grasp_acquisition = grasp_acquisition
         super().__init__(*args, **kwargs)
@@ -101,5 +103,5 @@ class GraspEnvironment(Environment):
         self.hold_controller = FingerAcquisition(self)
         if self.grasp_acquisition.arm_rate_rad_s:
             settings = ArmFeedback("retain", self.grasp_acquisition.arm_rate_rad_s)
-            self.hold_controller = StabilizedAcquisition(self, settings)
+            self.hold_controller = self.stabilizer_type(self, settings)
         return row

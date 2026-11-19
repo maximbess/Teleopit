@@ -32,12 +32,16 @@ def loaded_grasp(hands):
                for side in ("left", "right"))
 
 
+def capture_ready(elapsed, hands, inhibition):
+    return elapsed >= CAPTURE_S - 1e-9 and not inhibition and loaded_grasp(hands)
+
+
 class SettledGrip:
     def __init__(self):
         self.ceiling, self.capture_s = None, None
 
     def capture(self, elapsed, hands, inhibition, applied):
-        if self.ceiling is None and elapsed >= CAPTURE_S - 1e-9 and not inhibition and loaded_grasp(hands):
+        if self.ceiling is None and capture_ready(elapsed, hands, inhibition):
             self.ceiling, self.capture_s = applied.copy(), elapsed
 
     def command(self, elapsed, hands, inhibition, original, applied):

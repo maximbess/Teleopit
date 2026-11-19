@@ -1,0 +1,6 @@
+# G6 wrist and grip work log
+
+1. Started on `dex-hand-exp` at `1860f14`. Read the requested `ub-mode` skill and preserved the existing local viewer edits. Checked the archived command and native-contact SHA-256 hashes before reconstructing the preceding failure.
+2. At 40.562 s the right thumb had 0.381 N on rung 7. The next 1 ms record contained no right-thumb contact. It reloaded at 40.564 s. The underside contact had moved about 10 mm in tread depth between capture and loss. The arm command reached its 5 mm Cartesian limit at capture. The archived nominal grip and all three alternative grips lost opposition in the failing interval.
+3. Replaced the assumption that finger commands alone could maintain the thumb contact location. Defined two wrist-only configurations and one conditional configuration sharing corrections across the proximal arm. Wrote three failing tests for mixed position/load feedback, operation in the real native controller, the arm limits and the new activity gate.
+4. Resolved each distal thumb from its native interphalangeal joint, captured a material point on the pad, and routed the wrist and grip commands through the original bounded servos. Three focused tests passed, including a real bilateral capture and both timestep configurations. Marked the new output directory for lossless filesystem compression.
