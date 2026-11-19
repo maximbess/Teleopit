@@ -1,6 +1,6 @@
 # Bounded wrist and grip feedback on G6
 
-[Measured hold results](OUTCOMES.md) · [Trial measurements and hashes](results.json) · [Work log](WORK_LOG.md)
+[Short report, photos and video](SHORT_REPORT.md) · [Measured hold results](OUTCOMES.md) · [Trial measurements and hashes](results.json) · [Work log](WORK_LOG.md)
 
 The matched G1 starts with both O6 hands on rung 7 and both feet on rung 2. The preceding grip controller first lost right-thumb opposition at 40.563 s. Its distal pad had migrated along the underside of the tread, and every available grip command predicted that loss. The wrist experiment retains its bilateral native-interval grip preview, finite finger preload, body controller and knee guard. [Preceding trial](../g6_grip_feedback/OUTCOMES.md)
 
