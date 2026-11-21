@@ -121,6 +121,14 @@ class ThumbCampaign(WristCampaign):
             stage: mechanism(name, self.signals(self.previous(name, stage))) for stage in ("60s", "repeat60")})
         return all(r["supported"] for r in result.values())
 
+    def confirmed_short_hold(self, name):
+        for stage in ("probe", "repeat60"):
+            run = self.previous(name, stage) or {}
+            if run.get("status") != "COMPLETE" or run.get("imported_control") or not self.passes(run["result"], stage):
+                return False
+        proof = next((d["value"] for d in self.state["decisions"] if d["name"] == "mechanism_" + name), {})
+        return all(proof.get(stage, {}).get("supported") is True for stage in ("60s", "repeat60"))
+
     def confirm(self, name):
         self.run_many([(name, "repeat60")])
         return (self.passes(self.previous(name, "repeat60")["result"], "repeat60")

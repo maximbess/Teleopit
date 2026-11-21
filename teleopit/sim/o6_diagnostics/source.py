@@ -10,8 +10,16 @@ from teleopit.sim.g1_o6.holding import FINGER_LAW
 from teleopit.sim.g1_o6.metadata import SCHEMA, controller_settings
 
 
+class UnsupportedIsolatedController(ValueError):
+    def __init__(self, schema):
+        self.schema = schema
+        super().__init__(f"unsupported source controller {schema}; isolated runner supports {FINGER_LAW}")
+
+
 def validate_contract(metadata):
     try:
+        if metadata["controller"].get("isolated_runner_support") is False:
+            raise UnsupportedIsolatedController(metadata["controller"]["schema"])
         if metadata["controller"]["schema"] != FINGER_LAW:
             raise ValueError(
                 "unsupported source controller; isolated runner supports " + FINGER_LAW
@@ -36,6 +44,8 @@ def validate_contract(metadata):
             if name not in metadata:
                 raise ValueError(f"missing {name}")
         geometry_fields(metadata)
+    except UnsupportedIsolatedController:
+        raise
     except (KeyError, TypeError, ValueError, AttributeError) as exc:
         raise ValueError(f"invalid source-run contract: {exc}") from exc
 

@@ -57,3 +57,37 @@ def test_relocated_saved_model_preserves_exact_identity_and_rejects_changed_mass
     mujoco.mj_saveModel(env.model, str(scene), None)
     with pytest.raises(ValueError, match="undeclared physical"):
         restore_environment(meta, .001, saved_scene=scene)
+
+
+def test_capacity_matrix_stops_at_the_first_uncovered_measured_wrench(tmp_path, monkeypatch):
+    from teleopit.sim.g1_o6_support import g6_capacity as capacity
+
+    demand = {"time_s":12., "wrench_world_at_mount":[0.,0.,-9.,0.,.5,0.]}
+    plan = {"bounds":{"force_N":30., "moment_Nm":2.}, "robot_weight_N":100., "states":[
+        {"side":s, "reference":demand} for s in ("left","right")]}
+    monkeypatch.setattr(capacity, "capacity_plan", lambda *args: plan)
+    monkeypatch.setattr(capacity, "qualified_source", lambda *a, **kw: SimpleNamespace())
+    calls = []
+    def stand(source, side, directory, references, dt, budget):
+        calls.append((side, references[0]["wrench_world_at_mount"], dt))
+        return {"trials":[1], "reserve_qualified":False, "physical_status":"FAIL"}
+    monkeypatch.setattr(capacity, "evaluate_side", stand)
+    result = capacity.run_g6_capacity(tmp_path, tmp_path)
+    assert calls == [("left", demand["wrench_world_at_mount"], .001)]
+    assert result["capacity_status"] == "BLOCKED" and result["physical_status"] == "FAIL"
+    assert result["remaining_trials"] == {"left":191, "right":192}
+
+
+def test_transfer_rejects_wrong_qualification_identity_before_starting_trial(tmp_path):
+    import pytest
+    from teleopit.sim.g1_o6.diagnostics import snapshot
+    from teleopit.sim.g1_o6_support.g6_thumb_retention_experiment import candidates
+    from teleopit.sim.g1_o6_support.g6_trial import make_environment
+    from teleopit.sim.g1_o6_support.long_hold import experiment_metadata
+    from teleopit.sim.g1_o6_support.transfer import execute_transfer
+
+    env = make_environment(candidates()[0], 5, .001)
+    meta = experiment_metadata(env, snapshot(env), {"mode":"hold"})
+    proof = SimpleNamespace(source={"path":str(tmp_path), "metadata":meta}, identity="different")
+    with pytest.raises(ValueError, match="differ from qualified evidence"):
+        execute_transfer(proof, tmp_path, {"mode":"load", "physics_dt": .001})

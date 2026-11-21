@@ -9,7 +9,9 @@ import numpy as np
 from scripts.g1_o6_g6_thumb_replay import loads
 from teleopit.sim.g1_o6_support.scene_contract import restore_environment
 from teleopit.sim.g1_o6_support.transfer import TransferTrial
+from teleopit.sim.g1_o6_support.long_hold import enrich
 from teleopit.sim.o6_diagnostics.harness import Source
+from teleopit.sim.o6_diagnostics.nominal import coupled_telemetry
 
 
 def compare_commands(run, meta, mode, output):
@@ -19,6 +21,7 @@ def compare_commands(run, meta, mode, output):
                    three_seconds=1, plateau_seconds=10)
     output.mkdir(parents=True, exist_ok=True)
     trial = TransferTrial(env, request, output)
+    telemetry = coupled_telemetry(env)
     needs_proximal = meta["controller"].get("right_retention", {}).get("intervention") == "recenter"
     exercised = False
     try:
@@ -29,6 +32,11 @@ def compare_commands(run, meta, mode, output):
                 # Keep transfer overlays idle. Compare the wrapped live command to the source
                 # at every tick, including the captured wrist and bilateral grip decision.
                 measured = env.step(trial.observe if row["phase"] == "HOLD" else None)
+                # Exercise acquisition and the initial transfer baseline. Stop advancing
+                # the transfer protocol before any change to the requested load.
+                if (row["hold_time_s"] or 0) < .12:
+                    enrich(env, measured, telemetry, trial.hold_start, trial.audit)
+                    trial.update(measured)
                 np.testing.assert_array_equal(env.data.ctrl, row["applied_position_targets_rad"])
                 np.testing.assert_array_equal(measured["joint_positions"], row["joint_positions"])
                 ticks += 1

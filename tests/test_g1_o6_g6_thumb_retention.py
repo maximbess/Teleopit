@@ -107,6 +107,22 @@ def test_repeated_hold_and_explanation_are_both_required_before_120(tmp_path, mo
     campaign.validate_confirmation("preorient","120s")
 
 
+def test_downstream_requires_fresh_probe_and_the_measured_explanation(tmp_path, monkeypatch):
+    from teleopit.sim.g1_o6_support.g6_thumb_retention_experiment import ThumbCampaign
+
+    campaign = ThumbCampaign(tmp_path)
+    monkeypatch.setattr(campaign, "passes", lambda result, stage: result["valid"])
+    assert not campaign.confirmed_short_hold("preorient")
+    for stage in ("probe", "repeat60"):
+        campaign.state["runs"].append(dict(candidate="preorient", stage=stage, status="COMPLETE", result={"valid":True}))
+    assert not campaign.confirmed_short_hold("preorient")
+    campaign.state["decisions"].append({"name":"mechanism_preorient", "value":{
+        "60s":{"supported":True}, "repeat60":{"supported":True}}})
+    assert campaign.confirmed_short_hold("preorient")
+    campaign.state["runs"][0]["imported_control"] = True
+    assert not campaign.confirmed_short_hold("preorient")
+
+
 def test_matched_mechanism_distinguishes_delayed_saturation_from_drift():
     from teleopit.sim.g1_o6_support.g6_thumb_retention_experiment import matched_sample, mechanism
 
@@ -121,3 +137,18 @@ def test_matched_mechanism_distinguishes_delayed_saturation_from_drift():
     assert not mechanism("preorient", signals)["supported"]
     with pytest.raises(ValueError, match="timestamp"):
         matched_sample(signals, "fixed", 30.)
+
+
+def test_campaign_cli_stops_after_three_failed_hypotheses_and_reports_blocked_milestones(tmp_path, monkeypatch):
+    import json
+    import sys
+    from teleopit.sim.g1_o6_support.g6_thumb_retention_experiment import ThumbCampaign, main
+
+    attempted = []
+    monkeypatch.setattr(ThumbCampaign, "run_many", lambda self, entries: attempted.extend(entries))
+    monkeypatch.setattr(ThumbCampaign, "run_pair", lambda self, entries: attempted.append(tuple(entries)))
+    monkeypatch.setattr(ThumbCampaign, "audit_first_pair", lambda self: attempted.append("audited"))
+    monkeypatch.setattr(sys, "argv", ["experiment", "--output", str(tmp_path), "run"])
+    main(ThumbCampaign)
+    assert attempted == [("control","probe"), ("inward_2mm","preorient"), "audited", ("recenter",)]
+    assert json.loads((tmp_path/"milestones.json").read_bytes())["controlled_release"]["status"] == "BLOCKED"

@@ -33,3 +33,32 @@ def test_missing_contact_exports_json_null_and_first_failure_uses_the_earliest_c
                            {"drift":55., "left_fingers":52.029})
     assert result == {"hold_s":52.029, "conditions":["left_fingers","right_thumb"]}
     assert first_failure({"t":None}, {}) is None
+
+
+def test_reference_can_be_repeated_from_the_tracked_evidence_without_raw_archives():
+    from pathlib import Path
+    from scripts.g1_o6_g6_reference_replay import reference_inputs
+
+    candidate, expected = reference_inputs(Path("docs/g1_o6/g6_wrist_grip/results.json"))
+    assert candidate.controller.wrist_mode == "right"
+    assert candidate.pose.hand_rungs == (7,7) and candidate.pose.foot_rungs == (2,2)
+    assert expected["60s"] == "135a4b2bc2b71e7509fbb233f3ba94a921687b0b7b1d173d97ed815ec7b0eb98"
+
+
+def test_unreachable_reset_has_model_time_zero_and_no_hold_timestamp():
+    from scripts.g1_o6_g6_thumb_report import prehold_failure
+
+    result = {"reset_status":"INFEASIBLE", "reasons":["initial_joint_range"]}
+    assert prehold_failure(result) == {"hold_s":None, "model_s":0., "phase":"RESET", "conditions":["initial_joint_range"]}
+
+
+def test_native_reference_hash_tracks_sample_bytes_independently_of_gzip_time(tmp_path):
+    import gzip
+    from scripts.g1_o6_g6_reference_replay import decoded_hash
+
+    a, b = tmp_path/"a.gz", tmp_path/"b.gz"
+    a.write_bytes(gzip.compress(b"contact at 52.029", mtime=1))
+    b.write_bytes(gzip.compress(b"contact at 52.029", mtime=2))
+    assert a.read_bytes() != b.read_bytes() and decoded_hash(a) == decoded_hash(b)
+    b.write_bytes(gzip.compress(b"contact at 52.030", mtime=1))
+    assert decoded_hash(a) != decoded_hash(b)

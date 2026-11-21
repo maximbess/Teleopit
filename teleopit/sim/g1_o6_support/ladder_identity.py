@@ -26,15 +26,14 @@ def physical_identity(model, *, mesh_pathadr=None):
     bodies = [b for b in range(model.nbody) if region(model, b) != "environment"]
     geoms = [g for g in range(model.ngeom) if "_ladder_" not in model.geom(g).name]
     selected = []
+    source_layout = {} if mesh_pathadr is None else {"mesh_pathadr": mesh_pathadr}
     for name in dir(model):
         value = getattr(model, name)
         if not isinstance(value, np.ndarray):
             continue
         physical = invariant_field(model, name, value, bodies, geoms)
         if physical is not None:
-            if name == "mesh_pathadr" and mesh_pathadr is not None:
-                physical = mesh_pathadr
-            selected.append((name, physical))
+            selected.append((name, source_layout.get(name, physical)))
     solver = solver_fields(model.opt)
     return {
         "robot_and_ground_sha256": array_digest(selected),

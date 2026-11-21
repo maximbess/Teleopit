@@ -1,6 +1,7 @@
 """Publish matched G6 traces, physical gate times and source hashes from the completed campaigns."""
 
 import argparse
+import gzip
 import hashlib
 import json
 from pathlib import Path
@@ -31,6 +32,14 @@ def control_failures(path):
                 for reason in row["failure_reasons"]:
                     first.setdefault(reason, row["hold_time_s"])
     return first
+
+
+def prehold_failure(result):
+    if result.get("reset_status") == "INFEASIBLE":
+        return dict(hold_s=None, model_s=0., phase="RESET", conditions=result["reasons"])
+    strict = result["strict"]
+    abort = next(e for e in strict["events"] if e["next"] == "ABORT")
+    return dict(hold_s=None, model_s=abort["time"], phase=abort["previous"], conditions=strict["failure_reasons"])
 
 
 def audited_failures(result):
@@ -68,6 +77,20 @@ def cached_signals(path, record, cache):
         return {k:saved[k] for k in saved}
 
 
+def reactions_at(path, when):
+    with gzip.open(path / "physics_contacts.jsonl.gz", "rb") as stream:
+        row = next((r for r in map(loads, stream) if r["phase"] == "HOLD"
+                    and abs(r["phase_time_s"] - when) < 1e-7), None)
+    if row is None:
+        return None
+    reactions = dict.fromkeys(row["support_targets"], 0.)
+    for c in row["contacts"]:
+        for i, side in enumerate(c["regions"]):
+            if side in reactions and row["support_targets"][side] in c["geoms"]:
+                reactions[side] += (1 if i == 1 else -1) * c["force_on_second_world"][2]
+    return reactions
+
+
 def trial_evidence(path, record, data):
     result = record["result"]
     audit = result["physics_audit"]
@@ -82,6 +105,7 @@ def trial_evidence(path, record, data):
         first = {"hold_s":evidence["end_s"], "conditions":["stage qualification at completion"]}
     return {**evidence, "run_id":record["id"], "candidate":record["candidate"], "stage":stage,
             "qualified_stage":bool(passed), "first_failure":first, "audited_threshold_crossings_s":original,
+            "signed_tread_Fz_at_first_failure_N":reactions_at(path, first["hold_s"]) if first else None,
             "peak_residual_N":float(np.max(data["residual"])), "minimum_knee_mm":float(1000*np.min(data["knee_gap"])),
             "nonzero_applied_steps":audit["nonzero_applied_steps"], "housing_steps":audit["housing_contact_steps"],
             "unintended_steps":audit["unintended_support_steps"], "native_friction":audit["native_hand_friction"]["status"],
@@ -104,12 +128,14 @@ def compare_plot(pairs, output):
         lost = np.flatnonzero((a["right_thumb"] < .05) | (a["left_thumb"] < .05))
         if lost.size:
             event = t[lost[0]]
+            side = "Left" if a["left_thumb"][lost[0]] < .05 else "Right"
             for ax in axes:
                 ax.axvline(event, color=color, alpha=.55, lw=1, linestyle=":")
-            axes[0].annotate(f"{event:.3f} s", (event, .05), xycoords=("data","axes fraction"),
+            axes[0].annotate(f"{side} thumb\n{event:.3f} s", (event, .05), xycoords=("data","axes fraction"),
                              xytext=(-4,2), textcoords="offset points", ha="right", color=color, fontsize=9)
     axes[0].legend(loc="upper center", bbox_to_anchor=(.5, 1.54), ncol=2, frameon=False)
     axes[0].set(ylabel="Edge clearance (mm)", title="Right thumb   ·   solid contact centroid   /   dashed fixed pad point")
+    axes[0].set_ylim(bottom=0)
     axes[1].axhline(30, color="#454545", alpha=.55, lw=1, ls=":")
     axes[1].set(ylabel="Rotation (mrad)", title="Right wrist   ·   solid requested before Cartesian limits   /   dashed applied")
     axes[2].set(ylabel="Displacement (mm)", xlabel="Time after assistance removal (s)",
@@ -132,6 +158,13 @@ def read_campaign(root, cache):
         if record["status"] != "COMPLETE":
             raise ValueError("campaign has unfinished runs")
         path = root / record["output"]
+        if not record["result"].get("physics_audit", {}).get("scored_steps"):
+            if file_hash(path / "summary.json") != record["files_sha256"]["summary.json"]:
+                raise ValueError("changed pre-hold evidence")
+            trials.append({"run_id":record["id"], "candidate":record["candidate"], "stage":record["stage"],
+                           "identity":record["identity"], "files_sha256":record["files_sha256"], "qualified_stage":False,
+                           "end_s":0., "native_steps":0, "first_failure":prehold_failure(record["result"])})
+            continue
         data = cached_signals(path, record, cache)
         trials.append(trial_evidence(path, record, data))
         traces[record["id"]] = data
@@ -143,9 +176,19 @@ def publish(campaign, reference, cache, output):
     output.mkdir(parents=True, exist_ok=True)
     experiments, candidates = read_campaign(campaign, cache)
     repetitions, references = read_campaign(reference, cache)
-    longest = max((r for r in experiments if r["candidate"] != "control"), key=lambda r:r["end_s"])
-    compare_plot([("Right-wrist reference", references["control_60s"]),
-                  ("Right-arm " + longest["candidate"], candidates[longest["run_id"]])], output / "comparison.png")
+    comparable = [r for r in experiments if r["candidate"] != "control" and r["run_id"] in candidates]
+    labels = {"recenter":"Right-arm recentering", "preorient":"Right-wrist pre-orientation",
+              "inward_2mm":"2 mm inward acquisition", "inward_4mm":"4 mm inward acquisition"}
+    if comparable and references:
+        longest = max(comparable, key=lambda r:r["end_s"])
+        reference_id = max(references, key=lambda key:len(references[key]["time"]))
+        compared = (references[reference_id], candidates[longest["run_id"]])
+        compare_plot(list(zip(("Right-wrist reference", labels[longest["candidate"]]), compared)), output / "comparison.png")
+        channels = ("time", "fixed", "centroid", "fixed_margin", "centroid_margin", "right_palm", "slip",
+                    "right_thumb", "left_thumb", "weak_left", "residual", "knee_gap", "control_time",
+                    "requested", "applied", "projected")
+        np.savez_compressed(output / "comparison.npz", **{label+"_"+k:a[k]
+                            for label, a in zip(("reference","candidate"), compared) for k in channels})
     metrics = {"experiments":experiments, "reference_repeats":repetitions,
                "milestones":loads((campaign / "milestones.json").read_bytes())}
     (output / "results.json").write_text(json.dumps(json_values(metrics), indent=2, allow_nan=False)+"\n")

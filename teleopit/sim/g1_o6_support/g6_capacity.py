@@ -1,6 +1,5 @@
 """G6 capacity at each critical measured state, with a frozen finite budget."""
 
-import json
 from dataclasses import asdict
 from pathlib import Path
 
@@ -14,6 +13,7 @@ from teleopit.sim.o6_diagnostics.io import (
 from .capacity import CapacityBounds, measured_references, qualified_source
 from .capacity_matrix import evaluate_side, load_cases
 from .qualification import critical_groups
+from teleopit.sim.o6_diagnostics.source import UnsupportedIsolatedController
 
 
 def capacity_plan(source_path, planned_share=0.16, budget=192):
@@ -70,19 +70,19 @@ def state_references(entry, weight, planned_share):
 
 def run_g6_capacity(source_path, output, *, planned_share=0.16, budget=192, dt=0.001):
     path = output_directory(output)
-    controller = json.loads((Path(source_path) / "resolved.json").read_bytes())["controller"]
-    if controller.get("isolated_runner_support") is False:
+    try:
+        plan = capacity_plan(source_path, planned_share, budget)
+    except UnsupportedIsolatedController as error:
         result = {"schema": "g1_o6_g6_state_capacity_v1", "physical_status": "BLOCKED",
-                  "capacity_status": "BLOCKED", "states": [], "controller_schema": controller["schema"],
+                  "capacity_status": "BLOCKED", "states": [], "controller_schema": error.schema,
                   "reason": "The free-wrist bench cannot execute the source controller's coupled feedback."}
         write_json(path / "summary.json", result)
         manifest(path, "g6_state_capacity", {"source_run": str(source_path)})
         return result
-    return evaluate_capacity_matrix(source_path, path, planned_share, budget, dt)
+    return evaluate_capacity_matrix(plan, source_path, path, planned_share, budget, dt)
 
 
-def evaluate_capacity_matrix(source_path, path, planned_share, budget, dt):
-    plan = capacity_plan(source_path, planned_share, budget)
+def evaluate_capacity_matrix(plan, source_path, path, planned_share, budget, dt):
     write_json(path / "declared_matrix.json", plan)
     result = {
         "schema": "g1_o6_g6_state_capacity_v1",
