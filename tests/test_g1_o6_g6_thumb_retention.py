@@ -53,3 +53,35 @@ def test_downstream_cannot_advance_a_run_that_failed_its_controller_specific_gat
     campaign = SimpleNamespace(root=tmp_path, state={"candidates":["x"], "runs":records},
                                passes=lambda result, stage: result["passed"])
     assert qualified_pose(campaign) == (None, [])
+
+
+def test_four_mm_depends_on_measured_clearance_and_acquisition(tmp_path, monkeypatch):
+    from teleopit.sim.g1_o6_support.g6_thumb_retention_experiment import ThumbCampaign
+
+    campaign = ThumbCampaign(tmp_path)
+    with pytest.raises(ValueError, match="4 mm"):
+        campaign.validate_stage("inward_4mm", "probe")
+    assert campaign.state["decisions"] == []
+    acquired = {"ready_for_hold": True}
+    result = {"physics_audit":{"grasp_acquisition":acquired}, "contact_quality":{"status":"PASS"}}
+    campaign.state["runs"].append(dict(id="inward_2mm_probe", candidate="inward_2mm", stage="probe",
+                                       status="COMPLETE", result=result))
+    signals = dict(time=np.array([5.]), centroid_margin=np.array([.035]))
+    monkeypatch.setattr(campaign, "signals", lambda record: signals)
+    assert campaign.interior_evidence()["eligible"]
+    signals["centroid_margin"][0] = .031
+    assert not campaign.interior_evidence()["eligible"]
+    acquired["ready_for_hold"] = False
+    assert not campaign.interior_evidence()["eligible"]
+
+
+def test_passing_repeat_with_no_explanation_does_not_block_next_hypothesis(tmp_path, monkeypatch):
+    from teleopit.sim.g1_o6_support.g6_thumb_retention_experiment import ThumbCampaign
+
+    campaign = ThumbCampaign(tmp_path)
+    monkeypatch.setattr(campaign, "passes", lambda result, stage: True)
+    monkeypatch.setattr(campaign, "explained", lambda name: False)
+    for name in campaign.first_pair:
+        campaign.state["runs"].append(dict(id=name+"_repeat60", status="COMPLETE",
+                                           candidate=name, stage="repeat60", result={}))
+    assert len(campaign.measured_failures()["actors"]) == 2

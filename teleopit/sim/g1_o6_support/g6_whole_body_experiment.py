@@ -106,10 +106,13 @@ class WholeBodyCampaign(G6Campaign):
         actors = {}
         for name in self.first_pair:
             completed = [r for r in self.state["runs"] if r["candidate"] == name and r["status"] == "COMPLETE"]
-            if not completed or self.passes(completed[-1]["result"], completed[-1]["stage"]):
+            if not completed or not self.terminal_failure(completed[-1]):
                 raise ValueError("the first pair has not produced two terminal physical failures")
             actors[completed[-1]["id"]] = self.actors(completed[-1])
         return {"premise": self.premise, "actors": actors, "removed_assignment": self.replacement}
+
+    def terminal_failure(self, record):
+        return not self.passes(record["result"], record["stage"])
 
     def audit_first_pair(self):
         return self.decision(self.audit_key, self.measured_failures)

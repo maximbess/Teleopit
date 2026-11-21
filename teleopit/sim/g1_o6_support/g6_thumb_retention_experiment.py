@@ -88,8 +88,10 @@ class ThumbCampaign(WristCampaign):
 
     def interior_evidence(self):
         probe = self.previous("inward_2mm", "probe")
-        if not probe or not self.passes(probe["result"], "probe"):
-            return {"eligible": False, "reason": "2 mm acquisition or native probe failed"}
+        result = (probe or {}).get("result", {})
+        acquired = result.get("physics_audit", {}).get("grasp_acquisition", {}).get("ready_for_hold")
+        if not acquired or result.get("contact_quality", {}).get("status") != "PASS":
+            return {"eligible": False, "reason": "2 mm target did not preserve acquisition"}
         long = self.previous("inward_2mm", "60s")
         at_40 = long and long["result"]["strict"]["unsupported_hold_seconds"] >= 40.
         when = 40. if at_40 else 5.
@@ -120,6 +122,10 @@ class ThumbCampaign(WristCampaign):
         self.run_many([(name, "repeat60")])
         return (self.passes(self.previous(name, "repeat60")["result"], "repeat60")
                 and self.explained(name) and super().confirm(name))
+
+    def terminal_failure(self, record):
+        return (super().terminal_failure(record) or
+                (record["stage"] == "repeat60" and not self.explained(record["candidate"])))
 
     def run_search(self):
         self.run_many([("control", "probe")])
