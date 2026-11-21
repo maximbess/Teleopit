@@ -16,14 +16,17 @@ class UnsupportedIsolatedController(ValueError):
         super().__init__(f"unsupported source controller {schema}; isolated runner supports {FINGER_LAW}")
 
 
+def check_isolated_controller(controller):
+    schema = controller["schema"]
+    if controller.get("isolated_runner_support") is False:
+        raise UnsupportedIsolatedController(schema)
+    if schema != FINGER_LAW:
+        raise ValueError("unsupported source controller; isolated runner supports " + FINGER_LAW)
+
+
 def validate_contract(metadata):
     try:
-        if metadata["controller"].get("isolated_runner_support") is False:
-            raise UnsupportedIsolatedController(metadata["controller"]["schema"])
-        if metadata["controller"]["schema"] != FINGER_LAW:
-            raise ValueError(
-                "unsupported source controller; isolated runner supports " + FINGER_LAW
-            )
+        check_isolated_controller(metadata["controller"])
         if metadata["schema"] != SCHEMA:
             raise ValueError(
                 "historical controller; reproduce it at its archived revision"

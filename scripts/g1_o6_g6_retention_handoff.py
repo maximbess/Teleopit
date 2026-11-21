@@ -14,6 +14,10 @@ from teleopit.sim.o6_diagnostics.harness import Source
 from teleopit.sim.o6_diagnostics.nominal import coupled_telemetry
 
 
+def feedback_exercised(state, needs_proximal):
+    return state["wrist_grip"]["updates"]["right"] > 0 and (not needs_proximal or state["right_proximal_updates"] >= 2)
+
+
 def compare_commands(run, meta, mode, output):
     env = restore_environment(meta, meta["config"]["physics_dt"], saved_scene=run / "scene.mjb")
     source_controller = env.hold_controller
@@ -42,7 +46,7 @@ def compare_commands(run, meta, mode, output):
                 ticks += 1
                 state = trial.controller.state()
                 wrist = state["wrist_grip"]
-                exercised = wrist["updates"]["right"] > 0 and (not needs_proximal or state["right_proximal_updates"] >= 2)
+                exercised = feedback_exercised(state, needs_proximal)
                 if exercised:
                     break
         if not exercised or trial.controller.original is not source_controller:

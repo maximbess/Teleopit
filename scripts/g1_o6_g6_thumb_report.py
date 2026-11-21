@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from scripts.g1_o6_g6_thumb_replay import describe, json_values, loads, replay
-from teleopit.sim.g1_o6_support.ladder_campaign import file_hash
+from teleopit.sim.g1_o6_support.ladder_campaign import run_checksums
 from teleopit.sim.g1_o6_support.g6_wrist_grip_experiment import passes
 
 
@@ -63,9 +63,6 @@ RAW = ("scene.mjb", "steps.jsonl", "physics_contacts.jsonl.gz", "knee_rung3.f64.
 
 def cached_signals(path, record, cache):
     hashes = record["files_sha256"]
-    for name in RAW:
-        if file_hash(path / name) != hashes[name]:
-            raise ValueError(f"changed raw evidence: {path / name}")
     key = hashlib.sha256("".join(hashes[k] for k in RAW).encode()).hexdigest()
     file = cache / (key + ".npz")
     if not file.exists():
@@ -83,6 +80,10 @@ def reactions_at(path, when):
                     and abs(r["phase_time_s"] - when) < 1e-7), None)
     if row is None:
         return None
+    return signed_vertical_reactions(row)
+
+
+def signed_vertical_reactions(row):
     reactions = dict.fromkeys(row["support_targets"], 0.)
     for c in row["contacts"]:
         for i, side in enumerate(c["regions"]):
@@ -158,9 +159,9 @@ def read_campaign(root, cache):
         if record["status"] != "COMPLETE":
             raise ValueError("campaign has unfinished runs")
         path = root / record["output"]
+        if run_checksums(path) != record["files_sha256"]:
+            raise ValueError(f"changed raw evidence: {path}")
         if not record["result"].get("physics_audit", {}).get("scored_steps"):
-            if file_hash(path / "summary.json") != record["files_sha256"]["summary.json"]:
-                raise ValueError("changed pre-hold evidence")
             trials.append({"run_id":record["id"], "candidate":record["candidate"], "stage":record["stage"],
                            "identity":record["identity"], "files_sha256":record["files_sha256"], "qualified_stage":False,
                            "end_s":0., "native_steps":0, "first_failure":prehold_failure(record["result"])})
@@ -189,7 +190,10 @@ def publish(campaign, reference, cache, output):
                     "requested", "applied", "projected")
         np.savez_compressed(output / "comparison.npz", **{label+"_"+k:a[k]
                             for label, a in zip(("reference","candidate"), compared) for k in channels})
-    metrics = {"experiments":experiments, "reference_repeats":repetitions,
+    state = loads((campaign / "campaign_state.json").read_bytes())
+    metrics = {"schema":"g6_native_thumb_retention_v1", "simulator_revision":state["runs"][0]["payload"]["provenance"]["code_revision"],
+               "frozen_spec_sha256":state["spec_sha256"], "configuration":state["specification"],
+               "experiments":experiments, "reference_repeats":repetitions,
                "milestones":loads((campaign / "milestones.json").read_bytes())}
     (output / "results.json").write_text(json.dumps(json_values(metrics), indent=2, allow_nan=False)+"\n")
 
