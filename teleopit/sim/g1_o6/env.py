@@ -26,9 +26,13 @@ class Environment:
         self.pose.validate()
         self.ladder, self.material = ladder, material
         self.adapt_reset = ladder is not None and adapt_reset
-        self.model, self.xml, self.hands, self.audit = build_model(
+        model, self.xml, self.hands, self.audit = build_model(
             self.config, ladder=ladder, material=material
         )
+        self.initialize_model(model)
+
+    def initialize_model(self, model):
+        self.model = model
         for name in self.pose.support_targets().values():
             if mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, name) < 0:
                 raise ValueError("support rung absent from compiled ladder: " + name)

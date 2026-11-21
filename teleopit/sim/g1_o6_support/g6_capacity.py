@@ -1,5 +1,6 @@
 """G6 capacity at each critical measured state, with a frozen finite budget."""
 
+import json
 from dataclasses import asdict
 from pathlib import Path
 
@@ -69,6 +70,14 @@ def state_references(entry, weight, planned_share):
 
 def run_g6_capacity(source_path, output, *, planned_share=0.16, budget=192, dt=0.001):
     path = output_directory(output)
+    controller = json.loads((Path(source_path) / "resolved.json").read_bytes())["controller"]
+    if controller.get("isolated_runner_support") is False:
+        result = {"schema": "g1_o6_g6_state_capacity_v1", "physical_status": "BLOCKED",
+                  "capacity_status": "BLOCKED", "states": [], "controller_schema": controller["schema"],
+                  "reason": "The free-wrist bench cannot execute the source controller's coupled feedback."}
+        write_json(path / "summary.json", result)
+        manifest(path, "g6_state_capacity", {"source_run": str(source_path)})
+        return result
     plan = capacity_plan(source_path, planned_share, budget)
     write_json(path / "declared_matrix.json", plan)
     result = {

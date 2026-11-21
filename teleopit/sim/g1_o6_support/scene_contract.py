@@ -2,7 +2,9 @@
 
 import json
 from dataclasses import asdict
+from pathlib import Path
 
+import mujoco
 import numpy as np
 
 from teleopit.sim.g1_o6.config import Config
@@ -41,7 +43,7 @@ def environment_metadata(env):
     return result
 
 
-def restore_environment(metadata, physics_dt):
+def restore_environment(metadata, physics_dt, *, saved_scene=None):
     spec = metadata.get("environment_spec")
     if spec is None:
         raise ValueError("resolved environment specification is required")
@@ -54,6 +56,15 @@ def restore_environment(metadata, physics_dt):
         adapt_reset=spec["adapt_reset"],
         **options,
     )
+    if saved_scene is not None and Path(saved_scene).is_file() and "physical_identity" in metadata:
+        archived = mujoco.MjModel.from_binary_path(str(saved_scene))
+        reference = metadata["physical_identity"]
+        assert_preserved(physical_identity(archived), reference)
+        # Absolute mesh filename lengths affect this byte-offset table. Compare every
+        # physical field of the rebuild, then bind the actual verified source binary.
+        assert_preserved(physical_identity(env.model, mesh_pathadr=archived.mesh_pathadr), reference)
+        archived.opt.timestep = physics_dt
+        env.initialize_model(archived)
     verify_environment(env, metadata)
     return env
 

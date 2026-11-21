@@ -86,6 +86,9 @@ class TransferController:
         self.motion = {}
         self.failure = None
 
+    def state(self):
+        return getattr(self.original, "state", dict)()
+
     def enter(self, env, row):
         key = self.protocol.index
         if key == self.previous or self.protocol.phase in ("COMPLETE", "ABORT"):

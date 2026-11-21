@@ -3,6 +3,7 @@
 import copy
 import json
 from dataclasses import asdict
+from pathlib import Path
 
 import numpy as np
 from scipy.spatial.transform import Rotation
@@ -55,6 +56,8 @@ class TransferTrial:
         from .g6_observer import G6Observer
         from .g6_transfer import AdjacentController
         from .g6_transfer_results import capacity_share_bounds
+        from .g6_transfer_retention import WristTransferObserver
+        from .g6_wrist_grip import WristGrip
 
         self.env, self.request = env, request
         self.proof = proof
@@ -81,8 +84,9 @@ class TransferTrial:
             env, env.hold_controller, self.protocol, request["target_share"]
         )
         env.hold_controller = self.controller
+        observer = WristTransferObserver if isinstance(getattr(env, "grasp_acquisition", None), WristGrip) else G6Observer
         self.audit = (
-            G6Observer(env, path)
+            observer(env, path)
             if env.ladder is not None and path is not None
             else PhysicsAudit(env)
         )
@@ -134,6 +138,8 @@ class TransferTrial:
             self.rows.append(summary_row(row))
             return
         self.controller.latest = row
+        for reason, first in getattr(self.audit, "first_retention_failure", {}).items():
+            self.failures.setdefault(reason, first)
         if self.hold_start is None:
             self.hold_start = row["time"]
         phase = self.protocol.phase
@@ -426,7 +432,7 @@ def validate_request(request):
 
 def execute_transfer(proof, path, request):
     source = proof.source["metadata"]
-    env = restore_environment(source, request["physics_dt"])
+    env = restore_environment(source, request["physics_dt"], saved_scene=Path(proof.source["path"]) / "scene.mjb")
     initial = snapshot(env)
     metadata = experiment_metadata(env, initial, request)
     metadata.update(

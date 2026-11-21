@@ -22,7 +22,7 @@ def array_digest(items):
     return digest.hexdigest()
 
 
-def physical_identity(model):
+def physical_identity(model, *, mesh_pathadr=None):
     bodies = [b for b in range(model.nbody) if region(model, b) != "environment"]
     geoms = [g for g in range(model.ngeom) if "_ladder_" not in model.geom(g).name]
     selected = []
@@ -32,6 +32,8 @@ def physical_identity(model):
             continue
         physical = invariant_field(model, name, value, bodies, geoms)
         if physical is not None:
+            if name == "mesh_pathadr" and mesh_pathadr is not None:
+                physical = mesh_pathadr
             selected.append((name, physical))
     solver = solver_fields(model.opt)
     return {
