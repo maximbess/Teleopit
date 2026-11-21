@@ -29,6 +29,21 @@ def test_capture_evidence_uses_only_loaded_thumb_contacts_on_the_correct_tread()
         contact_centroid(contacts,"left","rung7")
 
 
+def test_independent_replay_rejects_wrong_proximal_compensation():
+    from scripts.verify_g1_o6_g6_wrist_grip import check_request
+    from teleopit.sim.g1_o6_support.g6_thumb_retention import proximal_rate
+    from teleopit.sim.g1_o6_support.g6_wrist_grip import pad_velocity
+
+    j = np.column_stack((np.eye(3), np.zeros(3), np.eye(3)))
+    offset = np.array([0.,0.,0.,0.,.02,0.,0.])
+    error = np.array([.001,0.,0.])
+    velocity = pad_velocity(error,.65,True)
+    saved = dict(error_rung_m=error, velocity_rung_m_s=velocity, joint_rate_rad_s=proximal_rate(j,velocity,offset))
+    check_request(saved, j, error, offset, .65, True, "right", recenter=True)
+    with pytest.raises(ValueError):
+        check_request({**saved, "joint_rate_rad_s":-saved["joint_rate_rad_s"]}, j, error, offset, .65, True, "right", recenter=True)
+
+
 def test_replayed_servo_respects_slew_travel_effort_joint_range_and_cartesian_boundary():
     from scripts.verify_g1_o6_g6_wrist_grip import joint_step, project
 

@@ -103,6 +103,10 @@ class ThumbCampaign(WristCampaign):
         margin = next((d["value"] for d in self.state["decisions"] if d["name"] == "interior_margin"), {})
         if name == "inward_4mm" and not margin.get("eligible"):
             raise ValueError("4 mm requires preserved acquisition and improved 2 mm edge margin")
+        self.validate_confirmation(name, stage)
+        super().validate_stage(name, stage, records)
+
+    def validate_confirmation(self, name, stage):
         if stage == "repeat60":
             prior = self.previous(name, "60s")
             if not prior or not self.passes(prior["result"], "60s"):
@@ -111,7 +115,6 @@ class ThumbCampaign(WristCampaign):
             repeat = self.previous(name, "repeat60")
             if not repeat or not self.passes(repeat["result"], "repeat60") or not self.explained(name):
                 raise ValueError("120 s requires reproduced and explained 60 s evidence")
-        super().validate_stage(name, stage, records)
 
     def explained(self, name):
         result = self.decision("mechanism_" + name, lambda: {

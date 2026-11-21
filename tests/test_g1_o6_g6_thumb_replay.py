@@ -21,3 +21,15 @@ def test_first_event_preserves_a_single_native_step_and_absence():
     t = np.array([52.028, 52.029, 52.030])
     assert first_event(t, [False, True, False]) == 52.029
     assert first_event(t, [False, False, False]) is None
+
+
+def test_missing_contact_exports_json_null_and_first_failure_uses_the_earliest_clock():
+    import json
+    from scripts.g1_o6_g6_thumb_report import first_failure
+    from scripts.g1_o6_g6_thumb_replay import json_values
+
+    assert json.dumps(json_values({"position":[1., float("nan")]}), allow_nan=False) == '{"position": [1.0, null]}'
+    result = first_failure({"right_thumb":52.029, "left_thumb":52.184, "knee":None},
+                           {"drift":55., "left_fingers":52.029})
+    assert result == {"hold_s":52.029, "conditions":["left_fingers","right_thumb"]}
+    assert first_failure({"t":None}, {}) is None

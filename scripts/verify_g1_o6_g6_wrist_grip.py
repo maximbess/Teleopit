@@ -34,16 +34,21 @@ def contact_centroid(contacts, side, target):
     return np.average(points, axis=0, weights=weights)
 
 
-def check_request(saved, jacobian, error, previous, load, opposed, mode):
+def ridge_rate(j, velocity):
+    matrix = np.vstack((j, .01*np.eye(j.shape[1])))
+    return np.linalg.lstsq(matrix, np.r_[velocity, np.zeros(j.shape[1])], rcond=None)[0]
+
+
+def check_request(saved, jacobian, error, previous, load, opposed, mode, *, recenter=False):
     tangent = .8 * error[:2]
     velocity = np.r_[tangent / max(1., np.linalg.norm(tangent)/.002),
                      np.clip(.004*(.65 - (load if opposed else 0.)), -.002, .002)]
     rates = -.4 * previous
+    if recenter:
+        rates[:4] = np.clip(ridge_rate(jacobian[:, :4], velocity - jacobian[:, 4:] @ rates[4:]), -.005, .005)
     active = slice(None) if mode == "distributed" else slice(-3,None)
     j = jacobian[:,active]
-    matrix = np.vstack((j, .01*np.eye(j.shape[1])))
-    rhs = np.r_[velocity - jacobian @ rates, np.zeros(j.shape[1])]
-    rates[active] += np.linalg.lstsq(matrix, rhs, rcond=None)[0]
+    rates[active] += ridge_rate(j, velocity - jacobian @ rates)
     for name, expected in (("error_rung_m",error), ("velocity_rung_m_s",velocity), ("joint_rate_rad_s",rates)):
         check(saved[name], expected, name)
     return rates
@@ -128,8 +133,11 @@ class WristReplay:
         error, jac = self.landmark(side, raw, wrist["landmarks"][side])
         self.max_tangent_error = max(self.max_tangent_error, float(np.linalg.norm(error[:2])))
         loads, opposed = grasp_sample(raw, side)
-        old = np.array(previous["pose_search"]["controller_state"]["arm_correction_rad"][side])
-        rates = check_request(wrist["requests"][side], jac, error, old, loads[0], opposed, self.mode)
+        prior = previous["pose_search"]["controller_state"]
+        old = np.array(prior["arm_correction_rad"][side])
+        rule = self.meta["controller"].get("right_retention", {}).get("intervention")
+        recenter = side == "right" and rule == "recenter" and prior["command_rotation_rad"][side] >= .024
+        rates = check_request(wrist["requests"][side], jac, error, old, loads[0], opposed, self.mode, recenter=recenter)
         actual = state["arm_correction_rad"][side]
         check(actual, self.projected(side, old, rates, previous), "projected servo correction", 3e-8)
         self.max_travel = max(self.max_travel, float(np.max(np.abs(actual))))

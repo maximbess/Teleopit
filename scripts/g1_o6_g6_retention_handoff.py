@@ -19,6 +19,8 @@ def compare_commands(run, meta, mode, output):
                    three_seconds=1, plateau_seconds=10)
     output.mkdir(parents=True, exist_ok=True)
     trial = TransferTrial(env, request, output)
+    needs_proximal = meta["controller"].get("right_retention", {}).get("intervention") == "recenter"
+    exercised = False
     try:
         with (run / "steps.jsonl").open("rb") as stream:
             next(stream)
@@ -30,15 +32,18 @@ def compare_commands(run, meta, mode, output):
                 np.testing.assert_array_equal(env.data.ctrl, row["applied_position_targets_rad"])
                 np.testing.assert_array_equal(measured["joint_positions"], row["joint_positions"])
                 ticks += 1
-                wrist = trial.controller.state()["wrist_grip"]
-                if wrist["updates"]["right"] > 0:
+                state = trial.controller.state()
+                wrist = state["wrist_grip"]
+                exercised = wrist["updates"]["right"] > 0 and (not needs_proximal or state["right_proximal_updates"] >= 2)
+                if exercised:
                     break
-        if wrist["updates"]["right"] == 0 or trial.controller.original is not source_controller:
+        if not exercised or trial.controller.original is not source_controller:
             raise ValueError("sourced wrist and grip never ran through the transfer wrapper")
         return {"wrapper": type(trial.controller).__name__, "live_grip": type(source_controller).__name__,
                 "live_arm": type(source_controller.parent).__name__, "matched_control_ticks": ticks,
                 "native_hold_samples": trial.audit.samples["physics"], "hold_s": row["hold_time_s"],
-                "right_wrist_updates": wrist["updates"]["right"], "support_targets": env.support_targets}
+                "right_wrist_updates": wrist["updates"]["right"], "proximal_updates": state.get("right_proximal_updates", 0),
+                "support_targets": env.support_targets}
     finally:
         trial.audit.close()
 

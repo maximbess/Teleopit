@@ -78,6 +78,10 @@ def run_g6_capacity(source_path, output, *, planned_share=0.16, budget=192, dt=0
         write_json(path / "summary.json", result)
         manifest(path, "g6_state_capacity", {"source_run": str(source_path)})
         return result
+    return evaluate_capacity_matrix(source_path, path, planned_share, budget, dt)
+
+
+def evaluate_capacity_matrix(source_path, path, planned_share, budget, dt):
     plan = capacity_plan(source_path, planned_share, budget)
     write_json(path / "declared_matrix.json", plan)
     result = {

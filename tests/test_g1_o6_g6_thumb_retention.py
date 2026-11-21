@@ -28,6 +28,9 @@ def test_single_corrections_round_trip_and_change_only_the_declared_target():
         np.testing.assert_allclose(p - p0, [displacement, 0, 0], atol=1e-12)
         angle = Rotation.from_matrix(r @ r0.T).magnitude()
         assert angle == pytest.approx(.01 if name == "preorient" else 0., abs=1e-10)
+        if name == "preorient":
+            actual_axis = Rotation.from_matrix(r @ r0.T).as_rotvec() / angle
+            np.testing.assert_allclose(actual_axis, [.631418, .545911, .550720], atol=1e-6)
     with pytest.raises(ValueError):
         replace(entries["preorient"].controller, right_refinement="more_travel")
 
@@ -85,3 +88,36 @@ def test_passing_repeat_with_no_explanation_does_not_block_next_hypothesis(tmp_p
         campaign.state["runs"].append(dict(id=name+"_repeat60", status="COMPLETE",
                                            candidate=name, stage="repeat60", result={}))
     assert len(campaign.measured_failures()["actors"]) == 2
+
+
+def test_repeated_hold_and_explanation_are_both_required_before_120(tmp_path, monkeypatch):
+    from teleopit.sim.g1_o6_support.g6_thumb_retention_experiment import ThumbCampaign
+
+    campaign = ThumbCampaign(tmp_path)
+    monkeypatch.setattr(campaign, "passes", lambda result, stage: result["pass"])
+    monkeypatch.setattr(campaign, "explained", lambda name: False)
+    with pytest.raises(ValueError, match="60 s repeat"):
+        campaign.validate_confirmation("preorient", "repeat60")
+    for stage in ("60s", "repeat60"):
+        campaign.state["runs"].append(dict(candidate="preorient",stage=stage,status="COMPLETE",result={"pass":True}))
+    campaign.validate_confirmation("preorient","repeat60")
+    with pytest.raises(ValueError, match="explained"):
+        campaign.validate_confirmation("preorient","120s")
+    monkeypatch.setattr(campaign, "explained", lambda name: True)
+    campaign.validate_confirmation("preorient","120s")
+
+
+def test_matched_mechanism_distinguishes_delayed_saturation_from_drift():
+    from teleopit.sim.g1_o6_support.g6_thumb_retention_experiment import matched_sample, mechanism
+
+    times = np.array([5., 6., 40., 52.028, 60.])
+    signals = {"time":times, "control_time":times, "fixed":np.zeros((5,3)),
+               "centroid_margin":np.full(5,.03), "applied":np.zeros((5,3))}
+    signals["applied"][1,0] = .025
+    assert mechanism("preorient", signals)["supported"]
+    assert mechanism("recenter", signals)["supported"]
+    assert mechanism("inward_2mm", signals)["supported"]
+    signals["fixed"][3,0] = .008
+    assert not mechanism("preorient", signals)["supported"]
+    with pytest.raises(ValueError, match="timestamp"):
+        matched_sample(signals, "fixed", 30.)

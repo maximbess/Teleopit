@@ -31,6 +31,16 @@ def first_event(times, mask):
     return round(float(times[indices[0]]), 6) if indices.size else None
 
 
+def json_values(value):
+    if isinstance(value, dict):
+        return {k: json_values(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [json_values(v) for v in value]
+    if isinstance(value, float) and not np.isfinite(value):
+        return None
+    return value
+
+
 def rotation_in_tread(rest, command, tread):
     return tread.T @ Rotation.from_matrix(command @ rest.T).as_rotvec()
 
@@ -83,13 +93,14 @@ def control_trace(path, model, meta):
     return np.array(samples), entry, landmark
 
 
+def loaded_right_thumb(contact, target):
+    if target not in contact["geoms"] or "right_hand" not in contact["regions"] or contact["normal_force"] < .05:
+        return False
+    return contact_group(contact["bodies"][contact["regions"].index("right_hand")]) == "thumb"
+
+
 def thumb_patch(row, target):
-    contacts = []
-    for contact in row["contacts"]:
-        if target in contact["geoms"] and "right_hand" in contact["regions"] and contact["normal_force"] >= .05:
-            body = contact["bodies"][contact["regions"].index("right_hand")]
-            if contact_group(body) == "thumb":
-                contacts.append(contact)
+    contacts = [contact for contact in row["contacts"] if loaded_right_thumb(contact, target)]
     if not contacts:
         return np.full(3, np.nan), np.nan
     weights = [c["normal_force"] for c in contacts]
@@ -185,4 +196,4 @@ if __name__ == "__main__":
     signals = replay(args.run)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(args.output.with_suffix(".npz"), **signals)
-    args.output.with_suffix(".json").write_text(json.dumps(describe(signals), indent=2) + "\n")
+    args.output.with_suffix(".json").write_text(json.dumps(json_values(describe(signals)), indent=2, allow_nan=False) + "\n")
