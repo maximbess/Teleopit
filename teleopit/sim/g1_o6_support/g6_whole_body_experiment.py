@@ -157,7 +157,7 @@ def main(campaign_type=WholeBodyCampaign, output=Path("outputs/g1_o6/g6_whole_bo
     for action in ("trial", "retry"):
         command = sub.add_parser(action)
         command.add_argument("candidate", choices=list(campaign_type.spec_factory()["candidates"]))
-        command.add_argument("stage", choices=list(STAGES))
+        command.add_argument("stage", choices=list(campaign_type.stages))
         if action == "retry":
             command.add_argument("--reason", required=True)
     args = parser.parse_args()

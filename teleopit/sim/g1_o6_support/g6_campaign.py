@@ -152,8 +152,8 @@ class G6Campaign(LadderCampaign):
         return {
             "candidate": self.candidate(name).record(),
             "stage": stage,
-            "seconds": STAGES[stage][0],
-            "physics_dt": STAGES[stage][1],
+            "seconds": self.stages[stage][0],
+            "physics_dt": self.stages[stage][1],
             "provenance": provenance,
             "reference_physics": self.decision("reference_physics", lambda: None),
             "command": f'python -m teleopit.sim.g1_o6_support.g6_experiment --output "{self.root.as_posix()}" trial {name} {stage}',

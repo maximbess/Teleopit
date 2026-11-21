@@ -95,11 +95,14 @@ class WristReference(StabilizedAcquisition):
         error, jacobian = self.landmarks[side].kinematics(env.model, self.scratch, self.dofs[side])
         hand = self.quality[side]
         velocity = pad_velocity(error, hand["thumb_normal_N"], hand["thumb_opposition"])
-        rate = joint_rate(jacobian, velocity, self.offset[side], self.mode == "distributed")
+        rate = self.tracking_rate(side, jacobian, velocity)
         self.requests[side] = {"error_rung_m": error.tolist(), "velocity_rung_m_s": velocity.tolist(),
                                "joint_rate_rad_s": rate.tolist()}
         self.updates[side] += 1
         return self.project_rate(env, desired, side, indices, rate)
+
+    def tracking_rate(self, side, jacobian, velocity):
+        return joint_rate(jacobian, velocity, self.offset[side], self.mode == "distributed")
 
     def project_rate(self, env, desired, side, indices, rate):
         previous = self.offset[side]

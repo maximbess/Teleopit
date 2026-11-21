@@ -126,6 +126,8 @@ def mount_target(env, pose, side, rung):
     if side == "left":
         mirror = np.diag([1, -1, 1])
         rotation = mirror @ rotation @ mirror
+    elif hasattr(env, "orient_right_target"):
+        rotation = env.orient_right_target(rung, rotation)
     return position, rotation
 
 

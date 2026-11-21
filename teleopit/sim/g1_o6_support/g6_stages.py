@@ -7,7 +7,9 @@ from .qualification import Evidence, read_run
 def qualified_pose(campaign):
     for name in campaign.state["candidates"]:
         records = pose_records(campaign.state["runs"], name)
-        if len(records) >= 5:
+        accepts = getattr(campaign, "passes", None)
+        gates_passed = accepts is None or all(accepts(r["result"], r["stage"]) for r in records)
+        if len(records) >= 5 and gates_passed:
             runs = [read_run(campaign.root / r["output"]) for r in records]
             if initial_pose_gate(runs):
                 return name, runs

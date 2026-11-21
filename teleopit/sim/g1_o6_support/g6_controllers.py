@@ -11,11 +11,13 @@ from .g6_knee_retention import RetainedEnvironment, RetainedKnee
 from .g6_grip_feedback import GripEnvironment, GripFeedback
 from .g6_grip_preview import PreviewEnvironment, PreviewGrip
 from .g6_wrist_grip import WristEnvironment, WristGrip
+from .g6_thumb_retention import RetentionEnvironment, ThumbRetention
 
 Controller = str | ArmFeedback | GraspAcquisition
 
 # More specific profiles precede their parent dataclasses in both dispatches.
 PROFILES = (
+    ("right_refinement", ThumbRetention, RetentionEnvironment),
     ("wrist_mode", WristGrip, WristEnvironment),
     ("thumb_preview", PreviewGrip, PreviewEnvironment),
     ("grip_law", GripFeedback, GripEnvironment),
