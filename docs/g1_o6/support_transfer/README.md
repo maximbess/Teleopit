@@ -30,12 +30,12 @@ The original first drift crossing occurs at simulator time 92.576 s; abort occur
 
 The separate convergence criterion requires <=0.05 mm/s translation slope and <=2 mm position excursion in the final 30 s, plus the declared orientation limits. In the 30–60 s window the original base slope/excursion are 0.1904 mm/s / 5.680 mm; corrected values are 0.1166 mm/s / 3.513 mm. Maximum hand slope/excursion are 0.3126 mm/s / 9.305 mm and 0.2834 mm/s / 8.581 mm respectively. COM and both hand rotations are also assessed. This is not asymptotic stability.
 
-![Long HOLD and measured support share](long_hold.png)
+![Long HOLD and measured support share](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/support_transfer/long_hold.png)
 
 Both initial-state isolated hands abort at 10.94 s, 4.94 s after fixture removal. Their first scored slip violation is at 6.02 s. The one predeclared correction uses the coupled run's measured settled mount and finger state, with zero reset velocities and bounded servo preload; both hands then lose opposition during fixture removal and abort at 6.50 s. Fresh repeats and 0.5 ms cases also fail. Every case achieves **0 s of loaded plateau** and no additional applied test wrench. Retention at an earlier sample does not establish full-plateau retention.
 
-![Both-hand isolated response](capacity_response.png)
-![Free-wrist trajectories](isolated_traces.png)
+![Both-hand isolated response](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/support_transfer/capacity_response.png)
+![Free-wrist trajectories](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/support_transfer/isolated_traces.png)
 
 The coupled feet carry roughly 98% of robot weight at the 30 s baseline; the hands carry about 2%. The two failed isolated initializations reject the premise that this grasp retains a free wrist under its own gravity without parent support. Continuing thumb motion and palm/rung creep correlate with the long-hold failures; the logs do not identify a unique causal mechanism. The original and corrected grasps have separate results; the correction was not promoted to the default.
 
@@ -63,12 +63,12 @@ The isolated protocol retains authentic left/right models and their own gravity.
 
 ## Evidence and reproduction
 
-- [Results and late-window measurements](results.json), [frozen experimental specification](specification.json), [work log](WORK_LOG.md), [software verification](verification.json), [relocated archive check](portability.json).
-- [Downloadable raw evidence release](https://github.com/maximbess/Teleopit/releases/tag/g1-o6-support-2026-11-12), with ZIP and SHA256 sidecar; [publication receipt](artifact.json) records exact revision, URL, size and checksum.
+- [Results and late-window measurements](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/support_transfer/results.json), [frozen experimental specification](specification.json), [work log](WORK_LOG.md), [software verification](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/support_transfer/verification.json), [relocated archive check](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/support_transfer/portability.json).
+- [Downloadable raw evidence release](https://github.com/maximbess/Teleopit/releases/tag/g1-o6-support-2026-11-12), with ZIP and SHA256 sidecar; [publication receipt](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/support_transfer/artifact.json) records exact revision, URL, size and checksum.
 - The archive includes raw control/physics logs, failures, initial/resolved states, compiled scenes, event/extrema reports, source snapshot for the pre-commit 60 s run, asset files/hashes, plots and both failed-run replay videos. Original scene bytes and manifests are retained as `scene_original.xml` / `manifest_original.json`; the executable scene changes file references only. All public numeric model/solver fields are compared before/after relocation, excluding filename offsets and path/buffer storage sizes.
 
 Clone the repository, check out `implementation_revision` from `evidence_manifest.json`, and extract the archive into that checkout. Verify the ZIP SHA256 and its per-file manifest before using the source-run paths. Use the recorded dependency versions and conda `teleopit`. Assets needed to compile the recorded scenes and rebuild the current robot/hands are included. Earlier diagnostic, posture and consolidation archives remain untouched.
 
-Verification: 235 affected tests pass; 30 s control logs/summaries are byte-identical; both-hand gravity-on/off free closing/reopening passes. The unavailable crapper/dryer/mutator tools were replaced transparently by Radon + statement coverage, scoped AST comparison and nine targeted in-memory mutations: all 112 changed runtime functions below CRAP 10, zero scoped pairs >=0.8, all mutations killed. The same complexity/coverage and duplication checks pass for all [30 reporting/video/archive utility functions](utility_quality.json), using actual artifact execution coverage. These checks do not validate the blocked physical maneuvers or a universal six-dimensional load region.
+Verification: 235 affected tests pass; 30 s control logs/summaries are byte-identical; both-hand gravity-on/off free closing/reopening passes. The unavailable crapper/dryer/mutator tools were replaced transparently by Radon + statement coverage, scoped AST comparison and nine targeted in-memory mutations: all 112 changed runtime functions below CRAP 10, zero scoped pairs >=0.8, all mutations killed. The same complexity/coverage and duplication checks pass for all [30 reporting/video/archive utility functions](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/support_transfer/utility_quality.json), using actual artifact execution coverage. These checks do not validate the blocked physical maneuvers or a universal six-dimensional load region.
 
 The next justified physical work is a newly budgeted investigation of lost opposing contact in the free-wrist grasp, followed by a new grasp correction and complete long-hold/capacity requalification. This task stops before physical hand release; no climbing policy, PPO training, adjacent-rung transfer or hardware capability is claimed.

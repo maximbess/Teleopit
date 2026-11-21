@@ -247,6 +247,6 @@ frame convention. Wrench samples are from the final physics substep, not interva
 averages. Mode/nominal/progress describe the issued control command; state time
 is after its integration interval.
 
-See [RESULTS.md](RESULTS.md) for measured outcomes and limitations, and
+See [RESULTS.md](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/o6_grasp/RESULTS.md) for measured outcomes and limitations, and
 [WORK_LOG.md](WORK_LOG.md) for implementation and validation actions. Full logs and
 images live under ignored `outputs/o6_grasp/`; compact results are committed.

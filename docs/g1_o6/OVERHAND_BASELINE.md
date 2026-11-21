@@ -24,7 +24,7 @@ conda run --no-capture-output -n teleopit python -m teleopit.sim.g1_o6 --video -
 
 Each trial writes `resolved.json`, `scene.xml`, `steps.jsonl`, `summary.json`, and both `left.wrist.json` and `right.wrist.json`. Video mode adds `trial.mp4`, `initial.png`, and `last.png`. Viewer mode uses the same logging runner; closing it records an abort. Contact-force/normal arrows default off. Video rendering uses ImageIO/FFmpeg and Pillow, available in the tested environment.
 
-Measured suite: code `4fe09d98cacd802b23dc634f67ef4c56a47adfe2`, clean tracked checkout. Video camera/terminal-frame improvements are in `5ab9e89`; later changes add validation and this report. Full installed asset hashes, actuator inventory and runtime versions are in [audit.json](audit.json). Resolved parameters are frozen in [nominal.json](nominal.json), and measured numerical results in [results.json](results.json).
+Measured suite: code `4fe09d98cacd802b23dc634f67ef4c56a47adfe2`, clean tracked checkout. Video camera/terminal-frame improvements are in `5ab9e89`; later changes add validation and this report. Full installed asset hashes, actuator inventory and runtime versions are in [audit.json](audit.json). Resolved parameters are frozen in [nominal.json](nominal.json), and measured numerical results in [results.json](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/results.json).
 
 ## Assets and composition
 

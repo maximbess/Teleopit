@@ -2,7 +2,7 @@
 
 This campaign tests a coupled G1/O6 four-support stance: both feet stay on rung 04, with two physical O6 hands on their declared rungs. A successful stance is not independent hand capacity, hanging, climbing, or hardware qualification. Capacity and transfer prerequisites remain unchanged.
 
-The requested plan is implemented on `dex-hand-exp`, using conda `teleopit`. The original working default, physical limits, solver settings and strict evaluator remain unchanged. The campaign specification was frozen before candidate dynamics in [campaign.json](campaign.json). The campaign is complete: no candidate qualifies. [OUTCOMES.md](OUTCOMES.md) answers the four experiment questions; [COMPARISON.md](COMPARISON.md), [comparison.csv](comparison.csv) and [results.json](results.json) retain every ranked result and separate verdict.
+The requested plan is implemented on `dex-hand-exp`, using conda `teleopit`. The original working default, physical limits, solver settings and strict evaluator remain unchanged. The campaign specification was frozen before candidate dynamics in [campaign.json](campaign.json). The campaign is complete: no candidate qualifies. [OUTCOMES.md](OUTCOMES.md) answers the four experiment questions; [COMPARISON.md](COMPARISON.md), [comparison.csv](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/pose_search/comparison.csv) and [results.json](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/pose_search/results.json) retain every ranked result and separate verdict.
 
 ## Reproduction
 
@@ -61,7 +61,7 @@ Conditional arm feedback replaces one higher-preload slot only when saved refere
 
 ## Evidence and verification
 
-[WORK_LOG.md](WORK_LOG.md) records actions, hypotheses, tests and refactoring receipts. [baseline_verification.json](baseline_verification.json) pins all 1,753 original physical baseline rows and the strict summary; [projection_verification.json](projection_verification.json) pins strict/late-motion results after reducing in-memory telemetry.
+[WORK_LOG.md](WORK_LOG.md) records actions, hypotheses, tests and refactoring receipts. [baseline_verification.json](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/pose_search/baseline_verification.json) pins all 1,753 original physical baseline rows and the strict summary; [projection_verification.json](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/pose_search/projection_verification.json) pins strict/late-motion results after reducing in-memory telemetry.
 
 Representative synchronized plots show complete trials, HOLD entry and first threshold windows. Videos under the archive's `outputs/g1_o6/pose_search/videos` are explicitly labeled **offline recorded-state replay**: they use saved positions and never step or qualify dynamics. The portable archive retains failed/infeasible results, original scenes/manifests, compiled-equivalent portable scenes, exact source revisions, assets and SHA256 checksums. Previous archives remain intact.
 
@@ -75,10 +75,10 @@ The public release uses three numbered parts because the ZIP exceeds GitHub's [2
 conda run --no-capture-output -n teleopit python reassemble_g1_o6_pose_search.py
 ```
 
-The script verifies every part, preserves a mismatched existing output, and verifies the complete ZIP after assembly. Extract the verified ZIP into a checkout of the implementation revision recorded in [artifact.json](artifact.json). [Reassembly source](reassemble_g1_o6_pose_search.py) and [transport verification](transport_verification.json) are also retained here. [The release](https://github.com/maximbess/Teleopit/releases/tag/g1-o6-pose-search-2026-11-13) provides the parts and checksums.
+The script verifies every part, preserves a mismatched existing output, and verifies the complete ZIP after assembly. Extract the verified ZIP into a checkout of the implementation revision recorded in [artifact.json](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/pose_search/artifact.json). [Reassembly source](reassemble_g1_o6_pose_search.py) and [transport verification](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/pose_search/transport_verification.json) are also retained here. [The release](https://github.com/maximbess/Teleopit/releases/tag/g1-o6-pose-search-2026-11-13) provides the parts and checksums.
 
-All six public files are verified. Each downloaded part matches its recorded SHA256, and the ordered parts reproduce the full 2,666,002,117-byte ZIP hash. [Publication verification](publication_verification.json) records the checks and recovery from interrupted network connections; no experiments were rerun during publication.
+All six public files are verified. Each downloaded part matches its recorded SHA256, and the ordered parts reproduce the full 2,666,002,117-byte ZIP hash. [Publication verification](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/pose_search/publication_verification.json) records the checks and recovery from interrupted network connections; no experiments were rerun during publication.
 
 `videos/index.json` inside the archive identifies the five current representative offline replays and the preserved interim clip. Original scene and manifest bytes remain alongside portable replacements. Simulation raw data and previous archives are preserved.
 
-The prior support-validation ZIP was not present at its recorded Downloads path during the final check. A verified copy was restored from its unchanged public release to `outputs/g1_o6/pose_search/evidence/previous/`; its original SHA256 matches. The separate partial ZIP in Downloads remains untouched. See [preservation receipt](prior_archive_preservation.json).
+The prior support-validation ZIP was not present at its recorded Downloads path during the final check. A verified copy was restored from its unchanged public release to `outputs/g1_o6/pose_search/evidence/previous/`; its original SHA256 matches. The separate partial ZIP in Downloads remains untouched. See [preservation receipt](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/pose_search/prior_archive_preservation.json).

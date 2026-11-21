@@ -37,13 +37,13 @@ The candidate grasps rung 10 while the feet remain on rung 04. It uses a 20° ro
 
 An earlier trial incorrectly treated a 4.6° elbow joint coordinate as physical straightness. Its actual arm bend was 74°. Visual inspection exposed the error; the final IK preference and regression test use segment directions. That rejected trial is retained in the archive and is not the final preset.
 
-![Final reversed pregrasp](figures/thumb_below_initial.png)
+![Final reversed pregrasp](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/diagnostics/figures/thumb_below_initial.png)
 
 At 5.54 s the final candidate has opposing loaded contacts at both hands and 34.38 mm reset-relative base drift. It aborts after 0.50 s without assistance for **drift, effort, and unintended support**. Middle/ring/pinky servos saturate. Both original G1 wrist housings contact rung 09; those contacts are correctly rejected as extra support. This is a tested posture candidate, not a successful unsupported hold. Physical ranges, gains, friction, masses and torque limits were not relaxed.
 
 ## A. Nominal failure timeline
 
-Both unchanged baseline runs match the published result within tolerances declared before execution. The instrumented strict run preserves **all 278 legacy log samples and every original summary field exactly**, including qpos, forces and termination. The hand-runner refactor separately preserves all 1,002 gravity-only log records exactly. Comparison records are included in [results.json](results.json) and the raw archive.
+Both unchanged baseline runs match the published result within tolerances declared before execution. The instrumented strict run preserves **all 278 legacy log samples and every original summary field exactly**, including qpos, forces and termination. The hand-runner refactor separately preserves all 1,002 gravity-only log records exactly. Comparison records are included in [results.json](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/diagnostics/results.json) and the raw archive.
 
 | Event | Time | Evidence and interpretation |
 |---|---:|---|
@@ -56,11 +56,11 @@ Both unchanged baseline runs match the published result within tolerances declar
 | Original strict ABORT | 5.54 s | Drift, joint limits, effort and velocity; 94.71 mm reset drift versus 43.75 mm additional HOLD drift. |
 | Diagnostic continuation stops | 7.414 s | Explicit 0.5 m escape guard; the original FAIL remains unchanged. |
 
-The physics sampling interval is 1 ms; events within one interval are unordered. The [event table](failure_events.csv) separates all-phase crossings and zero-assistance per-gate persistence. Its timestamps are not a causal proof. The original controller's global bad-time counter may accumulate across changing reasons, so its actual abort is stored separately. On HOLD entry, drift, joint-limit, effort, velocity and left-hand support gates are already violated.
+The physics sampling interval is 1 ms; events within one interval are unordered. The [event table](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/diagnostics/failure_events.csv) separates all-phase crossings and zero-assistance per-gate persistence. Its timestamps are not a causal proof. The original controller's global bad-time counter may accumulate across changing reasons, so its actual abort is stored separately. On HOLD entry, drift, joint-limit, effort, velocity and left-hand support gates are already violated.
 
-![Nominal timeline](figures/strict_instrumented/nominal_failure_timeline.png)
+![Nominal timeline](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/diagnostics/figures/strict_instrumented/nominal_failure_timeline.png)
 
-[Vector timeline](figures/strict_instrumented/nominal_failure_timeline.pdf), [assistance-removal zoom](figures/strict_instrumented/nominal_failure_zoom.png), [continuation timeline](figures/continuation/nominal_failure_timeline.png).
+[Vector timeline](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/diagnostics/figures/strict_instrumented/nominal_failure_timeline.pdf), [assistance-removal zoom](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/diagnostics/figures/strict_instrumented/nominal_failure_zoom.png), [continuation timeline](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/diagnostics/figures/continuation/nominal_failure_timeline.png).
 
 The continuation retains PD control and actuator clipping, freezes intended HOLD behavior, applies exactly zero acquisition assistance, and never enters release. Separate diagnostic guards are 250 mm downward displacement, 500 mm total displacement, 10 mm penetration, any new numerical warning, or nonfinite state. The duration limit is at most 3 s after the original abort.
 
@@ -81,7 +81,7 @@ All four full-hand tests pass the existing physical gates and the separately dec
 
 No full-hand defect required an isolated-command follow-up in this measured batch. The runner can map a passive-joint violation back to its active command and run only that command when needed. Fixed-base reaction forces are not measured, so fixed-base momentum balance is explicitly marked unevaluated.
 
-[Free-closing summary](free_close_summary.csv), [left trajectory](figures/left_gravity/trajectory.png), [right trajectory](figures/right_gravity/trajectory.png), [left gravity control](figures/left_no_gravity/trajectory.png), [right gravity control](figures/right_no_gravity/trajectory.png). Vector PDFs accompany each figure.
+[Free-closing summary](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/diagnostics/free_close_summary.csv), [left trajectory](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/diagnostics/figures/left_gravity/trajectory.png), [right trajectory](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/diagnostics/figures/right_gravity/trajectory.png), [left gravity control](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/diagnostics/figures/left_no_gravity/trajectory.png), [right gravity control](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/diagnostics/figures/right_no_gravity/trajectory.png). Vector PDFs accompany each figure.
 
 ## C. Isolated load response
 
@@ -101,9 +101,9 @@ There are **34 measured trials**: 26 primary cases plus eight confirmations. No 
 
 Many failed runs still have loaded contact when the diagnostic stop fires. `contact_retained_until_termination` reports that observation; `physical_retention` requires the complete schedule, and `strict_pass` requires every gate. A 0.5 s persistent physical-gate failure ends a run; effort-only failure remains latched but allows a retention observation. Requested loads may not be reached before termination: the table includes achieved force/moment norms and actual plateau duration, including incomplete plateaus.
 
-![Load response](figures/load_response.png)
+![Load response](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/diagnostics/figures/load_response.png)
 
-[Complete load table](load_response.csv), [structured results and signed references](load_response.json), [left combined failure](figures/left_combined_1.0000/trajectory.png), [right combined failure](figures/right_combined_1.0000/trajectory.png).
+[Complete load table](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/diagnostics/load_response.csv), [structured results and signed references](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/diagnostics/load_response.json), [left combined failure](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/diagnostics/figures/left_combined_1.0000/trajectory.png), [right combined failure](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/diagnostics/figures/right_combined_1.0000/trajectory.png).
 
 ## Conclusions and next discriminating experiments
 
@@ -118,9 +118,9 @@ No learning, release/reacquisition, hardware or broad parameter search is includ
 
 ## Validation and evidence access
 
-The affected existing G1/O6, standalone, component, controller and viewer checks pass. Additional checks cover strict trajectory preservation, continuation semantics, physical elbow angle, authentic side mappings, no free-close world contacts, zero fixture support, articulated momentum, off-center rotated forces, contact couples/internal-contact exclusion, independent drift references, event persistence, incomplete plateaus, numerical guards and simultaneous load selection. See [validation.json](validation.json) for final counts and measured quality checks. The optional pytest-plugin deprecation warning is unrelated to the simulation; no simulation numerical warnings occurred in the measured study.
+The affected existing G1/O6, standalone, component, controller and viewer checks pass. Additional checks cover strict trajectory preservation, continuation semantics, physical elbow angle, authentic side mappings, no free-close world contacts, zero fixture support, articulated momentum, off-center rotated forces, contact couples/internal-contact exclusion, independent drift references, event persistence, incomplete plateaus, numerical guards and simultaneous load selection. See [validation.json](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/diagnostics/validation.json) for final counts and measured quality checks. The optional pytest-plugin deprecation warning is unrelated to the simulation; no simulation numerical warnings occurred in the measured study.
 
-Full raw logs, compressed physics-step records, resolved configs, models, asset hashes, wrist traces, videos, baseline comparisons and source snapshot are in the compact archive described by [artifact.json](artifact.json). The archive is placed in the user's Downloads directory, outside the gitignored output tree, with a SHA256 sidecar. Its exact accessible local path and checksum are recorded there. Small figures and tables are committed here for repository review. Canonical meshes are not duplicated in the archive: install them through the pinned repository workflow; exported XML retains the original machine's mesh paths, which must be rebased when moving the evidence to another checkout.
+Full raw logs, compressed physics-step records, resolved configs, models, asset hashes, wrist traces, videos, baseline comparisons and source snapshot are in the compact archive described by [artifact.json](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/diagnostics/artifact.json). The archive is placed in the user's Downloads directory, outside the gitignored output tree, with a SHA256 sidecar. Its exact accessible local path and checksum are recorded there. Small figures and tables are committed here for repository review. Canonical meshes are not duplicated in the archive: install them through the pinned repository workflow; exported XML retains the original machine's mesh paths, which must be rebased when moving the evidence to another checkout.
 
 Raw-schema note: early isolated-run `physics.jsonl.gz` records called the full compiled qpos vector `joint_position_rad`. For free-wrist runs its first seven values are world position in metres and quaternion WXYZ; remaining values are hinge angles in compiled order. Those original bytes are preserved. The current exporter uses `generalized_position_qpos` with an explicit per-joint component layout in resolved metadata. The named 20 ms joint telemetry, events, physics signal limits and all reported outcomes are unaffected.
 

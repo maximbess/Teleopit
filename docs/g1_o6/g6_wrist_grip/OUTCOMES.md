@@ -1,6 +1,6 @@
 # G6 wrist and grip hold results
 
-Right-wrist feedback kept the right thumb opposed at 40.563 s. At that 1 ms physics step the opposed right and left thumbs carried 0.575 and 0.601 N, the weakest left finger carried 1.518 N, the right knee cleared rung 3 by 41.912 mm and the force-balance residual was 1.583 N. The preceding controller had zero right-thumb contacts on that same step. [Preceding grip experiment](../g6_grip_feedback/OUTCOMES.md)
+Right-wrist feedback kept the right thumb opposed at 40.563 s. At that 1 ms physics step the opposed right and left thumbs carried 0.575 and 0.601 N, the weakest left finger carried 1.518 N, the right knee cleared rung 3 by 41.912 mm and the force-balance residual was 1.583 N. The preceding controller had zero right-thumb contacts on that same step. [Preceding grip experiment](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/g6_grip_feedback/OUTCOMES.md)
 
 **None of the three bounded configurations qualified a stable G1 pose on G6.** Only the right wrist passed the 30 s screen. Its 60 s failure left the nominal 120 s hold, repeat and half-timestep confirmation ineligible.
 

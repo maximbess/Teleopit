@@ -65,8 +65,8 @@ This report is generated from saved results. A screen is not 120 s qualification
 
 Qualified nominal/repeat/fine candidates: NONE.
 
-[Complete configurations, per-hand metrics, late windows, first crossings and qualification status](results.json).
-[Flat comparison table with all per-hand metrics and separate validation statuses](comparison.csv).
+[Complete configurations, per-hand metrics, late windows, first crossings and qualification status](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/pose_search/results.json).
+[Flat comparison table with all per-hand metrics and separate validation statuses](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/pose_search/comparison.csv).
 
 A >50% reduction in either hand's signed 20–30 s share is explicitly flagged in the JSON; it does not establish stronger grasp capacity.
 

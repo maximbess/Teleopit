@@ -45,14 +45,14 @@ A separately budgeted, single-law test should use thumb opposition and rung-rela
 - Finalists/repeat/fine: none eligible. Robustness: zero, BLOCKED. Optional boundary-condition diagnostics: zero, NOT RUN; the controlled coupled interventions can be interpreted without a fixture or replayed support wrench. Existing free-wrist failures do not gate this campaign.
 - Every scored physics step is audited for actual applied-force arrays. All are zero. Prohibited contacts remain recorded in failed runs; they are never counted as valid support.
 
-[Full ranked table](COMPARISON.md), [flat numeric table](comparison.csv), [resolved results and first crossings](results.json), [software/physical verification](verification.json), [work log](WORK_LOG.md), and [archive/checksum receipt](artifact.json). The archive includes original failed trials, source revisions and dirty diffs, portable equivalent scenes, physical assets, physics event windows, and offline recorded-state videos. Previous archives are preserved.
+[Full ranked table](COMPARISON.md), [flat numeric table](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/pose_search/comparison.csv), [resolved results and first crossings](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/pose_search/results.json), [software/physical verification](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/pose_search/verification.json), [work log](WORK_LOG.md), and [archive/checksum receipt](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/pose_search/artifact.json). The archive includes original failed trials, source revisions and dirty diffs, portable equivalent scenes, physical assets, physics event windows, and offline recorded-state videos. Previous archives are preserved.
 
 Representative figures show the most advanced completed attempt of each selected candidate, including later failures. The baseline has its own panel; geometry and modified-failure panels prefer alternatives. 'Best controller' identifies the best eligible shorter-duration motion score and then displays that candidate's later failure; it is not a qualified controller.
 
-![Original reference long failure](baseline.png)
+![Original reference long failure](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/pose_search/baseline.png)
 
-![Best modified geometry, 60 s and still drifting](best_geometry.png)
+![Best modified geometry, 60 s and still drifting](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/pose_search/best_geometry.png)
 
-![Promising short controller, later opposition failure](best_controller.png)
+![Promising short controller, later opposition failure](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/pose_search/best_controller.png)
 
-![Best modified long attempt, thumb-cap failure](final_qualification_or_best_failure.png)
+![Best modified long attempt, thumb-cap failure](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/pose_search/final_qualification_or_best_failure.png)

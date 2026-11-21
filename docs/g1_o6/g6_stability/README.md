@@ -5,7 +5,7 @@ It starts from reviewed commit `298cd2f555dcf48637384987ef0668e85f219392`.
 The existing default remains unchanged. Physical milestones are reported separately
 from software checks in `outputs/g1_o6/g6_stability/milestones.json`.
 The completed 48-configuration search found no qualifying pose; see
-[OUTCOMES.md](OUTCOMES.md) and [CANDIDATES.csv](CANDIDATES.csv).
+[OUTCOMES.md](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/g6_stability/OUTCOMES.md) and [CANDIDATES.csv](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/g6_stability/CANDIDATES.csv).
 
 ## Run
 
@@ -104,11 +104,11 @@ not double-counted.
 FAIL is a measured physical failure, BLOCKED means a prerequisite or coverage
 is missing, NOT RUN means no eligible attempt, and ERROR is a technical failure.
 Recorded-state videos use separate display data and never qualify physics.
-See [WORK_LOG.md](WORK_LOG.md) for implementation and validation history.
+See [WORK_LOG.md](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/g6_stability/WORK_LOG.md) for implementation and validation history.
 
 ## Delivered evidence and reproduction
 
-The local ZIP and its SHA-256 are listed in [artifact.json](artifact.json).
+The local ZIP and its SHA-256 are listed in [artifact.json](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/g6_stability/artifact.json).
 That outer receipt is committed separately from the ZIP; the archive itself
 contains `evidence_manifest.json` with every included file checksum.
 Extract it at one root so relative asset paths remain intact. Each run contains

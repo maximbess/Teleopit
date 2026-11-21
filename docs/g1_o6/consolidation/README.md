@@ -10,7 +10,7 @@ The later comparator-only correction is `39f36f5d943cf0be2bb9876030f5e9b382caf41
 
 ## Equivalence
 
-[Tolerances](tolerances.json) were declared before refactoring: zero for all compared numerical fields. [Machine-readable validation](validation.json) records the complete comparisons and limitations. Fresh references remain in `outputs/g1_o6/consolidation/before_10s`, `before_30s` and `before_fine_30s`; final runs are under `qualification`.
+[Tolerances](tolerances.json) were declared before refactoring: zero for all compared numerical fields. [Machine-readable validation](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/consolidation/validation.json) records the complete comparisons and limitations. Fresh references remain in `outputs/g1_o6/consolidation/before_10s`, `before_30s` and `before_fine_30s`; final runs are under `qualification`.
 
 | Trial | Physics step | Zero-assistance HOLD | Max HOLD drift | Max wrist bend | Minimum housing clearance | Outcome |
 |---|---:|---:|---:|---:|---:|---|
@@ -45,4 +45,4 @@ The final affected controller, component, posture, diagnostic, source, CLI, comp
 
 Ruff and diff checks pass. The named ub-mode crapper/dryer/mutator tools were unavailable. Transparent scoped substitutes measured 46 changed functions: maximum CRAP 9.7971 using Radon and statement coverage; no AST-token similarity >=0.8 among compared bodies of at least 50 AST nodes. Six isolated in-memory mutations were killed: finger bound, command rate, whole-interval gate, successful terminal state, diagnostic completion and source controller validation. These targeted checks are not exhaustive mutation coverage. No obsolete selector, installer, release branch or hardcoded hand-rung-08 fallback remains in either active package.
 
-The work introduced no worktree and removed no raw experiment directory or user archive. [History](../HISTORY.md) retains exact revisions, commands and asset/archive provenance; both existing local ZIP hashes were reverified. See the [action log](WORK_LOG.md), [evidence manifest](evidence_manifest.json) and [local archive manifest](artifact.json). No consolidation blocker remains; the isolated load failures and existing training-reset regression remain explicitly documented limits.
+The work introduced no worktree and removed no raw experiment directory or user archive. [History](../HISTORY.md) retains exact revisions, commands and asset/archive provenance; both existing local ZIP hashes were reverified. See the [action log](WORK_LOG.md), [evidence manifest](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/consolidation/evidence_manifest.json) and [local archive manifest](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/consolidation/artifact.json). No consolidation blocker remains; the isolated load failures and existing training-reset regression remain explicitly documented limits.

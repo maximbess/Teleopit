@@ -40,9 +40,9 @@ Implementation revision: `fa0a1d8` (CPU MuJoCo 3.8.1, conda `teleopit`). The 30 
 
 All five balanced qualifications have zero housing-contact physics steps and exactly zero applied assistance during HOLD. The minimum certified/measured housing clearance during HOLD is 18.55 mm; peak actuator effort is 56.44% of the unchanged limits. Every scored sample has thumb-below/fingers-above contacts. The two nominal traces are byte-identical. All 278 baseline control records are identical to the prior diagnostic baseline.
 
-![Previous and balanced posture](pose_comparison.png)
+![Previous and balanced posture](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/posture/pose_comparison.png)
 
-![Loaded hand and clear wrist housing](hand_grasp.png)
+![Loaded hand and clear wrist housing](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/posture/hand_grasp.png)
 
 ![Thirty-second hold evidence](hold_evidence.png)
 
@@ -50,7 +50,7 @@ Vector plot: [hold_evidence.pdf](hold_evidence.pdf). The labeled 30 s MP4 is in 
 
 ## Evidence and scope
 
-See [results.json](results.json) for measured qualification results and [search.csv](search.csv) for rejected alternatives. The full experiment history and validation details are recorded in [WORK_LOG.md](WORK_LOG.md) and [validation.json](validation.json). The raw-log archive and its checksum are described in [artifact.json](artifact.json).
+See [results.json](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/posture/results.json) for measured qualification results and [search.csv](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/posture/search.csv) for rejected alternatives. The full experiment history and validation details are recorded in [WORK_LOG.md](WORK_LOG.md) and [validation.json](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/posture/validation.json). The raw-log archive and its checksum are described in [artifact.json](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/posture/artifact.json).
 
 The search compared hand rungs 09–12, split rungs 10/11, crouches, torso lean, grip orientation and finger preload. Lowering the pelvis caused knee collisions. Merely moving the arms retained finger saturation, missing thumb opposition and housing support. Motor gravity preload fixed the load-transfer problem; changing grip orientation and initializing preload before stepping removed the housing contact. Earlier 0.18 Nm closing commands passed 10 s but lost thumb opposition during a 30 s extension; that stronger command was rejected.
 

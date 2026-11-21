@@ -63,17 +63,17 @@ The two imported pre-refactor reference runs retain the reviewed every-physics-s
 
 Earlier acquisition transitions initially had event timestamps and control-rate traces, while detailed physics windows covered HOLD entry and failure. Separate acquisition-prefix reproductions now supply those missing windows for all 25 screen conditions. Each stops 0.26 s after HOLD entry; all 266 control rows match the corresponding original physical states, contacts, support reactions and failure fields exactly. Their 1 ms windows cover INITIALIZE, ACQUIRE, REMOVE_ASSISTANCE and HOLD transitions. These supplements carry no qualification result, do not replace a failure, and cannot affect reset selection or promotion. They are archived under `acquisition_windows/` with their source identities and checksums.
 
-[MATRIX.md](MATRIX.md) distinguishes tested screens from untested geometry/material combinations; [COMPARISON.md](COMPARISON.md) and [comparison.csv](comparison.csv) include each duration; [failure_timeline.csv](failure_timeline.csv) reports first crossing and persistence onset with phase and time base. [promotions.json](promotions.json) preserves the prelaunch rankings, selected conditions and exact run identities. Plots include acquisition, HOLD entry, drift, anatomical contacts, migration and signed support loads. Compiled front/side views preserve true dimensions. Recorded-state videos use offline forward kinematics and do not advance or qualify physics.
+[MATRIX.md](MATRIX.md) distinguishes tested screens from untested geometry/material combinations; [COMPARISON.md](COMPARISON.md) and [comparison.csv](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/ladder_material/comparison.csv) include each duration; [failure_timeline.csv](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/ladder_material/failure_timeline.csv) reports first crossing and persistence onset with phase and time base. [promotions.json](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/ladder_material/promotions.json) preserves the prelaunch rankings, selected conditions and exact run identities. Plots include acquisition, HOLD entry, drift, anatomical contacts, migration and signed support loads. Compiled front/side views preserve true dimensions. Recorded-state videos use offline forward kinematics and do not advance or qualify physics.
 
 The G0 H μ=0.8 long diagnostic retains valid contact while drift grows to failure. Its final-window assessment remains NOT RUN:
 
-![G0 H mu 0.8 long diagnostic](figures/G0_H_0p8_120s.png)
+![G0 H mu 0.8 long diagnostic](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/ladder_material/figures/G0_H_0p8_120s.png)
 
 The G6 reset view shows the actual modeled dimensions and selected supports:
 
-![Compiled G6 front and side views](figures/G6_geometry.png)
+![Compiled G6 front and side views](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/ladder_material/figures/G6_geometry.png)
 
-Also retained here: [original long-reference plot](figures/G0_reference_120s.png) and [G1 thin-rung screen plot](figures/G1_screen.png). The archive contains all 39 run plots, HOLD-entry/failure views, seven geometry views and representative recorded-state videos.
+Also retained here: [original long-reference plot](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/ladder_material/figures/G0_reference_120s.png) and [G1 thin-rung screen plot](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/ladder_material/figures/G1_screen.png). The archive contains all 39 run plots, HOLD-entry/failure views, seven geometry views and representative recorded-state videos.
 
 ## Recommendation
 

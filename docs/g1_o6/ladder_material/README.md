@@ -128,16 +128,16 @@ and execution results. No result from this campaign grants load capacity, transf
 release, disturbance robustness or a new project default.
 
 Final software checks: **226 tests passed**; all 39 evidence records verified;
-ten targeted mutants killed. [test_results.json](test_results.json) records the
-commands, source/receipt hashes and limitations. [quality.json](quality.json)
+ten targeted mutants killed. [test_results.json](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/ladder_material/test_results.json) records the
+commands, source/receipt hashes and limitations. [quality.json](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/ladder_material/quality.json)
 reports 156 measured changed functions, maximum CRAP 9.648 and no qualifying
 duplication pair. Named crapper/dryer/mutator tools were unavailable, so these
 use Radon with measured execution coverage, AST comparison and targeted
-behavioral mutations. [evidence_verification.json](evidence_verification.json)
+behavioral mutations. [evidence_verification.json](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/ladder_material/evidence_verification.json)
 contains per-run checks. These software results do not change the negative
 physical qualification result.
 
 The verified local ZIP is **3,579,699,880 bytes** and contains **2,440 checksummed
 files** plus its manifest, including **78 portable scene copies**. Its SHA-256 is
 `45ecf1e4be0ed928d1df42c3b788308c09100c5ed6a11a15ae4ca5bedfaf9103`.
-See [artifact.json](artifact.json) for the absolute local path and source revision.
+See [artifact.json](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/ladder_material/artifact.json) for the absolute local path and source revision.
