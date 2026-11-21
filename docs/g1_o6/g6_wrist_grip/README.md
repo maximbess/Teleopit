@@ -1,5 +1,7 @@
 # Bounded wrist and grip feedback on G6
 
+The follow-up replays the 52.029 s loss and tests three single corrections. [G6 thumb retention](../g6_thumb_retention/README.md)
+
 [Short report, photos and video](SHORT_REPORT.md) · [Measured hold results](OUTCOMES.md) · [Trial measurements and hashes](results.json) · [Work log](WORK_LOG.md)
 
 The matched G1 starts with both O6 hands on rung 7 and both feet on rung 2. The preceding grip controller first lost right-thumb opposition at 40.563 s. Its distal pad had migrated along the underside of the tread, and every available grip command predicted that loss. The wrist experiment retains its bilateral native-interval grip preview, finite finger preload, body controller and knee guard. [Preceding trial](https://github.com/maximbess/Teleopit/blob/f27fa4c/docs/g1_o6/g6_grip_feedback/OUTCOMES.md)

@@ -1,0 +1,1297 @@
+{
+  "schema": "g6_native_thumb_retention_v1",
+  "simulator_revision": "b96c2c8a7b10a3d2489555a05b135d23d01ee3bc",
+  "frozen_spec_sha256": "752f64ccf0afd39c4bffad039226b2dc785955fa17df5d01ec3029dc15d705ea",
+  "configuration": {
+    "schema": "g6_thumb_retention_v1",
+    "geometry": "G6",
+    "native_mu": 1.8,
+    "stages": {
+      "probe": [
+        5,
+        0.001
+      ],
+      "screen": [
+        30,
+        0.001
+      ],
+      "60s": [
+        60,
+        0.001
+      ],
+      "120s": [
+        120,
+        0.001
+      ],
+      "repeat": [
+        120,
+        0.001
+      ],
+      "fine": [
+        120,
+        0.0005
+      ],
+      "repeat60": [
+        60,
+        0.001
+      ]
+    },
+    "candidates": {
+      "control": {
+        "id": "control",
+        "pose": {
+          "hand_rungs": [
+            7,
+            7
+          ],
+          "foot_rungs": [
+            2,
+            2
+          ],
+          "waist_lean_rad": 0.3,
+          "hand_tilt_deg": 50.0,
+          "grip_offset_m": [
+            -0.023,
+            0.0,
+            -0.02
+          ],
+          "hand_spacing_m": 0.18,
+          "closed_pose": [
+            0.35,
+            0.5,
+            1.35,
+            1.35,
+            1.35,
+            1.35
+          ],
+          "finger_preload_Nm": 0.12,
+          "right_grip_offset_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "reset": {
+          "root_offset_x": -0.04
+        },
+        "parent": null,
+        "family": "control",
+        "controller": {
+          "order": "together",
+          "arm_rate_rad_s": 0.02,
+          "balance": "wrench",
+          "gain": 1.6,
+          "governor": "individual",
+          "guard_N": 16.0,
+          "grip_retention": "settled",
+          "grip_law": "palm",
+          "pressure_gain": 0.12,
+          "thumb_preview": "native",
+          "wrist_mode": "right"
+        }
+      },
+      "inward_2mm": {
+        "id": "inward_2mm",
+        "pose": {
+          "hand_rungs": [
+            7,
+            7
+          ],
+          "foot_rungs": [
+            2,
+            2
+          ],
+          "waist_lean_rad": 0.3,
+          "hand_tilt_deg": 50.0,
+          "grip_offset_m": [
+            -0.023,
+            0.0,
+            -0.02
+          ],
+          "hand_spacing_m": 0.18,
+          "closed_pose": [
+            0.35,
+            0.5,
+            1.35,
+            1.35,
+            1.35,
+            1.35
+          ],
+          "finger_preload_Nm": 0.12,
+          "right_grip_offset_m": [
+            0.002,
+            0.0,
+            0.0
+          ]
+        },
+        "reset": {
+          "root_offset_x": -0.04
+        },
+        "parent": "control",
+        "family": "tread_edge",
+        "controller": {
+          "order": "together",
+          "arm_rate_rad_s": 0.02,
+          "balance": "wrench",
+          "gain": 1.6,
+          "governor": "individual",
+          "guard_N": 16.0,
+          "grip_retention": "settled",
+          "grip_law": "palm",
+          "pressure_gain": 0.12,
+          "thumb_preview": "native",
+          "wrist_mode": "right"
+        }
+      },
+      "inward_4mm": {
+        "id": "inward_4mm",
+        "pose": {
+          "hand_rungs": [
+            7,
+            7
+          ],
+          "foot_rungs": [
+            2,
+            2
+          ],
+          "waist_lean_rad": 0.3,
+          "hand_tilt_deg": 50.0,
+          "grip_offset_m": [
+            -0.023,
+            0.0,
+            -0.02
+          ],
+          "hand_spacing_m": 0.18,
+          "closed_pose": [
+            0.35,
+            0.5,
+            1.35,
+            1.35,
+            1.35,
+            1.35
+          ],
+          "finger_preload_Nm": 0.12,
+          "right_grip_offset_m": [
+            0.004,
+            0.0,
+            0.0
+          ]
+        },
+        "reset": {
+          "root_offset_x": -0.04
+        },
+        "parent": "control",
+        "family": "tread_edge",
+        "controller": {
+          "order": "together",
+          "arm_rate_rad_s": 0.02,
+          "balance": "wrench",
+          "gain": 1.6,
+          "governor": "individual",
+          "guard_N": 16.0,
+          "grip_retention": "settled",
+          "grip_law": "palm",
+          "pressure_gain": 0.12,
+          "thumb_preview": "native",
+          "wrist_mode": "right"
+        }
+      },
+      "preorient": {
+        "id": "preorient",
+        "pose": {
+          "hand_rungs": [
+            7,
+            7
+          ],
+          "foot_rungs": [
+            2,
+            2
+          ],
+          "waist_lean_rad": 0.3,
+          "hand_tilt_deg": 50.0,
+          "grip_offset_m": [
+            -0.023,
+            0.0,
+            -0.02
+          ],
+          "hand_spacing_m": 0.18,
+          "closed_pose": [
+            0.35,
+            0.5,
+            1.35,
+            1.35,
+            1.35,
+            1.35
+          ],
+          "finger_preload_Nm": 0.12,
+          "right_grip_offset_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "reset": {
+          "root_offset_x": -0.04
+        },
+        "parent": "control",
+        "family": "preorient",
+        "controller": {
+          "order": "together",
+          "arm_rate_rad_s": 0.02,
+          "balance": "wrench",
+          "gain": 1.6,
+          "governor": "individual",
+          "guard_N": 16.0,
+          "grip_retention": "settled",
+          "grip_law": "palm",
+          "pressure_gain": 0.12,
+          "thumb_preview": "native",
+          "wrist_mode": "right",
+          "right_refinement": "preorient"
+        }
+      },
+      "recenter": {
+        "id": "recenter",
+        "pose": {
+          "hand_rungs": [
+            7,
+            7
+          ],
+          "foot_rungs": [
+            2,
+            2
+          ],
+          "waist_lean_rad": 0.3,
+          "hand_tilt_deg": 50.0,
+          "grip_offset_m": [
+            -0.023,
+            0.0,
+            -0.02
+          ],
+          "hand_spacing_m": 0.18,
+          "closed_pose": [
+            0.35,
+            0.5,
+            1.35,
+            1.35,
+            1.35,
+            1.35
+          ],
+          "finger_preload_Nm": 0.12,
+          "right_grip_offset_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "reset": {
+          "root_offset_x": -0.04
+        },
+        "parent": "control",
+        "family": "recenter",
+        "controller": {
+          "order": "together",
+          "arm_rate_rad_s": 0.02,
+          "balance": "wrench",
+          "gain": 1.6,
+          "governor": "individual",
+          "guard_N": 16.0,
+          "grip_retention": "settled",
+          "grip_law": "palm",
+          "pressure_gain": 0.12,
+          "thumb_preview": "native",
+          "wrist_mode": "right",
+          "right_refinement": "recenter"
+        }
+      }
+    },
+    "candidate_limit": 5,
+    "budgets": {
+      "probe": 5,
+      "screen": 4,
+      "60s": 4,
+      "120s": 4,
+      "repeat": 4,
+      "fine": 4,
+      "repeat60": 4
+    },
+    "parent_probe_steps_sha256": "6cc27ee0c3165e6f5a9adc85a9e1756674dfad45af74ea77e083fd1233948797",
+    "reference_loss_s": 52.029,
+    "reference_centroid_margin_m": {
+      "5.0": 0.033983912923574104,
+      "40.0": 0.026888131193427277
+    },
+    "qualification": "All physical and continuous wrist/grip gates; reproduced and explained 60 s before 120 s."
+  },
+  "experiments": [
+    {
+      "native_steps": 5020,
+      "end_s": 5.02,
+      "first": {
+        "right_thumb": null,
+        "left_thumb": null,
+        "left_fingers": null,
+        "force_balance": null,
+        "knee_clearance": null
+      },
+      "saturated_applied_s": null,
+      "saturated_requested_s": null,
+      "saturated_pre_loss_decisions": 0,
+      "unmet_direction_rung": null,
+      "max_proximal_offset_rad": 0.028400407982763276,
+      "snapshots": {
+        "5.0": {
+          "fixed_margin": 0.033983912929325726,
+          "centroid_margin": 0.033983912923574104,
+          "fixed": [
+            -0.006016087070674275,
+            -0.08176481331383123,
+            -0.019046759560632287
+          ],
+          "centroid": [
+            -0.006016087076425897,
+            -0.08176481331987635,
+            -0.019046763048781612
+          ],
+          "right_palm": [
+            -0.06626601993959585,
+            -0.15563106548944633,
+            0.007264521921249267
+          ],
+          "left_palm": [
+            -0.06591824215030789,
+            0.15481139082944148,
+            0.00876249436933696
+          ],
+          "pelvis": [
+            -0.5532269279475368,
+            0.001227750511334352,
+            -0.5138476000560954
+          ],
+          "slip": 7.532101363839451e-05
+        }
+      },
+      "run_id": "control_probe",
+      "candidate": "control",
+      "stage": "probe",
+      "qualified_stage": true,
+      "first_failure": null,
+      "audited_threshold_crossings_s": {},
+      "signed_tread_Fz_at_first_failure_N": null,
+      "peak_residual_N": 23.182582151094312,
+      "minimum_knee_mm": 41.877294444630394,
+      "nonzero_applied_steps": 0,
+      "housing_steps": 0,
+      "unintended_steps": 0,
+      "native_friction": "PASS",
+      "identity": "2dad36a6466b56633870062d31bd4fcd1878a5a89d96fb4b9ce582078ea4cb91",
+      "files_sha256": {
+        "all_phase_events.json": "9aac2f4a65814ef461e187f2dc6646d10714cdf2e770652e7f581e6d485b9f2a",
+        "applied_forces.jsonl.gz": "e89cd881c60d16b41f71fe530c44da4308fa42a49b51e64c11a9ca32d7f84d4e",
+        "body_clearance_summary.json": "0d2c474eebebe1baeeb26d5df0aa57ec714271d52df97b48e6edb38e746ef7e0",
+        "body_contact_events.json": "a51926adc0fa337acc88891142ea0683a01234d000befe3986ba3250abb824de",
+        "contact_episodes.json": "8cfcd5fde3258ce3f3f5f7356f1af2e02b9b6332d997b77f664a13db681a55f2",
+        "hold_entry.json": "ac2c0a30ea811c43882bb6ba96da7acd38b41ae99c7a8e43349dbdc1f927886e",
+        "knee_rung3.f64.gz": "398561e8f9f824b0547ee64a928ff099bf89b6f42b97d8e2906c516f7dda5bfb",
+        "left.wrist.json": "b3f6087f25911eb490aa6b7a998d5a07747a91646177fe89154977ec32fb74dc",
+        "manifest.json": "ab7345397ec885437fe148a0e50c1da0164613048f87b2fc845cc4fb1df4407b",
+        "observed_friction.json": "9bb12899cc8121defa8d18a62176a66aebb43199c2c7b610f35ba70145f209f0",
+        "physics_contacts.jsonl.gz": "70c78eb65bb6feda81260c8031c67b77ad770b9bf6255089f39d0f793ced2d2a",
+        "physics_events.csv": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6",
+        "physics_window_triggers.json": "5c86c6f06d6f585c7e215753c5fbb2317bec3d90afe7340505cca26e857981c1",
+        "physics_windows.jsonl.gz": "8bd1d4aa445bb0d640873f725c6a5b6501fdbd8c239c65b6eb14a3dbac9bf4a1",
+        "resolved.json": "56e3792e18da16e98573a604bf6306f2a107d89a629d6a151b993e396d9c06e1",
+        "right.wrist.json": "dadc7db7a26b336934eb6c47038018e9415b7bec7a0adb1897999b63d4c05e81",
+        "scene.mjb": "c4b50161e27f5d778c53cfa639e679152095bee61b8be9a3beb256ae7799e09a",
+        "scene.xml": "e68e8873913bc446c1c03e59b888685a5f1eea8abda9c6906405ec429e6ced73",
+        "steps.jsonl": "6cc27ee0c3165e6f5a9adc85a9e1756674dfad45af74ea77e083fd1233948797",
+        "summary.json": "b01afdf7d55610cb18f5352be09f2190a43511eedb73d5221eb1bcb7d1feb782"
+      }
+    },
+    {
+      "native_steps": 5020,
+      "end_s": 5.02,
+      "first": {
+        "right_thumb": null,
+        "left_thumb": null,
+        "left_fingers": null,
+        "force_balance": 0.847,
+        "knee_clearance": null
+      },
+      "saturated_applied_s": null,
+      "saturated_requested_s": null,
+      "saturated_pre_loss_decisions": 0,
+      "unmet_direction_rung": null,
+      "max_proximal_offset_rad": 0.03,
+      "snapshots": {
+        "5.0": {
+          "fixed_margin": 0.031209206450456044,
+          "centroid_margin": 0.031209206442835695,
+          "fixed": [
+            -0.008790793549543957,
+            -0.08332503092088567,
+            -0.019046450574873752
+          ],
+          "centroid": [
+            -0.008790793557164306,
+            -0.08332503092958506,
+            -0.019046448781359304
+          ],
+          "right_palm": [
+            -0.06514624851232867,
+            -0.15533985343781215,
+            0.009085042461468573
+          ],
+          "left_palm": [
+            -0.06591793092308498,
+            0.1547880643055377,
+            0.00875931300474253
+          ],
+          "pelvis": [
+            -0.5529511156257392,
+            0.0008570868560659296,
+            -0.5138222400155805
+          ],
+          "slip": 1.0115140394415395e-05
+        }
+      },
+      "run_id": "inward_2mm_probe",
+      "candidate": "inward_2mm",
+      "stage": "probe",
+      "qualified_stage": false,
+      "first_failure": {
+        "hold_s": 0.847,
+        "conditions": [
+          "force_balance"
+        ]
+      },
+      "audited_threshold_crossings_s": {
+        "force_balance": 0.8470000000002829
+      },
+      "signed_tread_Fz_at_first_failure_N": {
+        "left_hand": 4.340537636994005,
+        "left_foot": 142.932406246569,
+        "right_hand": 4.065980833926603,
+        "right_foot": 153.14903869541405
+      },
+      "peak_residual_N": 29.886484633450163,
+      "minimum_knee_mm": 41.815348183613,
+      "nonzero_applied_steps": 0,
+      "housing_steps": 0,
+      "unintended_steps": 0,
+      "native_friction": "PASS",
+      "identity": "9e49ff25eeecdb38ee8181c635f949437d5f797d3abf00d5331cd53fca8c275f",
+      "files_sha256": {
+        "all_phase_events.json": "a5417899a575ba64680acf0d3d18997a15bf57336ce9e798a42ab6d3b58a4ed2",
+        "applied_forces.jsonl.gz": "d10cf9807dffe10328ac1a970b361b57a3dbc217d46634fa2e300043e9d1eef5",
+        "body_clearance_summary.json": "9ce6300aa14873ff3c5e388a742f29039069980846c7a36d3662ee24f44baf7f",
+        "body_contact_events.json": "eb10b4b155d2b59b31d595eccceee0523bf3be5153bab41ce81bcf10a777448b",
+        "contact_episodes.json": "4aa3f4089e86fb3ed910b8593efb520f646754f7b7dfe974cbcadd6485c7ced0",
+        "hold_entry.json": "ca97eabc47ccda16cb553664814cd49ed77cc687b247d77031977a17db9a13be",
+        "knee_rung3.f64.gz": "b63d2c97793d63032a105e44024e098318bc7f8ae4c4ff139fd06fe740bbd007",
+        "left.wrist.json": "25719525a2d8edf8e4ceb649f1ff9bc14aa1626ec4be8c477bd1bb6682839060",
+        "manifest.json": "84ee3d733d44cb0ae9c9727fdd802ff9c7e5a1b9456f1ac5cce9631ddb057867",
+        "observed_friction.json": "a1a5d31f288e44ec0c3093f0ebe936855e03a693a8c7784b95844b11c904034b",
+        "physics_contacts.jsonl.gz": "670c5a64ef52e769628c90ea69c5a6ec6c0ddfb711b9ac597fac77878e726b67",
+        "physics_events.csv": "c3f61b457fca816d3dc9679cf85f5aa20aa36cc7031a5cf644fd9fda1eb20c28",
+        "physics_window_triggers.json": "8f8e64f3d020a98e20ce4b1fc25722a7bf25af5c54815cb29b840da66a6c7cc6",
+        "physics_windows.jsonl.gz": "8daf087bb9f9c8d6fd5b1a31ac36b635ef407e045a85e78f64f368a6461c020c",
+        "resolved.json": "7c65aefbc7677bdea9ab432e702252ab4fae0bae5a66daae8afff3d6c72b65f7",
+        "right.wrist.json": "ac405a92e60cc87fd2c74bfc0f74e71635bc39e04d565ae9059b3a5f80954a26",
+        "scene.mjb": "c4b50161e27f5d778c53cfa639e679152095bee61b8be9a3beb256ae7799e09a",
+        "scene.xml": "e68e8873913bc446c1c03e59b888685a5f1eea8abda9c6906405ec429e6ced73",
+        "steps.jsonl": "e2ee02d5ffe539a49ec86200f118e53607216594df99e4bc4fffc3a66788ba4c",
+        "summary.json": "032e327fa50e4236f179e983abf811db72f82402b130fb69ef896cc0ac84b2a6"
+      }
+    },
+    {
+      "native_steps": 5020,
+      "end_s": 5.02,
+      "first": {
+        "right_thumb": null,
+        "left_thumb": null,
+        "left_fingers": null,
+        "force_balance": 0.603,
+        "knee_clearance": null
+      },
+      "saturated_applied_s": null,
+      "saturated_requested_s": null,
+      "saturated_pre_loss_decisions": 0,
+      "unmet_direction_rung": null,
+      "max_proximal_offset_rad": 0.02895292489275915,
+      "snapshots": {
+        "5.0": {
+          "fixed_margin": 0.02946522499230638,
+          "centroid_margin": 0.02946522498380954,
+          "fixed": [
+            -0.01053477500769362,
+            -0.08312244722966232,
+            -0.01904640218867626
+          ],
+          "centroid": [
+            -0.010534775016190462,
+            -0.08312244724015429,
+            -0.019046403826317615
+          ],
+          "right_palm": [
+            -0.06598528824615443,
+            -0.1554510239949194,
+            0.008554221425503439
+          ],
+          "left_palm": [
+            -0.06553610624831563,
+            0.15481733737668,
+            0.00903375661554806
+          ],
+          "pelvis": [
+            -0.5522707989523952,
+            0.000577924129786375,
+            -0.5137841447699587
+          ],
+          "slip": 2.8657008235849425e-05
+        }
+      },
+      "run_id": "preorient_probe",
+      "candidate": "preorient",
+      "stage": "probe",
+      "qualified_stage": false,
+      "first_failure": {
+        "hold_s": 0.603,
+        "conditions": [
+          "force_balance"
+        ]
+      },
+      "audited_threshold_crossings_s": {
+        "force_balance": 0.6030000000002014
+      },
+      "signed_tread_Fz_at_first_failure_N": {
+        "left_hand": 3.9916676766829204,
+        "left_foot": 140.90239098977784,
+        "right_hand": 4.000929789613267,
+        "right_foot": 152.248272577889
+      },
+      "peak_residual_N": 33.29676359031692,
+      "minimum_knee_mm": 41.628468829887254,
+      "nonzero_applied_steps": 0,
+      "housing_steps": 0,
+      "unintended_steps": 0,
+      "native_friction": "PASS",
+      "identity": "0ec6c869498b167196af509224f1a4b599649a7251ca3ce6c78644bab63381bd",
+      "files_sha256": {
+        "all_phase_events.json": "593b1a18df33c5914c033d3ab04d012db972ba3caf82ee4c28c0fa24d17e2c9b",
+        "applied_forces.jsonl.gz": "d10cf9807dffe10328ac1a970b361b57a3dbc217d46634fa2e300043e9d1eef5",
+        "body_clearance_summary.json": "3f61431e4920606dafdef9f393c8872099b6533a64c763b5a52fb0512a4f5844",
+        "body_contact_events.json": "46b2cbbf1ccb5f7d359c4d0637ad9d4ff2488bef0878a60c2ed0ff513b7f3cdd",
+        "contact_episodes.json": "8cd51789fffef9258a528e5caf03d8ebb32ebd158b021b3013c85e3333919a47",
+        "hold_entry.json": "6d99cc07f424e846d75baafc40ec6b5c5b1fd834d9b7817438f264e3e1259e3a",
+        "knee_rung3.f64.gz": "75d370381f80fd3efd82f12162dbad43d81736847117aaf396a91c398805183e",
+        "left.wrist.json": "b9f94f089a8282f3a8db03c8f75dfdab51d3f9922bff29915685dadab255c904",
+        "manifest.json": "b5f82b50f29c01bc7c2fd111594c152e0b958732e71ae957b39ff547426dd493",
+        "observed_friction.json": "b87bf85e489aada97f3536f11eea6537e03bf497bf7f748b9142c10d86763cee",
+        "physics_contacts.jsonl.gz": "3d0b3531bb1cb16bc417bd915c83eed11d2ab2d5eadc2e2da7accfa7789273b8",
+        "physics_events.csv": "ede533e9c9a77baf6e6ee6a071297e08a45049058a22ce5e3dfd873fce32226b",
+        "physics_window_triggers.json": "23a1053da80a4409f95da804f421389d5912b1a00c4e30708419ddec1641cc2b",
+        "physics_windows.jsonl.gz": "c7bc4f3439c10860f615b1365699d48daf80b1f100af7892fb3ad72839665ddf",
+        "resolved.json": "107edd2fece0f21929d850ac96b134b96a003304aa94bd3704bec7c09a331f8e",
+        "right.wrist.json": "0620fe7e614b306f7bf3cedc1e8e5afc121879c7a7e2aaeeee494a4a105ca8ce",
+        "scene.mjb": "c4b50161e27f5d778c53cfa639e679152095bee61b8be9a3beb256ae7799e09a",
+        "scene.xml": "e68e8873913bc446c1c03e59b888685a5f1eea8abda9c6906405ec429e6ced73",
+        "steps.jsonl": "4f35bfe0e68337f0210c5af96bf40b0c13f2ffb046c40535079c4682ea4dcf66",
+        "summary.json": "05a1015f99b04f4e2c1d50eccdbac81efd4f16375e1c0cd0966cea46c5f6ed24"
+      }
+    },
+    {
+      "native_steps": 5020,
+      "end_s": 5.02,
+      "first": {
+        "right_thumb": null,
+        "left_thumb": null,
+        "left_fingers": null,
+        "force_balance": null,
+        "knee_clearance": null
+      },
+      "saturated_applied_s": null,
+      "saturated_requested_s": null,
+      "saturated_pre_loss_decisions": 0,
+      "unmet_direction_rung": null,
+      "max_proximal_offset_rad": 0.028400407982763276,
+      "snapshots": {
+        "5.0": {
+          "fixed_margin": 0.033983912929325726,
+          "centroid_margin": 0.033983912923574104,
+          "fixed": [
+            -0.006016087070674275,
+            -0.08176481331383123,
+            -0.019046759560632287
+          ],
+          "centroid": [
+            -0.006016087076425897,
+            -0.08176481331987635,
+            -0.019046763048781612
+          ],
+          "right_palm": [
+            -0.06626601993959585,
+            -0.15563106548944633,
+            0.007264521921249267
+          ],
+          "left_palm": [
+            -0.06591824215030789,
+            0.15481139082944148,
+            0.00876249436933696
+          ],
+          "pelvis": [
+            -0.5532269279475368,
+            0.001227750511334352,
+            -0.5138476000560954
+          ],
+          "slip": 7.532101363839451e-05
+        }
+      },
+      "run_id": "recenter_probe",
+      "candidate": "recenter",
+      "stage": "probe",
+      "qualified_stage": true,
+      "first_failure": null,
+      "audited_threshold_crossings_s": {},
+      "signed_tread_Fz_at_first_failure_N": null,
+      "peak_residual_N": 23.182582151094312,
+      "minimum_knee_mm": 41.877294444630394,
+      "nonzero_applied_steps": 0,
+      "housing_steps": 0,
+      "unintended_steps": 0,
+      "native_friction": "PASS",
+      "identity": "ec04fda85883f29aea7294f95440ae58fe3f546dedaa5cacd8bfd8b6243215eb",
+      "files_sha256": {
+        "all_phase_events.json": "9aac2f4a65814ef461e187f2dc6646d10714cdf2e770652e7f581e6d485b9f2a",
+        "applied_forces.jsonl.gz": "83c9b6d4eb7029afbf57ba68cdb3da7d91941eec8d6a0fb9cfcf85ca43c2a795",
+        "body_clearance_summary.json": "0d2c474eebebe1baeeb26d5df0aa57ec714271d52df97b48e6edb38e746ef7e0",
+        "body_contact_events.json": "a1aa1c260f78778fbd808c5509dcc85198fc9c8b7568637817437a57d299425b",
+        "contact_episodes.json": "8cfcd5fde3258ce3f3f5f7356f1af2e02b9b6332d997b77f664a13db681a55f2",
+        "hold_entry.json": "ac2c0a30ea811c43882bb6ba96da7acd38b41ae99c7a8e43349dbdc1f927886e",
+        "knee_rung3.f64.gz": "a124bdc5c6d6b9084b9dc2c09cd76b681d39ad344fb81967adc0c82c2587f629",
+        "left.wrist.json": "bf7dc174e47b73e33fba1630ad380851924597d159f90d99d9ac35a3a4a3d1ac",
+        "manifest.json": "a126ee69628946dbfd5852b7f4ba1d7143d91546094db68c8612ed84ee831cd6",
+        "observed_friction.json": "9bb12899cc8121defa8d18a62176a66aebb43199c2c7b610f35ba70145f209f0",
+        "physics_contacts.jsonl.gz": "c9f64bd0f0861c0836fa5579589bb785156cb16095bb46057fc89ceea20aedea",
+        "physics_events.csv": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6",
+        "physics_window_triggers.json": "5c86c6f06d6f585c7e215753c5fbb2317bec3d90afe7340505cca26e857981c1",
+        "physics_windows.jsonl.gz": "52762cd0d501d8c68e0ca09d84c7c27600d6389a9135233ddbd460902895e688",
+        "resolved.json": "91aa49010a5767cdcc0f96cca9cd3a3cb833b37c3d09859f5fb9de4771a16272",
+        "right.wrist.json": "8513a97d8063964893a613446ac5040f645e75670cdba09cb39d45412002f540",
+        "scene.mjb": "c4b50161e27f5d778c53cfa639e679152095bee61b8be9a3beb256ae7799e09a",
+        "scene.xml": "e68e8873913bc446c1c03e59b888685a5f1eea8abda9c6906405ec429e6ced73",
+        "steps.jsonl": "a8c071b4ce508efed55ffb398ef425d450e9621e6d73c800106a63a0b7300b59",
+        "summary.json": "b01afdf7d55610cb18f5352be09f2190a43511eedb73d5221eb1bcb7d1feb782"
+      }
+    },
+    {
+      "native_steps": 24840,
+      "end_s": 24.84,
+      "first": {
+        "right_thumb": 21.38,
+        "left_thumb": 19.104,
+        "left_fingers": 21.925,
+        "force_balance": 22.124,
+        "knee_clearance": null
+      },
+      "saturated_applied_s": 21.52,
+      "saturated_requested_s": 21.52,
+      "saturated_pre_loss_decisions": 0,
+      "unmet_direction_rung": null,
+      "max_proximal_offset_rad": 0.028400407982763276,
+      "snapshots": {
+        "5.0": {
+          "fixed_margin": 0.033983912929325726,
+          "centroid_margin": 0.033983912923574104,
+          "fixed": [
+            -0.006016087070674275,
+            -0.08176481331383123,
+            -0.019046759560632287
+          ],
+          "centroid": [
+            -0.006016087076425897,
+            -0.08176481331987635,
+            -0.019046763048781612
+          ],
+          "right_palm": [
+            -0.06626601993959585,
+            -0.15563106548944633,
+            0.007264521921249267
+          ],
+          "left_palm": [
+            -0.06591824215030789,
+            0.15481139082944148,
+            0.00876249436933696
+          ],
+          "pelvis": [
+            -0.5532269279475368,
+            0.001227750511334352,
+            -0.5138476000560954
+          ],
+          "slip": 7.532101363839451e-05
+        }
+      },
+      "run_id": "recenter_screen",
+      "candidate": "recenter",
+      "stage": "screen",
+      "qualified_stage": false,
+      "first_failure": {
+        "hold_s": 19.104,
+        "conditions": [
+          "left_thumb"
+        ]
+      },
+      "audited_threshold_crossings_s": {
+        "force_balance": 22.1240000000102,
+        "drift": 24.388000000012966,
+        "left_thumb": 19.104000000006508,
+        "right_thumb": 21.38000000000929,
+        "left_fingers": 24.520000000013127
+      },
+      "signed_tread_Fz_at_first_failure_N": {
+        "left_hand": 5.779695755663584,
+        "left_foot": 163.93070131152402,
+        "right_hand": 4.427012894749609,
+        "right_foot": 170.39842291960358
+      },
+      "peak_residual_N": 25.351445506869794,
+      "minimum_knee_mm": 41.58105722668271,
+      "nonzero_applied_steps": 0,
+      "housing_steps": 0,
+      "unintended_steps": 0,
+      "native_friction": "PASS",
+      "identity": "c3e70a34737fb368ee72e6d10b5c6304f6e78f570863936d5672ad933bdf24ff",
+      "files_sha256": {
+        "all_phase_events.json": "7db39398fd2ad466628744652b7466ee10fa531f615471b4a18464cf64fe1252",
+        "applied_forces.jsonl.gz": "5faa6dc615945cda826d1cf9eb195c1a0526774e90c8429f63db0b2fbf5f19f9",
+        "body_clearance_summary.json": "7017f5e36ae4b825c277dae2f82cab982744c6c5184a6ebfeaefd69eedb2f3ef",
+        "body_contact_events.json": "ac03f9f1b3efe912eb06be4d1153f7a1353736c280c4e0f52fbfe973026552bc",
+        "contact_episodes.json": "111e2c1dcdf744725f9335b5470a7abb0c54b7e0d75917f91e777fae07ca0d30",
+        "hold_entry.json": "ac2c0a30ea811c43882bb6ba96da7acd38b41ae99c7a8e43349dbdc1f927886e",
+        "knee_rung3.f64.gz": "7cd52b1d819af148f080d81a56968c33c08fbad9bbd8d8b60e339921291d47cf",
+        "left.wrist.json": "f620419e0d0e121b435db905376876bbb98b324af4da16c7bd4d811f7ae3cb89",
+        "manifest.json": "c0429709e106e2d2733b4f0c363d809ee17856d8b243694a97084e28b79f85ed",
+        "observed_friction.json": "495ca98217a3e146a50ba286dfdcf2ad02452f8453b4e8b30ebdc12830820412",
+        "physics_contacts.jsonl.gz": "20e54e6dd72ed4ea84b4d9f90485985b1577cab115e9a0478ad72bcca22dcdf6",
+        "physics_events.csv": "22b74adfd1edb526490aee32deb4637f46734ceaa4098fdb15873fee51a18512",
+        "physics_window_triggers.json": "4c7b34003f99b58bcf08914df43c6efdb7871cb8553e58ae7f7e8a2a8468430a",
+        "physics_windows.jsonl.gz": "f27539ce347f3a74c1ef0d60c878319d671eedea75ece834eab2753a687a0b9e",
+        "resolved.json": "c31880eea07c8dc0c6c5fd00394069b45fc2cc380fad7694b2a231b08e51ee2a",
+        "right.wrist.json": "e279d3b014f30f0ef2f1798a7b7a60b3a19804f5392c5868605148b292e7735e",
+        "scene.mjb": "c4b50161e27f5d778c53cfa639e679152095bee61b8be9a3beb256ae7799e09a",
+        "scene.xml": "e68e8873913bc446c1c03e59b888685a5f1eea8abda9c6906405ec429e6ced73",
+        "steps.jsonl": "d87875f068a6f255671335aebc7acd3973e95c8896a824f7178a02a1aa25e88c",
+        "summary.json": "a8efa319d9cdc291370468c9e37124f228b31466180c8a3f8fa50431a23e6283"
+      }
+    }
+  ],
+  "reference_repeats": [
+    {
+      "native_steps": 5020,
+      "end_s": 5.02,
+      "first": {
+        "right_thumb": null,
+        "left_thumb": null,
+        "left_fingers": null,
+        "force_balance": null,
+        "knee_clearance": null
+      },
+      "saturated_applied_s": null,
+      "saturated_requested_s": null,
+      "saturated_pre_loss_decisions": 0,
+      "unmet_direction_rung": null,
+      "max_proximal_offset_rad": 0.028400407982763276,
+      "snapshots": {
+        "5.0": {
+          "fixed_margin": 0.033983912929325726,
+          "centroid_margin": 0.033983912923574104,
+          "fixed": [
+            -0.006016087070674275,
+            -0.08176481331383123,
+            -0.019046759560632287
+          ],
+          "centroid": [
+            -0.006016087076425897,
+            -0.08176481331987635,
+            -0.019046763048781612
+          ],
+          "right_palm": [
+            -0.06626601993959585,
+            -0.15563106548944633,
+            0.007264521921249267
+          ],
+          "left_palm": [
+            -0.06591824215030789,
+            0.15481139082944148,
+            0.00876249436933696
+          ],
+          "pelvis": [
+            -0.5532269279475368,
+            0.001227750511334352,
+            -0.5138476000560954
+          ],
+          "slip": 7.532101363839451e-05
+        }
+      },
+      "run_id": "control_probe",
+      "candidate": "control",
+      "stage": "probe",
+      "qualified_stage": true,
+      "first_failure": null,
+      "audited_threshold_crossings_s": {},
+      "signed_tread_Fz_at_first_failure_N": null,
+      "peak_residual_N": 23.182582151094312,
+      "minimum_knee_mm": 41.877294444630394,
+      "nonzero_applied_steps": 0,
+      "housing_steps": 0,
+      "unintended_steps": 0,
+      "native_friction": "PASS",
+      "identity": "3481312d57fe9b347a9f9579fc8784f3a2fced356699039e10354f81103c77b3",
+      "files_sha256": {
+        "all_phase_events.json": "9aac2f4a65814ef461e187f2dc6646d10714cdf2e770652e7f581e6d485b9f2a",
+        "applied_forces.jsonl.gz": "2702a9090c7ee8685f7e3837493cfd181a9ef0f273c2356bd9fcca996b426895",
+        "body_clearance_summary.json": "0d2c474eebebe1baeeb26d5df0aa57ec714271d52df97b48e6edb38e746ef7e0",
+        "body_contact_events.json": "a64238deb9ef461de9eb7acbcff3fa8e6818adc3c00f02a7acd4c6cf5dfd7cc8",
+        "contact_episodes.json": "8cfcd5fde3258ce3f3f5f7356f1af2e02b9b6332d997b77f664a13db681a55f2",
+        "hold_entry.json": "ac2c0a30ea811c43882bb6ba96da7acd38b41ae99c7a8e43349dbdc1f927886e",
+        "knee_rung3.f64.gz": "6f46349360ef8ad47f849d99a4b9d8500ba7bc09f4e37a2a046f5dfa11f70244",
+        "left.wrist.json": "95ada00c38792c994015a77ded2ba38f93a611f3cb4cfed3f2f41d99cdf65088",
+        "manifest.json": "8ad3ada3427491a9860f3d17e0ce984dc876235dee1599d9c1a0e50b2602fb7f",
+        "observed_friction.json": "9bb12899cc8121defa8d18a62176a66aebb43199c2c7b610f35ba70145f209f0",
+        "physics_contacts.jsonl.gz": "60421c0585375b67b3a243e09b1b1182a9506b21a27e63a7bfaf353dfaadd28a",
+        "physics_events.csv": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6",
+        "physics_window_triggers.json": "5c86c6f06d6f585c7e215753c5fbb2317bec3d90afe7340505cca26e857981c1",
+        "physics_windows.jsonl.gz": "0c53f20bc20953bae9df3e80de2922480fe6cdfd4dc8ae3c27f1df87094abc15",
+        "resolved.json": "c1c2908ac665808f871fbba734519a979777352804c7488d235686b79ae56a5f",
+        "right.wrist.json": "b56efa7b20ce96b077fc339997716b876cbf7b42c43964b84642908d092e6461",
+        "scene.mjb": "c4b50161e27f5d778c53cfa639e679152095bee61b8be9a3beb256ae7799e09a",
+        "scene.xml": "e68e8873913bc446c1c03e59b888685a5f1eea8abda9c6906405ec429e6ced73",
+        "steps.jsonl": "6cc27ee0c3165e6f5a9adc85a9e1756674dfad45af74ea77e083fd1233948797",
+        "summary.json": "b01afdf7d55610cb18f5352be09f2190a43511eedb73d5221eb1bcb7d1feb782"
+      }
+    },
+    {
+      "native_steps": 30000,
+      "end_s": 30.0,
+      "first": {
+        "right_thumb": null,
+        "left_thumb": null,
+        "left_fingers": null,
+        "force_balance": null,
+        "knee_clearance": null
+      },
+      "saturated_applied_s": 6.34,
+      "saturated_requested_s": 6.34,
+      "saturated_pre_loss_decisions": 243,
+      "unmet_direction_rung": [
+        0.5746264019298215,
+        0.6949488063896401,
+        0.432262252229826
+      ],
+      "max_proximal_offset_rad": 0.028400407982763276,
+      "snapshots": {
+        "5.0": {
+          "fixed_margin": 0.033983912929325726,
+          "centroid_margin": 0.033983912923574104,
+          "fixed": [
+            -0.006016087070674275,
+            -0.08176481331383123,
+            -0.019046759560632287
+          ],
+          "centroid": [
+            -0.006016087076425897,
+            -0.08176481331987635,
+            -0.019046763048781612
+          ],
+          "right_palm": [
+            -0.06626601993959585,
+            -0.15563106548944633,
+            0.007264521921249267
+          ],
+          "left_palm": [
+            -0.06591824215030789,
+            0.15481139082944148,
+            0.00876249436933696
+          ],
+          "pelvis": [
+            -0.5532269279475368,
+            0.001227750511334352,
+            -0.5138476000560954
+          ],
+          "slip": 7.532101363839451e-05
+        },
+        "30.0": {
+          "fixed_margin": 0.033667782542684925,
+          "centroid_margin": 0.02915743480525878,
+          "fixed": [
+            -0.006332217457315076,
+            -0.08185483736430693,
+            -0.019346169877760833
+          ],
+          "centroid": [
+            -0.010842565194741222,
+            -0.08391425422078774,
+            -0.01904681743792036
+          ],
+          "right_palm": [
+            -0.06864234197119559,
+            -0.15577120338213213,
+            0.010620811637085392
+          ],
+          "left_palm": [
+            -0.07097227440234319,
+            0.1559488447582027,
+            0.009539519574902844
+          ],
+          "pelvis": [
+            -0.5573091492502699,
+            0.0010598008036063042,
+            -0.5143845420015221
+          ],
+          "slip": 0.000250720659592882
+        }
+      },
+      "run_id": "control_screen",
+      "candidate": "control",
+      "stage": "screen",
+      "qualified_stage": true,
+      "first_failure": null,
+      "audited_threshold_crossings_s": {},
+      "signed_tread_Fz_at_first_failure_N": null,
+      "peak_residual_N": 23.182582151094312,
+      "minimum_knee_mm": 41.51785932783535,
+      "nonzero_applied_steps": 0,
+      "housing_steps": 0,
+      "unintended_steps": 0,
+      "native_friction": "PASS",
+      "identity": "85d64b2523d11cc5b3632be50ab39d9689cc05cf82ac660af36692a14a457917",
+      "files_sha256": {
+        "all_phase_events.json": "9aac2f4a65814ef461e187f2dc6646d10714cdf2e770652e7f581e6d485b9f2a",
+        "applied_forces.jsonl.gz": "6d3a90ca42bffdee950654fe83b47ce6d03ecb73117796e79d6b485d7172b295",
+        "body_clearance_summary.json": "29ea62407dd17652e44c37db7fd61259a1589aadd40f7d6904376b4771652d0d",
+        "body_contact_events.json": "884f6a9996445da0d7b51c9561fd0c8f611107eb24c45da225e1027a86bcd9a8",
+        "contact_episodes.json": "66c544d51cf30abaaa9eebf1384019cfb409add2db75b1240242eae787368909",
+        "hold_entry.json": "ac2c0a30ea811c43882bb6ba96da7acd38b41ae99c7a8e43349dbdc1f927886e",
+        "knee_rung3.f64.gz": "67c32e32fe2cce3339f51b2925b344aa04fbb115bc1369020ecf5c6dc1320a71",
+        "left.wrist.json": "f99f11bc3f352d9844df9721ffa413c3392435ce366842e8c9a664f6f2d8b1d6",
+        "manifest.json": "fd5360e36c01f0e4a3eb063a11f7e777053795e66932b1b9871bee3ffb393419",
+        "observed_friction.json": "8d3453cdea31628cabda5171abc5616d35f8475e6e4313c6470245fa44943bdd",
+        "physics_contacts.jsonl.gz": "0b03f0ae808495a56068a9d8fdc065bdaa466edd2c059a090ec74458da36ab55",
+        "physics_events.csv": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6",
+        "physics_window_triggers.json": "5c86c6f06d6f585c7e215753c5fbb2317bec3d90afe7340505cca26e857981c1",
+        "physics_windows.jsonl.gz": "5e563b9bff7af34216e01de48ce0106dbdf8046913bfec06b9d5bb1b5f3d4c46",
+        "resolved.json": "04acdd49b1c774885eac3b9ed929a74a95b300f7fbdc6260327c93e60787b4a8",
+        "right.wrist.json": "51352371895c2b5f1e44e514da3743b470576ef4197edcae88ca92840dea46d0",
+        "scene.mjb": "c4b50161e27f5d778c53cfa639e679152095bee61b8be9a3beb256ae7799e09a",
+        "scene.xml": "e68e8873913bc446c1c03e59b888685a5f1eea8abda9c6906405ec429e6ced73",
+        "steps.jsonl": "66a1ad827cad383873847507a878a3244eb24e146e5dd4d4de12771b14ae4ed6",
+        "summary.json": "859e97d30db7ff517a03038b201dd71792295c67ee7fb03c0e51789c4297fe86"
+      }
+    },
+    {
+      "native_steps": 55480,
+      "end_s": 55.48,
+      "first": {
+        "right_thumb": 52.029,
+        "left_thumb": 52.184,
+        "left_fingers": 53.185,
+        "force_balance": 53.434,
+        "knee_clearance": null
+      },
+      "saturated_applied_s": 6.34,
+      "saturated_requested_s": 6.34,
+      "saturated_pre_loss_decisions": 600,
+      "unmet_direction_rung": [
+        0.6314176853214674,
+        0.5459109627335651,
+        0.5507203713597241
+      ],
+      "max_proximal_offset_rad": 0.028400407982763276,
+      "snapshots": {
+        "5.0": {
+          "fixed_margin": 0.033983912929325726,
+          "centroid_margin": 0.033983912923574104,
+          "fixed": [
+            -0.006016087070674275,
+            -0.08176481331383123,
+            -0.019046759560632287
+          ],
+          "centroid": [
+            -0.006016087076425897,
+            -0.08176481331987635,
+            -0.019046763048781612
+          ],
+          "right_palm": [
+            -0.06626601993959585,
+            -0.15563106548944633,
+            0.007264521921249267
+          ],
+          "left_palm": [
+            -0.06591824215030789,
+            0.15481139082944148,
+            0.00876249436933696
+          ],
+          "pelvis": [
+            -0.5532269279475368,
+            0.001227750511334352,
+            -0.5138476000560954
+          ],
+          "slip": 7.532101363839451e-05
+        },
+        "30.0": {
+          "fixed_margin": 0.033667782542684925,
+          "centroid_margin": 0.02915743480525878,
+          "fixed": [
+            -0.006332217457315076,
+            -0.08185483736430693,
+            -0.019346169877760833
+          ],
+          "centroid": [
+            -0.010842565194741222,
+            -0.08391425422078774,
+            -0.01904681743792036
+          ],
+          "right_palm": [
+            -0.06864234197119559,
+            -0.15577120338213213,
+            0.010620811637085392
+          ],
+          "left_palm": [
+            -0.07097227440234319,
+            0.1559488447582027,
+            0.009539519574902844
+          ],
+          "pelvis": [
+            -0.5573091492502699,
+            0.0010598008036063042,
+            -0.5143845420015221
+          ],
+          "slip": 0.000250720659592882
+        },
+        "40.0": {
+          "fixed_margin": 0.031348364141726974,
+          "centroid_margin": 0.026888131193427277,
+          "fixed": [
+            -0.008651635858273027,
+            -0.0819883883773701,
+            -0.01943685958187502
+          ],
+          "centroid": [
+            -0.013111868806572724,
+            -0.08413955056407756,
+            -0.01904671602551211
+          ],
+          "right_palm": [
+            -0.06974940233997326,
+            -0.15773609197499602,
+            0.011184307033683671
+          ],
+          "left_palm": [
+            -0.07153002218303414,
+            0.15499915611197967,
+            0.01205521297888601
+          ],
+          "pelvis": [
+            -0.5563625626727225,
+            0.0011571054439232526,
+            -0.5143262284481009
+          ],
+          "slip": 0.00014514723298697787
+        },
+        "40.56": {
+          "fixed_margin": 0.03125297460048403,
+          "centroid_margin": 0.026792788387927806,
+          "fixed": [
+            -0.008747025399515967,
+            -0.08203533547040022,
+            -0.019437186300273135
+          ],
+          "centroid": [
+            -0.013207211612072195,
+            -0.08418656982365164,
+            -0.019046811776930905
+          ],
+          "right_palm": [
+            -0.06984883950206941,
+            -0.1577880716094556,
+            0.011180944184377317
+          ],
+          "left_palm": [
+            -0.07162663300009872,
+            0.1549814362684184,
+            0.012112405731682596
+          ],
+          "pelvis": [
+            -0.5564451588948115,
+            0.001150310903778921,
+            -0.5143405738024438
+          ],
+          "slip": 0.0002539038008327047
+        },
+        "50.0": {
+          "fixed_margin": 0.029339680661873528,
+          "centroid_margin": 0.024870619500245543,
+          "fixed": [
+            -0.010660319338126473,
+            -0.08290741556445894,
+            -0.019452390766532046
+          ],
+          "centroid": [
+            -0.015129380499754458,
+            -0.08503740480555605,
+            -0.019047112008705458
+          ],
+          "right_palm": [
+            -0.07215302691866995,
+            -0.15855205302872893,
+            0.011137227668908567
+          ],
+          "left_palm": [
+            -0.07442415032432556,
+            0.15551268376262414,
+            0.011715401086041632
+          ],
+          "pelvis": [
+            -0.5594832650437342,
+            0.001023361907383262,
+            -0.5147141866819902
+          ],
+          "slip": 0.00040076041549696496
+        },
+        "52.028": {
+          "fixed_margin": 0.02828591357275919,
+          "centroid_margin": 0.023808508729355353,
+          "fixed": [
+            -0.01171408642724081,
+            -0.08350633036441117,
+            -0.019410124834749354
+          ],
+          "centroid": [
+            -0.016191491270644648,
+            -0.08562742487054725,
+            -0.019049947250778798
+          ],
+          "right_palm": [
+            -0.07324825464208448,
+            -0.15891697157407245,
+            0.010537517035969834
+          ],
+          "left_palm": [
+            -0.07551867075198085,
+            0.15577172466960476,
+            0.011171432285248972
+          ],
+          "pelvis": [
+            -0.5612149178212837,
+            0.0010263548023701414,
+            -0.5149289005590012
+          ],
+          "slip": 0.0010305556093530661
+        },
+        "52.029": {
+          "fixed_margin": 0.028285029653500486,
+          "centroid_margin": null,
+          "fixed": [
+            -0.011714970346499515,
+            -0.08350685402395856,
+            -0.019410178680473456
+          ],
+          "centroid": [
+            null,
+            null,
+            null
+          ],
+          "right_palm": [
+            -0.07324914382181716,
+            -0.1589172805920607,
+            0.01053676882487875
+          ],
+          "left_palm": [
+            -0.07551940952168254,
+            0.15577190374748334,
+            0.011170881982916603
+          ],
+          "pelvis": [
+            -0.5612163249320258,
+            0.0010265039311753428,
+            -0.5149292306983313
+          ],
+          "slip": null
+        }
+      },
+      "run_id": "control_60s",
+      "candidate": "control",
+      "stage": "60s",
+      "qualified_stage": false,
+      "first_failure": {
+        "hold_s": 52.029,
+        "conditions": [
+          "right_thumb"
+        ]
+      },
+      "audited_threshold_crossings_s": {
+        "force_balance": 53.4339999999544,
+        "drift": 55.01699999995071,
+        "left_thumb": 52.183999999957315,
+        "right_thumb": 52.028999999957676
+      },
+      "signed_tread_Fz_at_first_failure_N": {
+        "left_hand": 5.966346384985785,
+        "left_foot": 166.32229378799875,
+        "right_hand": 5.829302686254726,
+        "right_foot": 158.57182062424667
+      },
+      "peak_residual_N": 27.050775200201,
+      "minimum_knee_mm": 41.51785932783535,
+      "nonzero_applied_steps": 0,
+      "housing_steps": 0,
+      "unintended_steps": 0,
+      "native_friction": "PASS",
+      "identity": "bdc5d29b2437accab91330c8704cb522c63e9256e80a1b56a035edd30631b626",
+      "files_sha256": {
+        "all_phase_events.json": "f88c039b19d05ad03a3195cede28be870e43ea3e8c966a1fece2d06f619372ee",
+        "applied_forces.jsonl.gz": "fe19e6cc138ce36b61b29a6179ed095603e9d3b8ce863e93f46462c07c126473",
+        "body_clearance_summary.json": "ee4f0f08b5469763892e7a2277021105606bdc58bc3564009317744ad1100fd4",
+        "body_contact_events.json": "4c5979843d6ea812bf8d278e800b19f9fa9b64b0da9559d5ea4a95f2f3ef7476",
+        "contact_episodes.json": "88bca8dc17d1e2f492c15aaa50d9e81d7f1bb6b574ae8077b8bc2e407e703bc7",
+        "hold_entry.json": "ac2c0a30ea811c43882bb6ba96da7acd38b41ae99c7a8e43349dbdc1f927886e",
+        "knee_rung3.f64.gz": "298ca4563d4968498e20bafe5d8bea1cedc0c8f1a78e82f5321b6f83bb40e118",
+        "left.wrist.json": "29696cdd51be2bddcceff21d41ea1b91ddaad9b9e5f64d0c1363b2e4d5f0a38b",
+        "manifest.json": "41798705200641a9a8806ea7842dd36bdb202276e62155b14dfa756d73cbf4d6",
+        "observed_friction.json": "eaf84a1068139618e44207f8a2b3c9249dd6f67cecc9d30b706c78ae854e1495",
+        "physics_contacts.jsonl.gz": "9e4a2947439dcf30aeb1af8a87377b5c07155d5219e8e70e3a1fb450d841e754",
+        "physics_events.csv": "6bfb949c92b2dda230dad4b639c36244e8d5b1ac0e90dff2329f728b2a1f2c4d",
+        "physics_window_triggers.json": "3cae6f739b92756eb394e618b7eb1a3bae2cb9b2777b222ce7fe69bf534d7422",
+        "physics_windows.jsonl.gz": "ad91bda31cfe71fed055826cddcc7ac9916e00e43925f204b130876ec6b21074",
+        "resolved.json": "3c69df361ec16f532575c21fe8b87a149dc841f0b1b1e4a37cba02ed69d07929",
+        "right.wrist.json": "1be16349c4de02c6687da4b4c7905f93c629a81f63b062597e7dce100ef5e9cd",
+        "scene.mjb": "c4b50161e27f5d778c53cfa639e679152095bee61b8be9a3beb256ae7799e09a",
+        "scene.xml": "e68e8873913bc446c1c03e59b888685a5f1eea8abda9c6906405ec429e6ced73",
+        "steps.jsonl": "135a4b2bc2b71e7509fbb233f3ba94a921687b0b7b1d173d97ed815ec7b0eb98",
+        "summary.json": "45078ee8af354445bee8310d0117e19b9b04bd08cc1f3b7c1c7dc7b0770820e7"
+      }
+    }
+  ],
+  "milestones": {
+    "initial_pose": {
+      "status": "FAIL",
+      "candidate": null
+    },
+    "load_bearing_grasp": {
+      "status": "BLOCKED",
+      "reason": "initial G6 pose not qualified"
+    },
+    "controlled_release": {
+      "status": "BLOCKED",
+      "reason": "initial G6 pose not qualified"
+    },
+    "same_tread_reacquisition": {
+      "status": "BLOCKED",
+      "reason": "initial G6 pose not qualified"
+    },
+    "adjacent_tread_transfer": {
+      "status": "BLOCKED",
+      "reason": "initial G6 pose not qualified"
+    }
+  }
+}

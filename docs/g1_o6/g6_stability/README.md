@@ -1,5 +1,7 @@
 # Native G6 pose, load and hand-transfer experiments
 
+The latest right-thumb study includes native-step measurements, a baseline comparison and the current milestone results. [G6 thumb retention](../g6_thumb_retention/README.md)
+
 This opt-in campaign implements [the supplied plan](PLAN.md) on `dex-hand-exp`.
 It starts from reviewed commit `298cd2f555dcf48637384987ef0668e85f219392`.
 The existing default remains unchanged. Physical milestones are reported separately
