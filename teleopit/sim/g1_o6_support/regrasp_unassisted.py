@@ -148,3 +148,4 @@ class UnassistedTrial(FloatingTrial):
         self.policy.grip_slew_rad_s = GRIP_PRELOAD_RATE_RAD_S
         self.prepare_balance(GRIP_PREPARATION_S)
         self.policy.grip_slew_rad_s = None
+        self.holding_wrist.recapture(self.path)

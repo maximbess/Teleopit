@@ -100,10 +100,16 @@ def test_episode_check_includes_the_preparation_before_the_scored_baseline():
     }
     assert launch_checks(trace, limits, 0.002)["passed"]
     trace["state"][0, 0] = 2
-    trace["applied"][0] = 1.0
     result = launch_checks(trace, limits, 0.002)
     assert not result["passed"] and result["preparation_hand_losses"] == [1, 0]
-    assert result["maximum_applied"] == 1.0
+    trace["state"][0, 0] = 3
+    trace["applied"][0] = 1.0
+    result = launch_checks(trace, limits, 0.002)
+    assert not result["passed"] and result["maximum_applied"] == 1.0
+    trace["applied"][0] = 0.0
+    assert not launch_checks(trace, {**limits, "assistance_force_N": 1.0}, 0.002)[
+        "passed"
+    ]
 
 
 def test_preloading_grips_slews_from_applied_angles_without_slowing_the_wrists(
@@ -156,3 +162,21 @@ def test_a_regrasp_with_loaded_fingers_still_fails_if_the_returned_hand_slips():
     }
     assert cycle_passes(cycle, cfg)
     assert not cycle_passes({**cycle, "max_regrasp_slip_m_s": 0.021}, cfg)
+
+
+def test_still_closed_control_keeps_its_applied_servo_equilibrium_at_the_new_rung_goal():
+    from types import SimpleNamespace
+
+    from teleopit.sim.g1_o6_support.regrasp_balance import HoldingWrist
+
+    wrist = object.__new__(HoldingWrist)
+    wrist.arm = np.array([-0.1, 0.6])
+    current = np.array([0.3, -0.4])
+    path = SimpleNamespace(
+        env=SimpleNamespace(target=np.array([0.3, 0.0, -0.4])),
+        ids=[0, 2],
+        target=lambda _: current,
+    )
+    wrist.recapture(path)
+    np.testing.assert_array_equal(wrist.target(), current)
+    np.testing.assert_array_equal(wrist.target(current), current)

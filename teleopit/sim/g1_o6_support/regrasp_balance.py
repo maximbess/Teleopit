@@ -60,8 +60,11 @@ class HoldingDigits:
 
 class HoldingWrist:
     def __init__(self, env, policy, side):
-        self.path = WristPath(env, policy, side, 0)
-        self.arm = env.target[self.path.ids].copy()
+        self.recapture(WristPath(env, policy, side, 0))
+
+    def recapture(self, path):
+        self.path = path
+        self.arm = path.env.target[path.ids].copy()
 
     def target(self, goal=None):
         # Preserve closed-chain joint stiffness while correcting motion in rung axes.
