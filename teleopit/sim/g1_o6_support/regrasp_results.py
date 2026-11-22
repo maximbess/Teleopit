@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .regrasp_measure import STATES, SUPPORTS
+from .regrasp_measure import STATES, SUPPORTS, pelvis_angle
 
 
 def interval(time, window):
@@ -50,6 +50,7 @@ def read_run(directory):
     )
     with np.load(directory / "physics.npz") as trace:
         samples = dict(trace)
+    samples["tilt"] = pelvis_angle(samples["pelvis_quat"], config["initial_qpos"][3:7])
     return outcome, config, samples
 
 

@@ -105,6 +105,11 @@ def test_physical_step_drives_only_requested_servos_and_reset_clears_both():
     np.testing.assert_array_equal(env.data.ctrl[left], np.zeros(6))
     assert max(env.data.ctrl[right]) > 0.001
     assert env.data.time == pytest.approx(0.020)
+    env.reset()
+    policy.step(grip=(0.0, 1.0))
+    assert env.hold_controller is policy
+    np.testing.assert_array_equal(env.data.ctrl[left], np.zeros(6))
+    assert max(env.data.ctrl[right]) > 0.001
 
 
 def test_paired_effect_removes_drift_in_each_support_and_uses_percentage_points():
@@ -197,3 +202,16 @@ def test_loss_invalidates_settled_comparison_but_preserves_transient():
     assert ("hold1_transient", [7, 9], "incomplete") in windows
     assert unavailable["clear1"] == "required support lost before window ended"
     assert unavailable["hold1"] == "opposition lost"
+
+
+def test_pelvis_angle_is_zero_at_the_rounded_source_quaternion():
+    from teleopit.sim.g1_o6_support.regrasp_measure import pelvis_angle
+
+    unit = np.array([0.99915, 0.0, 0.041219, 0.0])
+    normalized = unit / np.linalg.norm(unit)
+    np.testing.assert_allclose(
+        pelvis_angle(np.array([normalized, -normalized]), unit), 0.0, atol=1e-14
+    )
+    assert pelvis_angle(
+        [np.cos(0.03), 0, np.sin(0.03), 0], [1, 0, 0, 0]
+    ) == pytest.approx(0.06)

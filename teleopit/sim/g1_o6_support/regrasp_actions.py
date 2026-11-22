@@ -119,10 +119,19 @@ class PhysicalHands(PreviewReference):
 
     def reset(self):
         self.env.reset()
+        self.bind_fresh_reset()
+        return self
+
+    def bind_fresh_reset(self):
+        if self.env.data.time != 0 or not isinstance(
+            self.env.hold_controller, PreviewReference
+        ):
+            raise RuntimeError(
+                "physical hand controller requires a fresh reference reset"
+            )
         self.env.hold_controller = self.env.hold_controller.parent
         self.__init__(self.env)
         self.env.hold_controller = self
-        return self
 
     @staticmethod
     def parse_action(arms, grip):
@@ -172,15 +181,20 @@ class PhysicalHands(PreviewReference):
         grip=(None, None),
         *,
         physics_observer=None,
-        advance_phase=True,
+        advance_phase=None,
     ):
+        if self.env.hold_controller is not self:
+            self.bind_fresh_reset()
         self.action(arms, grip)
+        if advance_phase is None:
+            advance_phase = self.env.phase != "HOLD"
         row = self.env.step(physics_observer, advance_phase=advance_phase)
         row["physical_hands"] = self.observe(row)
         return row
 
     def observe(self, row):
         from .pose_contacts import external_hand_contacts, grasp_quality
+        from .regrasp_measure import hand_state
 
         env, result = self.env, {}
         for side in SIDES:
@@ -203,6 +217,7 @@ class PhysicalHands(PreviewReference):
                 ].tolist(),
                 "previous_request": self.digits[side].request,
                 "contacts": contacts,
+                "state": hand_state(contacts, rung.xpos[2]),
                 "quality": grasp_quality(contacts, rung.xpos[2]),
             }
         return result

@@ -189,7 +189,7 @@ class NativeTrace:
         q = d.qpos[self.addr]
         deviation = np.maximum(self.limits[:, 0] - q, q - self.limits[:, 1])
         fixture = fixture_wrench(env, self.fixture)
-        quaternion_dot = abs(pelvis.xquat @ env.initial_qpos[3:7])
+        angle = pelvis_angle(pelvis.xquat, env.initial_qpos[3:7])
         sample = {
             "time": d.time - env.config.physics_dt,
             "phase": self.phase,
@@ -209,7 +209,7 @@ class NativeTrace:
             "pelvis": pelvis.xpos.copy(),
             "pelvis_quat": pelvis.xquat.copy(),
             "drift": np.linalg.norm(pelvis.xpos - env.reference_position),
-            "tilt": 2 * np.arccos(np.clip(quaternion_dot, 0.0, 1.0)),
+            "tilt": angle,
             "effort": max(abs(d.actuator_force) / self.effort),
             "penetration": max((-r["distance"] for r in rows), default=0.0),
             "joint_excess": max(0.0, max(deviation)),
@@ -237,3 +237,13 @@ class NativeTrace:
             columns=CONTACT_COLUMNS,
             contacts=np.concatenate(self.detail),
         )
+
+
+def pelvis_angle(quaternion, initial):
+    """Quaternion chord length stays accurate even for a microradian fixture rotation."""
+    q = np.asarray(quaternion) / np.linalg.norm(quaternion, axis=-1, keepdims=True)
+    ref = np.asarray(initial) / np.linalg.norm(initial)
+    chord = np.minimum(
+        np.linalg.norm(q - ref, axis=-1), np.linalg.norm(q + ref, axis=-1)
+    )
+    return 4 * np.arcsin(np.clip(chord / 2, 0.0, 1.0))

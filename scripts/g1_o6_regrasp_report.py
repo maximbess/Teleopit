@@ -2,6 +2,7 @@
 
 import argparse
 import csv
+import json
 from collections import defaultdict
 from pathlib import Path
 
@@ -11,6 +12,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
+from scripts.g1_o6_g6_reference_replay import decoded_hash
+from teleopit.sim.g1_o6_support.ladder_campaign import file_hash
 from teleopit.sim.g1_o6_support.regrasp import write_json
 from teleopit.sim.g1_o6_support.regrasp_measure import SUPPORTS
 from teleopit.sim.g1_o6_support.regrasp_results import (
@@ -193,6 +196,28 @@ def force_line(ax, t, values, color, label):
         label = None
 
 
+def plot_support(ax, diff, runs, i, arrays):
+    name = SUPPORTS[i]
+    differences = []
+    for j, (t, r, c, *_) in enumerate(runs):
+        arrays[f"release_{j + 1}_{name}_N"], arrays[f"control_{j + 1}_{name}_N"] = (
+            r[:, i],
+            c[:, i],
+        )
+        arrays[f"time_{j + 1}_s"] = t
+        baseline = (t >= -2.0 - 1e-8) & (t < -1e-8)
+        net = r[:, i] - c[:, i]
+        differences.append(net - net[baseline].mean())
+    # The repeats may end at different timeouts. Bands use their common prefix.
+    n = min(map(len, differences))
+    time = runs[0][0][:n]
+    force_line(ax, time, [run[2][:n, i] for run in runs], "#63656b", "Both hold")
+    force_line(ax, time, [run[1][:n, i] for run in runs], "#087b8d", "Release")
+    force_line(diff, time, [v[:n] for v in differences], "#884678", None)
+    diff.axhline(0, color="0.7", lw=0.6)
+    ax.set_ylabel(name.replace("_", " ").title())
+
+
 def figure(output, side, runs):
     time, _release, _control, events, violations, origin = runs[0]
     fig, axes = plt.subplots(4, 2, figsize=(12, 8), sharex=True, layout="constrained")
@@ -203,28 +228,9 @@ def figure(output, side, runs):
     arrays = {"time_s": time}
     axes[0, 0].set_title("Vertical reaction (N)", loc="left")
     axes[0, 1].set_title("Change relative to matched hold (N)", loc="left")
-    for i, name in enumerate(SUPPORTS):
+    for i in range(len(SUPPORTS)):
         ax, diff = axes[i]
-        differences = []
-        for j, (t, r, c, *_) in enumerate(runs):
-            arrays[f"release_{j + 1}_{name}_N"], arrays[f"control_{j + 1}_{name}_N"] = (
-                r[:, i],
-                c[:, i],
-            )
-            arrays[f"time_{j + 1}_s"] = t
-            baseline = (t >= -2.0 - 1e-8) & (t < -1e-8)
-            net = r[:, i] - c[:, i]
-            net -= net[baseline].mean()
-            differences.append(net)
-        # The repeats may end at different timeouts. Bands use their common prefix.
-        n = min(map(len, differences))
-        force_line(
-            ax, time[:n], [run[2][:n, i] for run in runs], "#63656b", "Both hold"
-        )
-        force_line(ax, time[:n], [run[1][:n, i] for run in runs], "#087b8d", "Release")
-        force_line(diff, time[:n], [v[:n] for v in differences], "#884678", None)
-        diff.axhline(0, color="0.7", lw=0.6)
-        ax.set_ylabel(name.replace("_", " ").title())
+        plot_support(ax, diff, runs, i, arrays)
         for cell in (ax, diff):
             if "clear_verified1" in events and "approach1" in events:
                 cell.axvspan(
@@ -259,6 +265,62 @@ def publish(root, output):
         csv_file(output / "paired_repeats.csv", force_summary(rows))
     for side, runs in plots.items():
         figure(output, side, runs)
+    evidence_ledger(root, output, records)
+
+
+def evidence_ledger(root, output, records):
+    runs = [
+        d
+        for name in records
+        for d in (root / name).iterdir()
+        if (d / "outcome.json").is_file()
+    ]
+    runs.extend(sorted(root.glob("neg_*/")))
+    ledger = {
+        str(d.relative_to(root).as_posix()): {
+            p.name: file_hash(p) for p in sorted(d.iterdir()) if p.is_file()
+        }
+        for d in runs
+    }
+    write_json(output / "raw_sha256.json", ledger)
+    reference = root / "reference"
+    if (reference / "manifest.json").is_file() and runs:
+        source = Path(json.loads((runs[0] / "resolved.json").read_bytes())["source"])
+        write_json(output / "reference.json", reference_receipt(reference, source))
+
+
+def reference_receipt(reference, source):
+    meta = json.loads((reference / "resolved.json").read_bytes())
+    native = {}
+    for name in (
+        "physics_contacts.jsonl.gz",
+        "knee_rung3.f64.gz",
+        "applied_forces.jsonl.gz",
+    ):
+        native[name] = decoded_hash(reference / name)
+        if native[name] != decoded_hash(source / name):
+            raise ValueError("reference solver stream changed: " + name)
+    steps = file_hash(reference / "steps.jsonl")
+    if steps != file_hash(source / "steps.jsonl"):
+        raise ValueError("reference command/state trace changed")
+    with (reference / "steps.jsonl").open() as stream:
+        forces = [
+            [row["supports"][k]["force_world"][2] for k in SUPPORTS]
+            for row in map(json.loads, stream)
+            if row["phase"] == "HOLD"
+        ]
+    return {
+        "physics": meta["physical_identity"],
+        "source_model_sha256": file_hash(source / "scene.mjb"),
+        "controller": meta["environment_spec"]["grasp_acquisition"],
+        "seed": meta["seed"],
+        "control_dt": meta["config"]["control_dt"],
+        "physics_dt": meta["config"]["physics_dt"],
+        "hold_endpoints": len(forces),
+        "mean_Fz_N": dict(zip(SUPPORTS, np.mean(forces, axis=0), strict=True)),
+        "steps_sha256": steps,
+        "decoded_native_sha256": native,
+    }
 
 
 if __name__ == "__main__":

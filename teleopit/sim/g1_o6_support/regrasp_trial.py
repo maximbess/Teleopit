@@ -132,9 +132,7 @@ class Trial:
         arms[self.i], grips[self.i] = arm, request
         self.readings.phase, self.readings.check_gap = phase, gap
         self.set_stance()
-        row = p.step(
-            arms, grips, physics_observer=self.readings, advance_phase=e.phase != "HOLD"
-        )
+        row = p.step(arms, grips, physics_observer=self.readings)
         self.record_command(row, phase, arm, grips)
         if e.phase == "ABORT":
             raise Unmet(", ".join(e.abort_reasons))
