@@ -198,7 +198,16 @@ def first_support_loss(events):
 
 
 def measured_windows(outcome, first_loss):
-    phases = ("baseline", "opening1", "retreat1", "clear1", "hold1", "hold2")
+    phases = (
+        "baseline",
+        "opening1",
+        "retreat1",
+        "clear1",
+        "hold1",
+        "opening2",
+        "retreat2",
+        "hold2",
+    )
     windows, unavailable = [], {}
     for name in phases:
         bounds = outcome["windows"].get(name)

@@ -124,6 +124,7 @@ def summary(records):
         cycle_counts(mode, side, groups[mode, side])
         for mode in ("fixed", "free")
         for side in ("left", "right")
+        if (mode, side) in groups
     ]
 
 
@@ -176,12 +177,26 @@ def event_marks(events, violations, origin):
             ("approach1", "Approach"),
             ("grasp_verified1", "Grasp"),
             ("recovered1", "Recovery"),
+            ("open_request2", "Open 2"),
+            ("opened2", "Opened 2"),
+            ("last_contact_end2", "Last contact 2"),
+            ("clear_verified2", "Clear / return 2"),
+            ("grasp_verified2", "Regrasp 2"),
+            ("recovered2", "Recovery 2"),
         )
     ]
     losses = [v for k, v in violations.items() if k.endswith("_loss") and v is not None]
     if losses:
         marks.append((min(losses), "Support loss"))
     return sorted((t - origin, label) for t, label in marks if t is not None)
+
+
+def event_caption(marks):
+    first, second = [], []
+    for when, label in marks:
+        line = second if label.endswith(" 2") else first
+        line.append(f"{when:.3f} s  {label.lower()}")
+    return "\n".join("    ".join(line) for line in (first, second) if line)
 
 
 def force_line(ax, t, values, color, label):
@@ -232,6 +247,15 @@ def figure(output, side, runs):
         ax, diff = axes[i]
         plot_support(ax, diff, runs, i, arrays)
         for cell in (ax, diff):
+            for n in ("1", "2"):
+                if "recovered" + n in events:
+                    cell.axvspan(
+                        events["grasp_verified" + n] - origin,
+                        events["recovered" + n] - origin,
+                        color="#ebc984",
+                        alpha=0.25,
+                        lw=0,
+                    )
             if "clear_verified1" in events and "approach1" in events:
                 cell.axvspan(
                     events["clear_verified1"] - origin,
@@ -247,8 +271,7 @@ def figure(output, side, runs):
     axes[0, 0].legend(loc="best", fontsize=8)
     for ax in axes[-1]:
         ax.set_xlabel("Seconds from open request")
-    legend = "    ".join(f"{when:.3f} s  {label.lower()}" for when, label in marks)
-    fig.supxlabel(legend, fontsize=8)
+    fig.supxlabel(event_caption(marks), fontsize=8)
     fig.savefig(output / f"{side}_forces.png", dpi=160)
     plt.close(fig)
     np.savez_compressed(output / f"{side}_forces.npz", **arrays)

@@ -60,3 +60,73 @@ def test_returned_digits_retain_flexor_reserve_and_restore_travel_on_the_next_op
     hold.select(False, target)
     np.testing.assert_array_equal(digit.closed, closed)
     assert digit.preload == 0.12
+
+
+def test_sparse_contacts_reconstruct_signed_world_load_on_each_of_four_supports():
+    from scripts.g1_o6_free_regrasp_audit import native_forces
+
+    # Geoms 0,1 are the rungs, 2..5 the four supports, 6 another surface.
+    contacts = np.array(
+        [
+            [0, 0, 2, 0.01, 0.008],
+            [0, 3, 0, 3.0, -2.0],
+            [0, 1, 4, 50.0, 45.0],
+            [1, 5, 1, 60.0, -58.0],
+            [1, 2, 6, 7.0, -5.0],
+            [1, 1, 2, 1.2, 1.0],
+        ]
+    )
+    forces = native_forces(
+        contacts, np.array([-1, -1, 0, 1, 2, 3, -1]), [0, 0, 1, 1], 2
+    )
+    np.testing.assert_array_equal(
+        forces, [[0.008, 2.0, 45.0, 0.0], [0.0, 0.0, 0.0, 58.0]]
+    )
+
+
+def test_completed_campaign_reports_only_measured_modes_and_marks_final_regrasp():
+    from scripts.g1_o6_regrasp_report import event_marks, summary
+    from teleopit.sim.g1_o6_support.regrasp_results import measured_windows
+
+    row = dict(
+        pelvis="free",
+        side="right",
+        offset_mm=0,
+        moving_completed=True,
+        supported_cycle=True,
+        missing=None,
+    )
+    assert [(r["pelvis"], r["hand"]) for r in summary({"trial": row})] == [
+        ("free", "right")
+    ]
+    marks = event_marks(
+        {"open_request2": 9.0, "grasp_verified2": 14.0, "recovered2": 16.0}, {}, 2.0
+    )
+    assert [t for t, _ in marks] == [7.0, 12.0, 14.0]
+    windows = {"opening2": [9.0, 10.0], "retreat2": [10.0, 11.0], "hold2": [14.0, 16.0]}
+    measured, _ = measured_windows({"windows": windows, "missing": None}, np.inf)
+    assert {w for w, _, _ in measured} == set(windows)
+
+
+def test_replay_includes_open_and_both_holds_and_rejects_an_interrupted_cycle():
+    import pytest
+    from scripts.view.view_rung7_regrasp import cycle_frames
+
+    clock = np.arange(8.0, 16.1, 0.25)
+    events = {"open_request1": 10.0, "recovered2": 15.0}
+    frames = cycle_frames(clock, {"events": events, "missing": None})
+    np.testing.assert_array_equal(clock[frames], np.arange(10.0, 15.1, 0.25))
+    with pytest.raises(ValueError, match="continuous"):
+        cycle_frames(clock, {"events": events, "missing": "first hold lost"})
+
+
+def test_preloaded_hand_starts_opening_gently_and_wrist_leaves_its_hold_continuously():
+    from teleopit.sim.g1_o6_support.regrasp_balance import open_rate, WristHandoff
+
+    assert 0 < open_rate(1.0) <= 0.25
+    assert open_rate(0.95) < open_rate(0.85) == open_rate(0.20)
+    held, goal = np.array([0.1, -0.4]), np.array([0.22, -0.3])
+    handoff = WristHandoff(12.0, held)
+    np.testing.assert_array_equal(handoff.target(12.0, goal), held)
+    assert np.all(handoff.target(12.02, goal) - held < 0.002)
+    np.testing.assert_allclose(handoff.target(13.0, goal), goal)
