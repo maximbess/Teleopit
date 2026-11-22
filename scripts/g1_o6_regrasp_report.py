@@ -32,6 +32,25 @@ def csv_file(path, rows):
         writer.writerows(rows)
 
 
+def verified_retreat(events, trace, moving):
+    gaps, travel = {}, {}
+    for n in ("1", "2"):
+        if "clear_verified" + n in events:
+            stop = events["clear_verified" + n]
+            mask = interval(trace["time"], (stop - 0.5, stop))
+            gaps[n] = float(min(trace["gap"][mask]))
+            base = np.argmin(abs(trace["time"] - events["open_request" + n]))
+            last = np.flatnonzero(mask)[-1]
+            travel[n] = float(
+                trace["wrist"][base, moving, 0] - trace["wrist"][last, moving, 0]
+            )
+    return gaps, travel
+
+
+def supports_retained(first):
+    return all(t is None for k, t in first.items() if k.endswith(("_loss", "_slip")))
+
+
 def cycle(outcome, cfg, t):
     events = contact_events(t, outcome)
     start = (
@@ -55,19 +74,11 @@ def cycle(outcome, cfg, t):
     )
     opp = 1 - i
     drops = (t["state"][:, opp] != STATES.index("grasp")) & active
-    verified_gaps, travel = {}, {}
-    for n in ("1", "2"):
-        if "clear_verified" + n in events:
-            stop = events["clear_verified" + n]
-            mask = interval(t["time"], (stop - 0.5, stop))
-            verified_gaps[n] = float(min(t["gap"][mask]))
-            base = np.argmin(abs(t["time"] - events["open_request" + n]))
-            travel[n] = float(
-                t["wrist"][base, i, 0] - t["wrist"][np.flatnonzero(mask)[-1], i, 0]
-            )
+    verified_gaps, travel = verified_retreat(events, t, i)
     return {
         "moving_completed": moving,
         "supported_cycle": moving and not any(v is not None for v in first.values()),
+        "opposite_grasp_and_feet_retained": moving and supports_retained(first),
         "first": first,
         "events": events,
         "missing": outcome["missing"],
@@ -131,12 +142,17 @@ def summary(records):
 def cycle_counts(mode, side, selected):
     nominal = [r for r in selected if r["offset_mm"] == 0]
     offsets = sorted({r["offset_mm"] for r in selected if r["moving_completed"]})
+
+    def count(measure):
+        return sum(r.get(measure, False) for r in nominal)
+
     return {
         "pelvis": mode,
         "hand": side,
         "nominal_repeats": len(nominal),
-        "moving_cycles": sum(r["moving_completed"] for r in nominal),
-        "continuously_supported_cycles": sum(r["supported_cycle"] for r in nominal),
+        "moving_cycles": count("moving_completed"),
+        "continuously_supported_cycles": count("supported_cycle"),
+        "opposite_grasp_and_feet_retained": count("opposite_grasp_and_feet_retained"),
         "passed_moving_offsets_mm": " ".join(map(str, offsets)),
         "first_missing": next((r["missing"] for r in nominal if r["missing"]), ""),
     }

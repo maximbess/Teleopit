@@ -95,11 +95,15 @@ def test_completed_campaign_reports_only_measured_modes_and_marks_final_regrasp(
         "offset_mm": 0,
         "moving_completed": True,
         "supported_cycle": True,
+        "opposite_grasp_and_feet_retained": True,
         "missing": None,
     }
     assert [(r["pelvis"], r["hand"]) for r in summary({"trial": row})] == [
         ("free", "right")
     ]
+    monitored = summary({"trial": {**row, "supported_cycle": False}})[0]
+    assert monitored["opposite_grasp_and_feet_retained"] == 1
+    assert monitored["continuously_supported_cycles"] == 0
     marks = event_marks(
         {"open_request2": 9.0, "grasp_verified2": 14.0, "recovered2": 16.0}, {}, 2.0
     )
