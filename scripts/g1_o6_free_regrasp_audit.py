@@ -27,7 +27,8 @@ def native_forces(contacts, owners, targets, steps):
 
 def force_error(directory, cfg, trace):
     model = mujoco.MjModel.from_binary_path(str(Path(cfg["source"]) / "scene.mjb"))
-    assert cfg["geom_names"] == [model.geom(g).name for g in range(model.ngeom)]
+    if cfg["geom_names"] != [model.geom(g).name for g in range(model.ngeom)]:
+        raise ValueError("Contact geometry order differs from the recorded scene.")
     ids = {name: i for i, name in enumerate(SUPPORTS)}
     owners = np.array([ids.get(region(model, b), -1) for b in model.geom_bodyid])
     targets = [model.geom(cfg["support_targets"][name]).id for name in SUPPORTS]
@@ -58,6 +59,14 @@ def required_supports(trace, active, hands):
     }
 
 
+def detached_steps(trace, side, start_s, mask):
+    start = np.argmin(abs(trace["time"] - start_s))
+    opened = measured_opening(trace["digits"][start, side], trace["digits"][mask, side])
+    return int(
+        detached(opened, trace["external_count"][mask], trace["gap"][mask]).sum()
+    )
+
+
 def release_cycle(events, commands, trace, cfg, number):
     side = int(cfg["side"] == "right")
 
@@ -69,15 +78,6 @@ def release_cycle(events, commands, trace, cfg, number):
 
     confirmed = cfg["criteria"]["persistence_s"]
     clear = winding("clear_verified" + number, confirmed)
-    open_tick = tick("open_request" + number)
-    # The native encoder sample at the end of the preceding tick is aligned to its interval start.
-    start = np.flatnonzero(trace["time"] < commands["time"][open_tick] - 1e-8)[-1]
-    opened = measured_opening(
-        trace["digits"][start, side], trace["digits"][clear, side]
-    )
-    detached_samples = detached(
-        opened, trace["external_count"][clear], trace["gap"][clear]
-    )
     close = tick("close_request" + number)
     error = commands["position_rung"][close, side] - commands["goal_rung"][close]
     rotation = (
@@ -93,7 +93,9 @@ def release_cycle(events, commands, trace, cfg, number):
         "position_error_mm": float(np.linalg.norm(error) * 1000),
         "angle_error_rad": float(Rotation.from_matrix(rotation).magnitude()),
         "clear_steps": int(clear.sum()),
-        "detached_steps": int(detached_samples.sum()),
+        "detached_steps": detached_steps(
+            trace, side, events["open_request" + number], clear
+        ),
         "minimum_gap_mm": float(trace["gap"][clear].min() * 1000),
         "confirmation_steps": int(grasp.sum()),
         "hold_steps": int(hold.sum()),
@@ -102,6 +104,52 @@ def release_cycle(events, commands, trace, cfg, number):
         ),
         "post_grasp_mean_Fz_N": trace["fz"][hold].mean(axis=0).tolist(),
     }
+
+
+def cycle_passes(cycle, cfg):
+    dt = cfg["config"]["physics_dt"]
+    samples = round(cfg["criteria"]["persistence_s"] / dt)
+    return all(
+        (
+            cycle["position_error_mm"] <= cfg["position_tolerance_m"] * 1000,
+            cycle["angle_error_rad"] <= cfg["rotation_tolerance_rad"],
+            cycle["detached_steps"]
+            == cycle["clear_steps"]
+            == cycle["confirmation_steps"]
+            == samples,
+            cycle["hold_steps"] == round(2 / dt),
+            cycle["invalid_confirm_or_hold_steps"] == 0,
+        )
+    )
+
+
+def check_release(directory, outcome, cfg, trace, report):
+    with np.load(directory / "commands.npz") as saved:
+        commands = {
+            k: saved[k] for k in ("time", "position_rung", "goal_rung", "rotation_rung")
+        }
+    events = outcome["events"]
+    cycles = {
+        n: release_cycle(events, commands, trace, cfg, n)
+        for n in ("1", "2")
+        if "grasp_verified" + n in events
+    }
+    report["cycles"] = cycles
+    dwell = trace["phase"] == "clear1"
+    report["clear_dwell_steps"] = int(dwell.sum())
+    report["clear_dwell_detached_steps"] = detached_steps(
+        trace, int(cfg["side"] == "right"), events["open_request1"], dwell
+    )
+    return all(
+        (
+            len(cycles) == 2,
+            all(cycle_passes(c, cfg) for c in cycles.values()),
+            report["clear_dwell_detached_steps"]
+            == report["clear_dwell_steps"]
+            == round(2 / cfg["config"]["physics_dt"]),
+            "clear1" in outcome["windows"],
+        )
+    )
 
 
 def audit_branch(directory):
@@ -130,41 +178,7 @@ def audit_branch(directory):
         == 0,
     ]
     if cfg["branch"] == "release":
-        cycles = {}
-        events = outcome["events"]
-        with np.load(directory / "commands.npz") as saved:
-            commands = {
-                k: saved[k]
-                for k in ("time", "position_rung", "goal_rung", "rotation_rung")
-            }
-        for n in ("1", "2"):
-            if "grasp_verified" + n in events:
-                cycle = release_cycle(events, commands, trace, cfg, n)
-                cycles[n] = cycle
-                checks.extend(
-                    [
-                        cycle["position_error_mm"]
-                        <= cfg["position_tolerance_m"] * 1000,
-                        cycle["angle_error_rad"] <= cfg["rotation_tolerance_rad"],
-                        cycle["detached_steps"]
-                        == cycle["clear_steps"]
-                        == cycle["confirmation_steps"]
-                        == round(
-                            cfg["criteria"]["persistence_s"]
-                            / cfg["config"]["physics_dt"]
-                        ),
-                        cycle["hold_steps"] == round(2 / cfg["config"]["physics_dt"]),
-                        cycle["invalid_confirm_or_hold_steps"] == 0,
-                    ]
-                )
-        checks.append(len(cycles) == 2)
-        report["cycles"] = cycles
-        dwell = trace["phase"] == "clear1"
-        report["clear_dwell_steps"] = int(dwell.sum())
-        checks.append(
-            report["clear_dwell_steps"] == round(2 / cfg["config"]["physics_dt"])
-            and "clear1" in outcome["windows"]
-        )
+        checks.append(check_release(directory, outcome, cfg, trace, report))
     report["passed"] = all(checks)
     return report
 
@@ -174,10 +188,11 @@ if __name__ == "__main__":
     parser.add_argument("root", type=Path)
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
-    branches = sorted(args.root.glob("*/*/outcome.json"))
     reports = {
-        p.parent.relative_to(args.root).as_posix(): audit_branch(p.parent)
-        for p in branches
+        f"{pair.name}/{branch}": audit_branch(pair / branch)
+        for pair in sorted(args.root.glob("free_*"))
+        if pair.is_dir()
+        for branch in ("release", "control")
     }
     write_json(args.output, reports)
     raise SystemExit(0 if reports and all(r["passed"] for r in reports.values()) else 1)

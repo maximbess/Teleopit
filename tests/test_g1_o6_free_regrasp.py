@@ -3,6 +3,7 @@ import numpy as np
 
 def test_stance_servos_preserve_captured_load_and_share_targets_at_different_measured_poses():
     from types import SimpleNamespace
+
     from teleopit.sim.g1_o6_support.regrasp_balance import StanceServos
 
     ids = np.array([0, 2])
@@ -88,14 +89,14 @@ def test_completed_campaign_reports_only_measured_modes_and_marks_final_regrasp(
     from scripts.g1_o6_regrasp_report import event_marks, summary
     from teleopit.sim.g1_o6_support.regrasp_results import measured_windows
 
-    row = dict(
-        pelvis="free",
-        side="right",
-        offset_mm=0,
-        moving_completed=True,
-        supported_cycle=True,
-        missing=None,
-    )
+    row = {
+        "pelvis": "free",
+        "side": "right",
+        "offset_mm": 0,
+        "moving_completed": True,
+        "supported_cycle": True,
+        "missing": None,
+    }
     assert [(r["pelvis"], r["hand"]) for r in summary({"trial": row})] == [
         ("free", "right")
     ]
@@ -110,6 +111,7 @@ def test_completed_campaign_reports_only_measured_modes_and_marks_final_regrasp(
 
 def test_replay_includes_open_and_both_holds_and_rejects_an_interrupted_cycle():
     import pytest
+
     from scripts.view.view_rung7_regrasp import cycle_frames
 
     clock = np.arange(8.0, 16.1, 0.25)
@@ -120,13 +122,19 @@ def test_replay_includes_open_and_both_holds_and_rejects_an_interrupted_cycle():
         cycle_frames(clock, {"events": events, "missing": "first hold lost"})
 
 
-def test_preloaded_hand_starts_opening_gently_and_wrist_leaves_its_hold_continuously():
-    from teleopit.sim.g1_o6_support.regrasp_balance import open_rate, WristHandoff
+def test_held_hand_keeps_its_wrist_equilibrium_when_the_control_repeats_a_rung_goal():
+    from types import SimpleNamespace
 
-    assert 0 < open_rate(1.0) <= 0.25
-    assert open_rate(0.95) < open_rate(0.85) == open_rate(0.20)
-    held, goal = np.array([0.1, -0.4]), np.array([0.22, -0.3])
-    handoff = WristHandoff(12.0, held)
-    np.testing.assert_array_equal(handoff.target(12.0, goal), held)
-    assert np.all(handoff.target(12.02, goal) - held < 0.002)
-    np.testing.assert_allclose(handoff.target(13.0, goal), goal)
+    from teleopit.sim.g1_o6_support.regrasp_balance import FloatingTrial, HoldingWrist
+
+    trial = object.__new__(FloatingTrial)
+    wrist = object.__new__(HoldingWrist)
+    wrist.arm = np.array([0.1, -0.4])
+    goal = np.array([0.22, -0.3])
+    wrist.path = SimpleNamespace(target=lambda distance: goal)
+    trial.holding_wrist = wrist
+    before = trial.selected_arm(None, holding=True)
+    np.testing.assert_array_equal(trial.selected_arm(goal, holding=True), before)
+    assert np.all((before > wrist.arm) & (before < goal))
+    np.testing.assert_array_equal(trial.selected_arm(goal, holding=False), goal)
+    assert trial.holding_wrist is None

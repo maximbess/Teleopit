@@ -9,30 +9,12 @@ from .regrasp_trial import Confirmation, Trial, Unmet, WristPath
 
 SUPPORT_ARM_FRACTION = 0.23
 OPEN_RATE = 0.67
-INITIAL_OPEN_RATE = 0.20
-OPEN_RAMP_AMOUNT = 0.15
-WRIST_HANDOFF_S = 0.40
 CLOSE_RATE = 0.55
 SUPPORT_PRELOAD = (0.20, 0.12, 0.26, 0.26, 0.26, 0.26)
 SUPPORT_TRAVEL = (0.085, 0.0, 0.20, 0.20, 0.20, 0.20)
 RAMP_S = 1.5
 HOLD_PRELOAD = (0.16, 0.12, 0.20, 0.20, 0.20, 0.20)
 HOLD_TRAVEL = (0.045, 0.0, 0.095, 0.095, 0.095, 0.095)
-
-
-def open_rate(closure):
-    fraction = smooth((1.0 - closure) / OPEN_RAMP_AMOUNT)
-    return INITIAL_OPEN_RATE + (OPEN_RATE - INITIAL_OPEN_RATE) * fraction
-
-
-class WristHandoff:
-    def __init__(self, start, command):
-        self.start = start
-        self.command = command.copy()
-
-    def target(self, now, goal):
-        fraction = smooth((now - self.start) / WRIST_HANDOFF_S)
-        return self.command + fraction * (goal - self.command)
 
 
 class StanceServos:
@@ -81,9 +63,11 @@ class HoldingWrist:
         self.path = WristPath(env, policy, side, 0)
         self.arm = env.target[self.path.ids].copy()
 
-    def target(self):
+    def target(self, goal=None):
         # Preserve closed-chain joint stiffness while correcting motion in rung axes.
-        return self.arm + SUPPORT_ARM_FRACTION * (self.path.target(0.0) - self.arm)
+        if goal is None:
+            goal = self.path.target(0.0)
+        return self.arm + SUPPORT_ARM_FRACTION * (goal - self.arm)
 
 
 class FloatingBalance:
@@ -117,9 +101,6 @@ class FloatingBalance:
             "stance_target_rad": self.env.target[servo.ids].tolist(),
             "holding_wrist_ik_fraction": SUPPORT_ARM_FRACTION,
             "open_rate_per_s": OPEN_RATE,
-            "initial_open_rate_per_s": INITIAL_OPEN_RATE,
-            "open_ramp_closure_fraction": OPEN_RAMP_AMOUNT,
-            "wrist_handoff_s": WRIST_HANDOFF_S,
             "close_rate_per_s": CLOSE_RATE,
             "support_preload_Nm": SUPPORT_PRELOAD,
             "support_travel_rad": SUPPORT_TRAVEL,
@@ -133,7 +114,6 @@ class FloatingTrial(Trial):
         super().__init__(env, policy, side, "free", None, offset_mm)
         self.balance = None
         self.holding_wrist = None
-        self.handoff = None
 
     def set_stance(self):
         if self.balance is None:
@@ -151,24 +131,18 @@ class FloatingTrial(Trial):
             if request is None:
                 grips[self.i] = 1.0
             else:
-                amount = self.policy.digits[self.side].amount
-                grips[self.i] = request * (
-                    open_rate(amount) if request < 0 else CLOSE_RATE
-                )
+                grips[self.i] = request * (OPEN_RATE if request < 0 else CLOSE_RATE)
             if self.path is not None:
-                arms[self.i] = self.selected_arm(arm)
+                arms[self.i] = self.selected_arm(arm, holding=request is None)
         return arms, grips
 
-    def selected_arm(self, arm):
-        if arm is not None:
+    def selected_arm(self, arm, *, holding):
+        if not holding:
             self.holding_wrist = None
-            if self.handoff is None:
-                self.handoff = WristHandoff(self.time, self.env.target[self.path.ids])
-            return self.handoff.target(self.time, arm)
-        self.handoff = None
+            return arm
         if self.holding_wrist is None:
             self.holding_wrist = HoldingWrist(self.env, self.policy, self.side)
-        return self.holding_wrist.target()
+        return self.holding_wrist.target(arm)
 
     def settle(self):
         self.acquire("support_preparation")

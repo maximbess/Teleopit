@@ -10,7 +10,7 @@ import numpy as np
 
 from teleopit.sim.g1_o6_support.ladder_campaign import file_hash
 
-ROOT = Path("outputs/g1_o6/rung7_free_balanced")
+ROOT = Path("outputs/g1_o6/rung7_free_regrasp")
 
 
 def cycle_frames(clock, outcome):
