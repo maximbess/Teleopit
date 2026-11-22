@@ -1,0 +1,38 @@
+{
+  "physics": {
+    "robot_and_ground_sha256": "76cd558c7c3c4c2d96d54b222add1a13106100655572614e4ebf1eadff1c3872",
+    "solver_sha256": "2ef83f104a4bedbc0bb9015ad5ec214f95e2001a350409381d435030092a3ec0",
+    "controller_sha256": "9b6cba7051b3df2ac1d3cc4d57148d75e143de7ba6ad52a86364159c34d96dc9",
+    "physics_dt": 0.001
+  },
+  "source_model_sha256": "c4b50161e27f5d778c53cfa639e679152095bee61b8be9a3beb256ae7799e09a",
+  "controller": {
+    "order": "together",
+    "arm_rate_rad_s": 0.02,
+    "balance": "wrench",
+    "gain": 1.6,
+    "governor": "individual",
+    "guard_N": 16.0,
+    "grip_retention": "settled",
+    "grip_law": "palm",
+    "pressure_gain": 0.12,
+    "thumb_preview": "native",
+    "wrist_mode": "right"
+  },
+  "seed": 0,
+  "control_dt": 0.02,
+  "physics_dt": 0.001,
+  "hold_endpoints": 1500,
+  "mean_Fz_N": {
+    "left_hand": 5.134461478790294,
+    "right_hand": 4.536537838158108,
+    "left_foot": 163.17085237355548,
+    "right_foot": 161.62542986468728
+  },
+  "steps_sha256": "66a1ad827cad383873847507a878a3244eb24e146e5dd4d4de12771b14ae4ed6",
+  "decoded_native_sha256": {
+    "physics_contacts.jsonl.gz": "2607b7dce0f0ba221191e0c8f90c0270048066aa4b304f617fcb7df9438dd04b",
+    "knee_rung3.f64.gz": "ed610c432667f3cb93387225fbd193abb758560617633d516ceb48885cfb0499",
+    "applied_forces.jsonl.gz": "ee315da01b0f8ca44fa0db34cad07cc764520c840fea020318ba42c57a839457"
+  }
+}

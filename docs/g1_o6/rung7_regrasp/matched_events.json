@@ -1,0 +1,482 @@
+{
+  "free_left_1": {
+    "matching": {
+      "identical_precommand_ticks": 602,
+      "maximum_stance_difference_rad": 0.0
+    },
+    "release_first_events": {
+      "right_hand_loss": 12.273,
+      "left_foot_loss": null,
+      "right_foot_loss": null,
+      "right_hand_slip": 12.864,
+      "left_foot_slip": null,
+      "right_foot_slip": null,
+      "drift": 13.155,
+      "tilt": null,
+      "effort": null,
+      "joint": null,
+      "mimic": null,
+      "penetration": null,
+      "unintended": null,
+      "numerical": null,
+      "speed": null,
+      "angular_speed": null,
+      "applied": null,
+      "static_residual": 12.122
+    },
+    "control_first_events": {
+      "left_hand_loss": null,
+      "right_hand_loss": null,
+      "left_foot_loss": null,
+      "right_foot_loss": null,
+      "left_hand_slip": null,
+      "right_hand_slip": null,
+      "left_foot_slip": null,
+      "right_foot_slip": null,
+      "drift": null,
+      "tilt": null,
+      "effort": null,
+      "joint": null,
+      "mimic": null,
+      "penetration": null,
+      "unintended": null,
+      "numerical": null,
+      "speed": null,
+      "angular_speed": null,
+      "applied": null,
+      "static_residual": null
+    },
+    "events": {
+      "settled": 12.04,
+      "open_request1": 12.04,
+      "opened1": 12.94,
+      "clear_verified1": 14.64,
+      "approach1": 16.64,
+      "last_contact_end1": 12.857,
+      "first_gap_5mm1": 13.203
+    },
+    "unavailable": {
+      "clear1": "required support lost before window ended",
+      "hold1": "open approach missed pose or clearance: position error 85.7 mm, angle 0.094 rad, external contacts 0",
+      "hold2": "open approach missed pose or clearance: position error 85.7 mm, angle 0.094 rad, external contacts 0"
+    },
+    "balance": {
+      "baseline": {
+        "release": {
+          "mean_net_Fz_N": 0.011542737493808033,
+          "delta_vertical_momentum_Ns": 0.023085471771697477,
+          "external_impulse_Ns": 0.023085474987616067,
+          "mean_dynamic_residual_N": 1.6079592952272792e-09
+        },
+        "control": {
+          "mean_net_Fz_N": 0.011542737493808033,
+          "delta_vertical_momentum_Ns": 0.023085471771697477,
+          "external_impulse_Ns": 0.023085474987616067,
+          "mean_dynamic_residual_N": 1.6079592952272792e-09
+        }
+      },
+      "opening1": {
+        "release": {
+          "mean_net_Fz_N": -0.15340538432943757,
+          "delta_vertical_momentum_Ns": -0.13808187362511065,
+          "external_impulse_Ns": -0.13806484589649382,
+          "mean_dynamic_residual_N": 1.8919698463154555e-05
+        },
+        "control": {
+          "mean_net_Fz_N": -0.01788467573606517,
+          "delta_vertical_momentum_Ns": -0.016096210149083412,
+          "external_impulse_Ns": -0.01609620816245865,
+          "mean_dynamic_residual_N": 2.2073608427208846e-09
+        }
+      },
+      "retreat1": {
+        "release": {
+          "mean_net_Fz_N": 0.07654072645461436,
+          "delta_vertical_momentum_Ns": 0.1301189239214962,
+          "external_impulse_Ns": 0.13011923497284442,
+          "mean_dynamic_residual_N": 1.8297138129619306e-07
+        },
+        "control": {
+          "mean_net_Fz_N": 0.0040195663209337176,
+          "delta_vertical_momentum_Ns": 0.006833266282319634,
+          "external_impulse_Ns": 0.00683326274558732,
+          "mean_dynamic_residual_N": -2.0804307729674343e-09
+        }
+      },
+      "clear1": {
+        "release": {
+          "mean_net_Fz_N": -0.0013679533871516299,
+          "delta_vertical_momentum_Ns": -0.002734043662700321,
+          "external_impulse_Ns": -0.0027359067743032597,
+          "mean_dynamic_residual_N": -9.315558014693238e-07
+        },
+        "control": {
+          "mean_net_Fz_N": -0.009576705796789667,
+          "delta_vertical_momentum_Ns": -0.019153263549816394,
+          "external_impulse_Ns": -0.019153411593579337,
+          "mean_dynamic_residual_N": -7.402188146980737e-08
+        }
+      }
+    }
+  },
+  "free_left_2": {
+    "matching": {
+      "identical_precommand_ticks": 602,
+      "maximum_stance_difference_rad": 0.0
+    },
+    "release_first_events": {
+      "right_hand_loss": 12.273,
+      "left_foot_loss": null,
+      "right_foot_loss": null,
+      "right_hand_slip": 12.864,
+      "left_foot_slip": null,
+      "right_foot_slip": null,
+      "drift": 13.155,
+      "tilt": null,
+      "effort": null,
+      "joint": null,
+      "mimic": null,
+      "penetration": null,
+      "unintended": null,
+      "numerical": null,
+      "speed": null,
+      "angular_speed": null,
+      "applied": null,
+      "static_residual": 12.122
+    },
+    "control_first_events": {
+      "left_hand_loss": null,
+      "right_hand_loss": null,
+      "left_foot_loss": null,
+      "right_foot_loss": null,
+      "left_hand_slip": null,
+      "right_hand_slip": null,
+      "left_foot_slip": null,
+      "right_foot_slip": null,
+      "drift": null,
+      "tilt": null,
+      "effort": null,
+      "joint": null,
+      "mimic": null,
+      "penetration": null,
+      "unintended": null,
+      "numerical": null,
+      "speed": null,
+      "angular_speed": null,
+      "applied": null,
+      "static_residual": null
+    },
+    "events": {
+      "settled": 12.04,
+      "open_request1": 12.04,
+      "opened1": 12.94,
+      "clear_verified1": 14.64,
+      "approach1": 16.64,
+      "last_contact_end1": 12.857,
+      "first_gap_5mm1": 13.203
+    },
+    "unavailable": {
+      "clear1": "required support lost before window ended",
+      "hold1": "open approach missed pose or clearance: position error 85.7 mm, angle 0.094 rad, external contacts 0",
+      "hold2": "open approach missed pose or clearance: position error 85.7 mm, angle 0.094 rad, external contacts 0"
+    },
+    "balance": {
+      "baseline": {
+        "release": {
+          "mean_net_Fz_N": 0.011542737493808033,
+          "delta_vertical_momentum_Ns": 0.023085471771697477,
+          "external_impulse_Ns": 0.023085474987616067,
+          "mean_dynamic_residual_N": 1.6079592952272792e-09
+        },
+        "control": {
+          "mean_net_Fz_N": 0.011542737493808033,
+          "delta_vertical_momentum_Ns": 0.023085471771697477,
+          "external_impulse_Ns": 0.023085474987616067,
+          "mean_dynamic_residual_N": 1.6079592952272792e-09
+        }
+      },
+      "opening1": {
+        "release": {
+          "mean_net_Fz_N": -0.15340538432943757,
+          "delta_vertical_momentum_Ns": -0.13808187362511065,
+          "external_impulse_Ns": -0.13806484589649382,
+          "mean_dynamic_residual_N": 1.8919698463154555e-05
+        },
+        "control": {
+          "mean_net_Fz_N": -0.01788467573606517,
+          "delta_vertical_momentum_Ns": -0.016096210149083412,
+          "external_impulse_Ns": -0.01609620816245865,
+          "mean_dynamic_residual_N": 2.2073608427208846e-09
+        }
+      },
+      "retreat1": {
+        "release": {
+          "mean_net_Fz_N": 0.07654072645461436,
+          "delta_vertical_momentum_Ns": 0.1301189239214962,
+          "external_impulse_Ns": 0.13011923497284442,
+          "mean_dynamic_residual_N": 1.8297138129619306e-07
+        },
+        "control": {
+          "mean_net_Fz_N": 0.0040195663209337176,
+          "delta_vertical_momentum_Ns": 0.006833266282319634,
+          "external_impulse_Ns": 0.00683326274558732,
+          "mean_dynamic_residual_N": -2.0804307729674343e-09
+        }
+      },
+      "clear1": {
+        "release": {
+          "mean_net_Fz_N": -0.0013679533871516299,
+          "delta_vertical_momentum_Ns": -0.002734043662700321,
+          "external_impulse_Ns": -0.0027359067743032597,
+          "mean_dynamic_residual_N": -9.315558014693238e-07
+        },
+        "control": {
+          "mean_net_Fz_N": -0.009576705796789667,
+          "delta_vertical_momentum_Ns": -0.019153263549816394,
+          "external_impulse_Ns": -0.019153411593579337,
+          "mean_dynamic_residual_N": -7.402188146980737e-08
+        }
+      }
+    }
+  },
+  "free_right_1": {
+    "matching": {
+      "identical_precommand_ticks": 602,
+      "maximum_stance_difference_rad": 0.0
+    },
+    "release_first_events": {
+      "left_hand_loss": 12.294,
+      "left_foot_loss": null,
+      "right_foot_loss": null,
+      "left_hand_slip": 12.779,
+      "left_foot_slip": null,
+      "right_foot_slip": null,
+      "drift": 13.128,
+      "tilt": null,
+      "effort": null,
+      "joint": null,
+      "mimic": null,
+      "penetration": null,
+      "unintended": null,
+      "numerical": null,
+      "speed": null,
+      "angular_speed": null,
+      "applied": null,
+      "static_residual": 12.126
+    },
+    "control_first_events": {
+      "left_hand_loss": null,
+      "right_hand_loss": null,
+      "left_foot_loss": null,
+      "right_foot_loss": null,
+      "left_hand_slip": null,
+      "right_hand_slip": null,
+      "left_foot_slip": null,
+      "right_foot_slip": null,
+      "drift": null,
+      "tilt": null,
+      "effort": null,
+      "joint": null,
+      "mimic": null,
+      "penetration": null,
+      "unintended": null,
+      "numerical": null,
+      "speed": null,
+      "angular_speed": null,
+      "applied": null,
+      "static_residual": null
+    },
+    "events": {
+      "settled": 12.04,
+      "open_request1": 12.04,
+      "opened1": 12.94,
+      "clear_verified1": 14.64,
+      "approach1": 16.64,
+      "last_contact_end1": 12.802,
+      "first_gap_5mm1": 13.166
+    },
+    "unavailable": {
+      "clear1": "required support lost before window ended",
+      "hold1": "open approach missed pose or clearance: position error 88.7 mm, angle 0.108 rad, external contacts 0",
+      "hold2": "open approach missed pose or clearance: position error 88.7 mm, angle 0.108 rad, external contacts 0"
+    },
+    "balance": {
+      "baseline": {
+        "release": {
+          "mean_net_Fz_N": 0.011542737493808033,
+          "delta_vertical_momentum_Ns": 0.023085471771697477,
+          "external_impulse_Ns": 0.023085474987616067,
+          "mean_dynamic_residual_N": 1.6079592952272792e-09
+        },
+        "control": {
+          "mean_net_Fz_N": 0.011542737493808033,
+          "delta_vertical_momentum_Ns": 0.023085471771697477,
+          "external_impulse_Ns": 0.023085474987616067,
+          "mean_dynamic_residual_N": 1.6079592952272792e-09
+        }
+      },
+      "opening1": {
+        "release": {
+          "mean_net_Fz_N": -0.1721692016935,
+          "delta_vertical_momentum_Ns": -0.15496690631303037,
+          "external_impulse_Ns": -0.15495228152415003,
+          "mean_dynamic_residual_N": 1.6249765422637896e-05
+        },
+        "control": {
+          "mean_net_Fz_N": -0.021308832730181533,
+          "delta_vertical_momentum_Ns": -0.019177970440242713,
+          "external_impulse_Ns": -0.01917794945716338,
+          "mean_dynamic_residual_N": 2.331453259271643e-08
+        }
+      },
+      "retreat1": {
+        "release": {
+          "mean_net_Fz_N": 0.07466739682583957,
+          "delta_vertical_momentum_Ns": 0.12693183399036542,
+          "external_impulse_Ns": 0.12693457460392726,
+          "mean_dynamic_residual_N": 1.6121256246198756e-06
+        },
+        "control": {
+          "mean_net_Fz_N": 0.003373549683034365,
+          "delta_vertical_momentum_Ns": 0.005735059946397484,
+          "external_impulse_Ns": 0.0057350344611584204,
+          "mean_dynamic_residual_N": -1.4991317095688905e-08
+        }
+      },
+      "clear1": {
+        "release": {
+          "mean_net_Fz_N": 0.0022995847468685895,
+          "delta_vertical_momentum_Ns": 0.0046006218330567755,
+          "external_impulse_Ns": 0.004599169493737179,
+          "mean_dynamic_residual_N": -7.261696597983015e-07
+        },
+        "control": {
+          "mean_net_Fz_N": -0.006952254512818798,
+          "delta_vertical_momentum_Ns": -0.01390438522530368,
+          "external_impulse_Ns": -0.013904509025637595,
+          "mean_dynamic_residual_N": -6.190016695745149e-08
+        }
+      }
+    }
+  },
+  "free_right_2": {
+    "matching": {
+      "identical_precommand_ticks": 602,
+      "maximum_stance_difference_rad": 0.0
+    },
+    "release_first_events": {
+      "left_hand_loss": 12.294,
+      "left_foot_loss": null,
+      "right_foot_loss": null,
+      "left_hand_slip": 12.779,
+      "left_foot_slip": null,
+      "right_foot_slip": null,
+      "drift": 13.128,
+      "tilt": null,
+      "effort": null,
+      "joint": null,
+      "mimic": null,
+      "penetration": null,
+      "unintended": null,
+      "numerical": null,
+      "speed": null,
+      "angular_speed": null,
+      "applied": null,
+      "static_residual": 12.126
+    },
+    "control_first_events": {
+      "left_hand_loss": null,
+      "right_hand_loss": null,
+      "left_foot_loss": null,
+      "right_foot_loss": null,
+      "left_hand_slip": null,
+      "right_hand_slip": null,
+      "left_foot_slip": null,
+      "right_foot_slip": null,
+      "drift": null,
+      "tilt": null,
+      "effort": null,
+      "joint": null,
+      "mimic": null,
+      "penetration": null,
+      "unintended": null,
+      "numerical": null,
+      "speed": null,
+      "angular_speed": null,
+      "applied": null,
+      "static_residual": null
+    },
+    "events": {
+      "settled": 12.04,
+      "open_request1": 12.04,
+      "opened1": 12.94,
+      "clear_verified1": 14.64,
+      "approach1": 16.64,
+      "last_contact_end1": 12.802,
+      "first_gap_5mm1": 13.166
+    },
+    "unavailable": {
+      "clear1": "required support lost before window ended",
+      "hold1": "open approach missed pose or clearance: position error 88.7 mm, angle 0.108 rad, external contacts 0",
+      "hold2": "open approach missed pose or clearance: position error 88.7 mm, angle 0.108 rad, external contacts 0"
+    },
+    "balance": {
+      "baseline": {
+        "release": {
+          "mean_net_Fz_N": 0.011542737493808033,
+          "delta_vertical_momentum_Ns": 0.023085471771697477,
+          "external_impulse_Ns": 0.023085474987616067,
+          "mean_dynamic_residual_N": 1.6079592952272792e-09
+        },
+        "control": {
+          "mean_net_Fz_N": 0.011542737493808033,
+          "delta_vertical_momentum_Ns": 0.023085471771697477,
+          "external_impulse_Ns": 0.023085474987616067,
+          "mean_dynamic_residual_N": 1.6079592952272792e-09
+        }
+      },
+      "opening1": {
+        "release": {
+          "mean_net_Fz_N": -0.1721692016935,
+          "delta_vertical_momentum_Ns": -0.15496690631303037,
+          "external_impulse_Ns": -0.15495228152415003,
+          "mean_dynamic_residual_N": 1.6249765422637896e-05
+        },
+        "control": {
+          "mean_net_Fz_N": -0.021308832730181533,
+          "delta_vertical_momentum_Ns": -0.019177970440242713,
+          "external_impulse_Ns": -0.01917794945716338,
+          "mean_dynamic_residual_N": 2.331453259271643e-08
+        }
+      },
+      "retreat1": {
+        "release": {
+          "mean_net_Fz_N": 0.07466739682583957,
+          "delta_vertical_momentum_Ns": 0.12693183399036542,
+          "external_impulse_Ns": 0.12693457460392726,
+          "mean_dynamic_residual_N": 1.6121256246198756e-06
+        },
+        "control": {
+          "mean_net_Fz_N": 0.003373549683034365,
+          "delta_vertical_momentum_Ns": 0.005735059946397484,
+          "external_impulse_Ns": 0.0057350344611584204,
+          "mean_dynamic_residual_N": -1.4991317095688905e-08
+        }
+      },
+      "clear1": {
+        "release": {
+          "mean_net_Fz_N": 0.0022995847468685895,
+          "delta_vertical_momentum_Ns": 0.0046006218330567755,
+          "external_impulse_Ns": 0.004599169493737179,
+          "mean_dynamic_residual_N": -7.261696597983015e-07
+        },
+        "control": {
+          "mean_net_Fz_N": -0.006952254512818798,
+          "delta_vertical_momentum_Ns": -0.01390438522530368,
+          "external_impulse_Ns": -0.013904509025637595,
+          "mean_dynamic_residual_N": -6.190016695745149e-08
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,219 @@
+{
+  "physics_audit": {
+    "scored_trajectories": 16,
+    "native_steps": 394740,
+    "max_signed_Fz_reconstruction_error_N": 0.0,
+    "fixed_confirmation_and_hold_samples_checked": 40000,
+    "by_trajectory": {
+      "fixed_left_1/release": {
+        "native_steps": 28700,
+        "maximum_Fz_reconstruction_error_N": 0.0,
+        "verified_grasp_and_hold_native_samples_1": 2500,
+        "verified_grasp_and_hold_native_samples_2": 2500
+      },
+      "fixed_left_2/release": {
+        "native_steps": 28700,
+        "maximum_Fz_reconstruction_error_N": 0.0,
+        "verified_grasp_and_hold_native_samples_1": 2500,
+        "verified_grasp_and_hold_native_samples_2": 2500
+      },
+      "fixed_left_minus2/release": {
+        "native_steps": 28680,
+        "maximum_Fz_reconstruction_error_N": 0.0,
+        "verified_grasp_and_hold_native_samples_1": 2500,
+        "verified_grasp_and_hold_native_samples_2": 2500
+      },
+      "fixed_left_plus2/release": {
+        "native_steps": 28720,
+        "maximum_Fz_reconstruction_error_N": 0.0,
+        "verified_grasp_and_hold_native_samples_1": 2500,
+        "verified_grasp_and_hold_native_samples_2": 2500
+      },
+      "fixed_right_1/release": {
+        "native_steps": 28700,
+        "maximum_Fz_reconstruction_error_N": 0.0,
+        "verified_grasp_and_hold_native_samples_1": 2500,
+        "verified_grasp_and_hold_native_samples_2": 2500
+      },
+      "fixed_right_2/release": {
+        "native_steps": 28700,
+        "maximum_Fz_reconstruction_error_N": 0.0,
+        "verified_grasp_and_hold_native_samples_1": 2500,
+        "verified_grasp_and_hold_native_samples_2": 2500
+      },
+      "fixed_right_minus2/release": {
+        "native_steps": 28720,
+        "maximum_Fz_reconstruction_error_N": 0.0,
+        "verified_grasp_and_hold_native_samples_1": 2500,
+        "verified_grasp_and_hold_native_samples_2": 2500
+      },
+      "fixed_right_plus2/release": {
+        "native_steps": 28700,
+        "maximum_Fz_reconstruction_error_N": 0.0,
+        "verified_grasp_and_hold_native_samples_1": 2500,
+        "verified_grasp_and_hold_native_samples_2": 2500
+      },
+      "free_left_1/control": {
+        "native_steps": 20640,
+        "maximum_Fz_reconstruction_error_N": 0.0
+      },
+      "free_left_1/release": {
+        "native_steps": 20640,
+        "maximum_Fz_reconstruction_error_N": 0.0
+      },
+      "free_left_2/control": {
+        "native_steps": 20640,
+        "maximum_Fz_reconstruction_error_N": 0.0
+      },
+      "free_left_2/release": {
+        "native_steps": 20640,
+        "maximum_Fz_reconstruction_error_N": 0.0
+      },
+      "free_right_1/control": {
+        "native_steps": 20640,
+        "maximum_Fz_reconstruction_error_N": 0.0
+      },
+      "free_right_1/release": {
+        "native_steps": 20640,
+        "maximum_Fz_reconstruction_error_N": 0.0
+      },
+      "free_right_2/control": {
+        "native_steps": 20640,
+        "maximum_Fz_reconstruction_error_N": 0.0
+      },
+      "free_right_2/release": {
+        "native_steps": 20640,
+        "maximum_Fz_reconstruction_error_N": 0.0
+      }
+    }
+  },
+  "fresh_nominal_repeat_max_abs_differences": {
+    "fixed_left/release": {
+      "qpos": 0.0,
+      "ctrl": 0.0,
+      "fz": 0.0
+    },
+    "fixed_right/release": {
+      "qpos": 0.0,
+      "ctrl": 0.0,
+      "fz": 0.0
+    },
+    "free_left/release": {
+      "qpos": 0.0,
+      "ctrl": 0.0,
+      "fz": 0.0
+    },
+    "free_left/control": {
+      "qpos": 0.0,
+      "ctrl": 0.0,
+      "fz": 0.0
+    },
+    "free_right/release": {
+      "qpos": 0.0,
+      "ctrl": 0.0,
+      "fz": 0.0
+    },
+    "free_right/control": {
+      "qpos": 0.0,
+      "ctrl": 0.0,
+      "fz": 0.0
+    }
+  },
+  "additional_fresh_replay_max_abs_differences": {
+    "fixed_left_1/release": {
+      "qpos": 0.0,
+      "ctrl": 0.0,
+      "fz": 0.0
+    },
+    "free_right_1/release": {
+      "qpos": 0.0,
+      "ctrl": 0.0,
+      "fz": 0.0
+    },
+    "free_right_1/control": {
+      "qpos": 0.0,
+      "ctrl": 0.0,
+      "fz": 0.0
+    }
+  },
+  "reference_steps_jsonl_sha256": {
+    "campaign": "66a1ad827cad383873847507a878a3244eb24e146e5dd4d4de12771b14ae4ed6",
+    "replay": "66a1ad827cad383873847507a878a3244eb24e146e5dd4d4de12771b14ae4ed6",
+    "archive": "66a1ad827cad383873847507a878a3244eb24e146e5dd4d4de12771b14ae4ed6"
+  },
+  "byte_identical_report_regeneration": [
+    "cycles.csv",
+    "left_forces.npz",
+    "left_forces.png",
+    "matched_events.json",
+    "outcomes.json",
+    "paired_forces.csv",
+    "paired_repeats.csv",
+    "raw_sha256.json",
+    "reference.json",
+    "right_forces.npz",
+    "right_forces.png"
+  ],
+  "regression": {
+    "tests": 100,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "modules": [
+      "test_g1_o6_controller",
+      "test_g1_o6_g6_arm_feedback",
+      "test_g1_o6_g6_grip_feedback",
+      "test_g1_o6_g6_wrist_grip",
+      "test_g1_o6_holding",
+      "test_g1_o6_interfaces",
+      "test_g1_o6_pose_arm_feedback",
+      "test_g1_o6_pose_controller",
+      "test_g1_o6_pose_runtime",
+      "test_g1_o6_regrasp",
+      "test_g1_o6_support",
+      "test_g1_o6_transfer_control",
+      "test_g1_o6_transfer_guards",
+      "test_g1_o6_transfer_observations"
+    ]
+  },
+  "quality": {
+    "method": "Repository Radon and measured line coverage, AST token matching on bodies of at least 50 nodes, and isolated mutation tests",
+    "base": "597a399",
+    "changed_functions": 96,
+    "maximum_CRAP": 9.010125,
+    "CRAP_at_or_above_10": [],
+    "duplication_at_or_above_0_8": [],
+    "mutations": [
+      {
+        "mutation": "commanded_angle_as_measurement",
+        "killed_by_behavior_assertion": true,
+        "returncode": 1
+      },
+      {
+        "mutation": "missing_thumb_opposition",
+        "killed_by_behavior_assertion": true,
+        "returncode": 1
+      },
+      {
+        "mutation": "reversed_force",
+        "killed_by_behavior_assertion": true,
+        "returncode": 1
+      },
+      {
+        "mutation": "lost_confirmation_reset",
+        "killed_by_behavior_assertion": true,
+        "returncode": 1
+      },
+      {
+        "mutation": "zero_gap_as_clear",
+        "killed_by_behavior_assertion": true,
+        "returncode": 1
+      },
+      {
+        "mutation": "uncorrected_drift",
+        "killed_by_behavior_assertion": true,
+        "returncode": 1
+      }
+    ]
+  }
+}

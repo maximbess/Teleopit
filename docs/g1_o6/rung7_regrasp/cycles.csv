@@ -1,0 +1,5 @@
+pelvis,hand,nominal_repeats,moving_cycles,continuously_supported_cycles,passed_moving_offsets_mm,first_missing
+fixed,left,2,2,0,-2 0 2,
+fixed,right,2,2,0,-2 0 2,
+free,left,2,0,0,,"open approach missed pose or clearance: position error 85.7 mm, angle 0.094 rad, external contacts 0"
+free,right,2,0,0,,"open approach missed pose or clearance: position error 88.7 mm, angle 0.108 rad, external contacts 0"
