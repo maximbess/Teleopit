@@ -1,0 +1,1202 @@
+{
+  "free_left_1/release": {
+    "native_steps": 21240,
+    "hand_grasp_losses": [
+      0
+    ],
+    "thumb_opposition_losses": [
+      0
+    ],
+    "minimum_digit_normal_N": [
+      [
+        4.0909705079666,
+        2.072821544264531,
+        2.6628630841164176,
+        2.329943902239186,
+        1.8785437855805747
+      ]
+    ],
+    "foot_contact_losses": [
+      0,
+      0
+    ],
+    "foot_minimum_Fz_N": [
+      151.81169911929916,
+      158.9835942264968
+    ],
+    "max_required_slip_m_s": 0.0019020038476711488,
+    "max_applied": 0.0,
+    "max_assist_gain": 0.0,
+    "max_fixture_wrench": 0.0,
+    "max_other_Fz_N": 0.0,
+    "unintended_loaded_steps": 0,
+    "hand_order": [
+      "right_hand"
+    ],
+    "contact_force_max_error_N": 0.0,
+    "first_missing": null,
+    "cycles": {
+      "1": {
+        "position_error_mm": 0.5825602515114648,
+        "angle_error_rad": 0.0021508453706953674,
+        "clear_steps": 500,
+        "detached_steps": 500,
+        "minimum_gap_mm": 12.171204037432659,
+        "confirmation_steps": 500,
+        "hold_steps": 2000,
+        "max_regrasp_slip_m_s": 0.0020047842369792985,
+        "invalid_confirm_or_hold_steps": 0,
+        "post_grasp_mean_Fz_N": [
+          3.9472650777755747,
+          4.977314892437741,
+          161.84490914600676,
+          163.5695776626952
+        ]
+      },
+      "2": {
+        "position_error_mm": 0.6061526580921672,
+        "angle_error_rad": 0.0018738263696859556,
+        "clear_steps": 500,
+        "detached_steps": 500,
+        "minimum_gap_mm": 12.309132923122412,
+        "confirmation_steps": 500,
+        "hold_steps": 2000,
+        "max_regrasp_slip_m_s": 0.0020373422207146993,
+        "invalid_confirm_or_hold_steps": 0,
+        "post_grasp_mean_Fz_N": [
+          3.8750289792077965,
+          5.310423385010788,
+          161.40330795244907,
+          163.75006974779942
+        ]
+      }
+    },
+    "clear_dwell_steps": 2000,
+    "clear_dwell_detached_steps": 2000,
+    "full_episode": {
+      "maximum_applied": 0.0,
+      "maximum_assist_gain": 0.0,
+      "maximum_fixture_wrench": 0.0,
+      "maximum_other_vertical_reaction_N": 0.0,
+      "all_native_steps": 26240,
+      "preparation_hand_losses": [
+        0,
+        0
+      ],
+      "preparation_max_slip_m_s": 0.003092517654399347,
+      "passed": true,
+      "body": {
+        "free_root_dofs": 6,
+        "internal_finger_couplings": [
+          [
+            "left_o6_lh_thumb_ip",
+            "left_o6_lh_thumb_cmc_pitch"
+          ],
+          [
+            "left_o6_lh_index_dip",
+            "left_o6_lh_index_mcp_pitch"
+          ],
+          [
+            "left_o6_lh_middle_dip",
+            "left_o6_lh_middle_mcp_pitch"
+          ],
+          [
+            "left_o6_lh_ring_dip",
+            "left_o6_lh_ring_mcp_pitch"
+          ],
+          [
+            "left_o6_lh_pinky_dip",
+            "left_o6_lh_pinky_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_thumb_ip",
+            "right_o6_rh_thumb_cmc_pitch"
+          ],
+          [
+            "right_o6_rh_index_dip",
+            "right_o6_rh_index_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_middle_dip",
+            "right_o6_rh_middle_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_ring_dip",
+            "right_o6_rh_ring_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_pinky_dip",
+            "right_o6_rh_pinky_mcp_pitch"
+          ]
+        ],
+        "mocap_bodies": 0,
+        "body_gravity_compensation": 0.0,
+        "gravity_m_s2": [
+          0.0,
+          0.0,
+          -9.81
+        ],
+        "tendon_count": 0
+      },
+      "first_monitor_events": {
+        "right_hand_loss": null,
+        "left_foot_loss": null,
+        "right_foot_loss": null,
+        "right_hand_slip": null,
+        "left_foot_slip": null,
+        "right_foot_slip": null,
+        "drift": null,
+        "tilt": null,
+        "effort": null,
+        "joint": null,
+        "mimic": null,
+        "penetration": null,
+        "unintended": null,
+        "numerical": null,
+        "speed": null,
+        "angular_speed": null,
+        "applied": null,
+        "static_residual": null
+      },
+      "peak_net_external_force_N": 17.91622082860304
+    },
+    "passed": true
+  },
+  "free_left_1/control": {
+    "native_steps": 21240,
+    "hand_grasp_losses": [
+      0,
+      0
+    ],
+    "thumb_opposition_losses": [
+      0,
+      0
+    ],
+    "minimum_digit_normal_N": [
+      [
+        0.8408007320892206,
+        1.7706500224961195,
+        1.4163907583922366,
+        1.0312487580570096,
+        0.7664171880026025
+      ],
+      [
+        4.904020843893536,
+        2.67301287760314,
+        2.7520040068369913,
+        2.0912153927616375,
+        1.7452522785133258
+      ]
+    ],
+    "foot_contact_losses": [
+      0,
+      0
+    ],
+    "foot_minimum_Fz_N": [
+      161.13898656858944,
+      160.66312900977178
+    ],
+    "max_required_slip_m_s": 0.0009418995615233786,
+    "max_applied": 0.0,
+    "max_assist_gain": 0.0,
+    "max_fixture_wrench": 0.0,
+    "max_other_Fz_N": 0.0,
+    "unintended_loaded_steps": 0,
+    "hand_order": [
+      "left_hand",
+      "right_hand"
+    ],
+    "contact_force_max_error_N": 0.0,
+    "first_missing": null,
+    "full_episode": {
+      "maximum_applied": 0.0,
+      "maximum_assist_gain": 0.0,
+      "maximum_fixture_wrench": 0.0,
+      "maximum_other_vertical_reaction_N": 0.0,
+      "all_native_steps": 26240,
+      "preparation_hand_losses": [
+        0,
+        0
+      ],
+      "preparation_max_slip_m_s": 0.003092517654399347,
+      "passed": true,
+      "body": {
+        "free_root_dofs": 6,
+        "internal_finger_couplings": [
+          [
+            "left_o6_lh_thumb_ip",
+            "left_o6_lh_thumb_cmc_pitch"
+          ],
+          [
+            "left_o6_lh_index_dip",
+            "left_o6_lh_index_mcp_pitch"
+          ],
+          [
+            "left_o6_lh_middle_dip",
+            "left_o6_lh_middle_mcp_pitch"
+          ],
+          [
+            "left_o6_lh_ring_dip",
+            "left_o6_lh_ring_mcp_pitch"
+          ],
+          [
+            "left_o6_lh_pinky_dip",
+            "left_o6_lh_pinky_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_thumb_ip",
+            "right_o6_rh_thumb_cmc_pitch"
+          ],
+          [
+            "right_o6_rh_index_dip",
+            "right_o6_rh_index_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_middle_dip",
+            "right_o6_rh_middle_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_ring_dip",
+            "right_o6_rh_ring_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_pinky_dip",
+            "right_o6_rh_pinky_mcp_pitch"
+          ]
+        ],
+        "mocap_bodies": 0,
+        "body_gravity_compensation": 0.0,
+        "gravity_m_s2": [
+          0.0,
+          0.0,
+          -9.81
+        ],
+        "tendon_count": 0
+      },
+      "first_monitor_events": {
+        "left_hand_loss": null,
+        "right_hand_loss": null,
+        "left_foot_loss": null,
+        "right_foot_loss": null,
+        "left_hand_slip": null,
+        "right_hand_slip": null,
+        "left_foot_slip": null,
+        "right_foot_slip": null,
+        "drift": null,
+        "tilt": null,
+        "effort": null,
+        "joint": null,
+        "mimic": null,
+        "penetration": null,
+        "unintended": null,
+        "numerical": null,
+        "speed": null,
+        "angular_speed": null,
+        "applied": null,
+        "static_residual": null
+      },
+      "peak_net_external_force_N": 13.503720923778804
+    },
+    "passed": true
+  },
+  "free_left_2/release": {
+    "native_steps": 21240,
+    "hand_grasp_losses": [
+      0
+    ],
+    "thumb_opposition_losses": [
+      0
+    ],
+    "minimum_digit_normal_N": [
+      [
+        4.0909705079666,
+        2.072821544264531,
+        2.6628630841164176,
+        2.329943902239186,
+        1.8785437855805747
+      ]
+    ],
+    "foot_contact_losses": [
+      0,
+      0
+    ],
+    "foot_minimum_Fz_N": [
+      151.81169911929916,
+      158.9835942264968
+    ],
+    "max_required_slip_m_s": 0.0019020038476711488,
+    "max_applied": 0.0,
+    "max_assist_gain": 0.0,
+    "max_fixture_wrench": 0.0,
+    "max_other_Fz_N": 0.0,
+    "unintended_loaded_steps": 0,
+    "hand_order": [
+      "right_hand"
+    ],
+    "contact_force_max_error_N": 0.0,
+    "first_missing": null,
+    "cycles": {
+      "1": {
+        "position_error_mm": 0.5825602515114648,
+        "angle_error_rad": 0.0021508453706953674,
+        "clear_steps": 500,
+        "detached_steps": 500,
+        "minimum_gap_mm": 12.171204037432659,
+        "confirmation_steps": 500,
+        "hold_steps": 2000,
+        "max_regrasp_slip_m_s": 0.0020047842369792985,
+        "invalid_confirm_or_hold_steps": 0,
+        "post_grasp_mean_Fz_N": [
+          3.9472650777755747,
+          4.977314892437741,
+          161.84490914600676,
+          163.5695776626952
+        ]
+      },
+      "2": {
+        "position_error_mm": 0.6061526580921672,
+        "angle_error_rad": 0.0018738263696859556,
+        "clear_steps": 500,
+        "detached_steps": 500,
+        "minimum_gap_mm": 12.309132923122412,
+        "confirmation_steps": 500,
+        "hold_steps": 2000,
+        "max_regrasp_slip_m_s": 0.0020373422207146993,
+        "invalid_confirm_or_hold_steps": 0,
+        "post_grasp_mean_Fz_N": [
+          3.8750289792077965,
+          5.310423385010788,
+          161.40330795244907,
+          163.75006974779942
+        ]
+      }
+    },
+    "clear_dwell_steps": 2000,
+    "clear_dwell_detached_steps": 2000,
+    "full_episode": {
+      "maximum_applied": 0.0,
+      "maximum_assist_gain": 0.0,
+      "maximum_fixture_wrench": 0.0,
+      "maximum_other_vertical_reaction_N": 0.0,
+      "all_native_steps": 26240,
+      "preparation_hand_losses": [
+        0,
+        0
+      ],
+      "preparation_max_slip_m_s": 0.003092517654399347,
+      "passed": true,
+      "body": {
+        "free_root_dofs": 6,
+        "internal_finger_couplings": [
+          [
+            "left_o6_lh_thumb_ip",
+            "left_o6_lh_thumb_cmc_pitch"
+          ],
+          [
+            "left_o6_lh_index_dip",
+            "left_o6_lh_index_mcp_pitch"
+          ],
+          [
+            "left_o6_lh_middle_dip",
+            "left_o6_lh_middle_mcp_pitch"
+          ],
+          [
+            "left_o6_lh_ring_dip",
+            "left_o6_lh_ring_mcp_pitch"
+          ],
+          [
+            "left_o6_lh_pinky_dip",
+            "left_o6_lh_pinky_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_thumb_ip",
+            "right_o6_rh_thumb_cmc_pitch"
+          ],
+          [
+            "right_o6_rh_index_dip",
+            "right_o6_rh_index_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_middle_dip",
+            "right_o6_rh_middle_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_ring_dip",
+            "right_o6_rh_ring_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_pinky_dip",
+            "right_o6_rh_pinky_mcp_pitch"
+          ]
+        ],
+        "mocap_bodies": 0,
+        "body_gravity_compensation": 0.0,
+        "gravity_m_s2": [
+          0.0,
+          0.0,
+          -9.81
+        ],
+        "tendon_count": 0
+      },
+      "first_monitor_events": {
+        "right_hand_loss": null,
+        "left_foot_loss": null,
+        "right_foot_loss": null,
+        "right_hand_slip": null,
+        "left_foot_slip": null,
+        "right_foot_slip": null,
+        "drift": null,
+        "tilt": null,
+        "effort": null,
+        "joint": null,
+        "mimic": null,
+        "penetration": null,
+        "unintended": null,
+        "numerical": null,
+        "speed": null,
+        "angular_speed": null,
+        "applied": null,
+        "static_residual": null
+      },
+      "peak_net_external_force_N": 17.91622082860304
+    },
+    "passed": true
+  },
+  "free_left_2/control": {
+    "native_steps": 21240,
+    "hand_grasp_losses": [
+      0,
+      0
+    ],
+    "thumb_opposition_losses": [
+      0,
+      0
+    ],
+    "minimum_digit_normal_N": [
+      [
+        0.8408007320892206,
+        1.7706500224961195,
+        1.4163907583922366,
+        1.0312487580570096,
+        0.7664171880026025
+      ],
+      [
+        4.904020843893536,
+        2.67301287760314,
+        2.7520040068369913,
+        2.0912153927616375,
+        1.7452522785133258
+      ]
+    ],
+    "foot_contact_losses": [
+      0,
+      0
+    ],
+    "foot_minimum_Fz_N": [
+      161.13898656858944,
+      160.66312900977178
+    ],
+    "max_required_slip_m_s": 0.0009418995615233786,
+    "max_applied": 0.0,
+    "max_assist_gain": 0.0,
+    "max_fixture_wrench": 0.0,
+    "max_other_Fz_N": 0.0,
+    "unintended_loaded_steps": 0,
+    "hand_order": [
+      "left_hand",
+      "right_hand"
+    ],
+    "contact_force_max_error_N": 0.0,
+    "first_missing": null,
+    "full_episode": {
+      "maximum_applied": 0.0,
+      "maximum_assist_gain": 0.0,
+      "maximum_fixture_wrench": 0.0,
+      "maximum_other_vertical_reaction_N": 0.0,
+      "all_native_steps": 26240,
+      "preparation_hand_losses": [
+        0,
+        0
+      ],
+      "preparation_max_slip_m_s": 0.003092517654399347,
+      "passed": true,
+      "body": {
+        "free_root_dofs": 6,
+        "internal_finger_couplings": [
+          [
+            "left_o6_lh_thumb_ip",
+            "left_o6_lh_thumb_cmc_pitch"
+          ],
+          [
+            "left_o6_lh_index_dip",
+            "left_o6_lh_index_mcp_pitch"
+          ],
+          [
+            "left_o6_lh_middle_dip",
+            "left_o6_lh_middle_mcp_pitch"
+          ],
+          [
+            "left_o6_lh_ring_dip",
+            "left_o6_lh_ring_mcp_pitch"
+          ],
+          [
+            "left_o6_lh_pinky_dip",
+            "left_o6_lh_pinky_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_thumb_ip",
+            "right_o6_rh_thumb_cmc_pitch"
+          ],
+          [
+            "right_o6_rh_index_dip",
+            "right_o6_rh_index_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_middle_dip",
+            "right_o6_rh_middle_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_ring_dip",
+            "right_o6_rh_ring_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_pinky_dip",
+            "right_o6_rh_pinky_mcp_pitch"
+          ]
+        ],
+        "mocap_bodies": 0,
+        "body_gravity_compensation": 0.0,
+        "gravity_m_s2": [
+          0.0,
+          0.0,
+          -9.81
+        ],
+        "tendon_count": 0
+      },
+      "first_monitor_events": {
+        "left_hand_loss": null,
+        "right_hand_loss": null,
+        "left_foot_loss": null,
+        "right_foot_loss": null,
+        "left_hand_slip": null,
+        "right_hand_slip": null,
+        "left_foot_slip": null,
+        "right_foot_slip": null,
+        "drift": null,
+        "tilt": null,
+        "effort": null,
+        "joint": null,
+        "mimic": null,
+        "penetration": null,
+        "unintended": null,
+        "numerical": null,
+        "speed": null,
+        "angular_speed": null,
+        "applied": null,
+        "static_residual": null
+      },
+      "peak_net_external_force_N": 13.503720923778804
+    },
+    "passed": true
+  },
+  "free_right_1/release": {
+    "native_steps": 21240,
+    "hand_grasp_losses": [
+      0
+    ],
+    "thumb_opposition_losses": [
+      0
+    ],
+    "minimum_digit_normal_N": [
+      [
+        3.3519324378545154,
+        2.232346230944617,
+        2.514116087591044,
+        2.1615615411244957,
+        1.9306352633950274
+      ]
+    ],
+    "foot_contact_losses": [
+      0,
+      0
+    ],
+    "foot_minimum_Fz_N": [
+      154.72214693206496,
+      154.52655329224325
+    ],
+    "max_required_slip_m_s": 0.0011214609306300918,
+    "max_applied": 0.0,
+    "max_assist_gain": 0.0,
+    "max_fixture_wrench": 0.0,
+    "max_other_Fz_N": 0.0,
+    "unintended_loaded_steps": 0,
+    "hand_order": [
+      "left_hand"
+    ],
+    "contact_force_max_error_N": 0.0,
+    "first_missing": null,
+    "cycles": {
+      "1": {
+        "position_error_mm": 0.9073202635600173,
+        "angle_error_rad": 0.001926289386336184,
+        "clear_steps": 500,
+        "detached_steps": 500,
+        "minimum_gap_mm": 15.261185001132493,
+        "confirmation_steps": 500,
+        "hold_steps": 2000,
+        "max_regrasp_slip_m_s": 0.012610081453350713,
+        "invalid_confirm_or_hold_steps": 0,
+        "post_grasp_mean_Fz_N": [
+          5.490928698228553,
+          4.150949057666693,
+          165.34407277514873,
+          159.35010145799873
+        ]
+      },
+      "2": {
+        "position_error_mm": 1.096776604279015,
+        "angle_error_rad": 0.0020381609592700026,
+        "clear_steps": 500,
+        "detached_steps": 500,
+        "minimum_gap_mm": 14.729444119659707,
+        "confirmation_steps": 500,
+        "hold_steps": 2000,
+        "max_regrasp_slip_m_s": 0.017862876654058706,
+        "invalid_confirm_or_hold_steps": 0,
+        "post_grasp_mean_Fz_N": [
+          5.906067601550742,
+          4.092817489665933,
+          165.55961224752681,
+          158.76450677931967
+        ]
+      }
+    },
+    "clear_dwell_steps": 2000,
+    "clear_dwell_detached_steps": 2000,
+    "full_episode": {
+      "maximum_applied": 0.0,
+      "maximum_assist_gain": 0.0,
+      "maximum_fixture_wrench": 0.0,
+      "maximum_other_vertical_reaction_N": 0.0,
+      "all_native_steps": 26240,
+      "preparation_hand_losses": [
+        0,
+        0
+      ],
+      "preparation_max_slip_m_s": 0.003034974636302075,
+      "passed": true,
+      "body": {
+        "free_root_dofs": 6,
+        "internal_finger_couplings": [
+          [
+            "left_o6_lh_thumb_ip",
+            "left_o6_lh_thumb_cmc_pitch"
+          ],
+          [
+            "left_o6_lh_index_dip",
+            "left_o6_lh_index_mcp_pitch"
+          ],
+          [
+            "left_o6_lh_middle_dip",
+            "left_o6_lh_middle_mcp_pitch"
+          ],
+          [
+            "left_o6_lh_ring_dip",
+            "left_o6_lh_ring_mcp_pitch"
+          ],
+          [
+            "left_o6_lh_pinky_dip",
+            "left_o6_lh_pinky_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_thumb_ip",
+            "right_o6_rh_thumb_cmc_pitch"
+          ],
+          [
+            "right_o6_rh_index_dip",
+            "right_o6_rh_index_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_middle_dip",
+            "right_o6_rh_middle_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_ring_dip",
+            "right_o6_rh_ring_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_pinky_dip",
+            "right_o6_rh_pinky_mcp_pitch"
+          ]
+        ],
+        "mocap_bodies": 0,
+        "body_gravity_compensation": 0.0,
+        "gravity_m_s2": [
+          0.0,
+          0.0,
+          -9.81
+        ],
+        "tendon_count": 0
+      },
+      "first_monitor_events": {
+        "left_hand_loss": null,
+        "left_foot_loss": null,
+        "right_foot_loss": null,
+        "left_hand_slip": null,
+        "left_foot_slip": null,
+        "right_foot_slip": null,
+        "drift": null,
+        "tilt": null,
+        "effort": null,
+        "joint": null,
+        "mimic": null,
+        "penetration": null,
+        "unintended": null,
+        "numerical": null,
+        "speed": null,
+        "angular_speed": null,
+        "applied": null,
+        "static_residual": null
+      },
+      "peak_net_external_force_N": 22.91304372622987
+    },
+    "passed": true
+  },
+  "free_right_1/control": {
+    "native_steps": 21240,
+    "hand_grasp_losses": [
+      0,
+      0
+    ],
+    "thumb_opposition_losses": [
+      0,
+      0
+    ],
+    "minimum_digit_normal_N": [
+      [
+        4.3827508393186765,
+        2.975184544490292,
+        2.6490713137819184,
+        1.9959341225930842,
+        1.8385296870517738
+      ],
+      [
+        0.842097031645238,
+        1.7987249777140313,
+        1.4523683262787757,
+        1.0723890148696786,
+        0.734047676649901
+      ]
+    ],
+    "foot_contact_losses": [
+      0,
+      0
+    ],
+    "foot_minimum_Fz_N": [
+      162.4715034157689,
+      158.81887276122367
+    ],
+    "max_required_slip_m_s": 0.000914847980307271,
+    "max_applied": 0.0,
+    "max_assist_gain": 0.0,
+    "max_fixture_wrench": 0.0,
+    "max_other_Fz_N": 0.0,
+    "unintended_loaded_steps": 0,
+    "hand_order": [
+      "left_hand",
+      "right_hand"
+    ],
+    "contact_force_max_error_N": 0.0,
+    "first_missing": null,
+    "full_episode": {
+      "maximum_applied": 0.0,
+      "maximum_assist_gain": 0.0,
+      "maximum_fixture_wrench": 0.0,
+      "maximum_other_vertical_reaction_N": 0.0,
+      "all_native_steps": 26240,
+      "preparation_hand_losses": [
+        0,
+        0
+      ],
+      "preparation_max_slip_m_s": 0.003034974636302075,
+      "passed": true,
+      "body": {
+        "free_root_dofs": 6,
+        "internal_finger_couplings": [
+          [
+            "left_o6_lh_thumb_ip",
+            "left_o6_lh_thumb_cmc_pitch"
+          ],
+          [
+            "left_o6_lh_index_dip",
+            "left_o6_lh_index_mcp_pitch"
+          ],
+          [
+            "left_o6_lh_middle_dip",
+            "left_o6_lh_middle_mcp_pitch"
+          ],
+          [
+            "left_o6_lh_ring_dip",
+            "left_o6_lh_ring_mcp_pitch"
+          ],
+          [
+            "left_o6_lh_pinky_dip",
+            "left_o6_lh_pinky_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_thumb_ip",
+            "right_o6_rh_thumb_cmc_pitch"
+          ],
+          [
+            "right_o6_rh_index_dip",
+            "right_o6_rh_index_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_middle_dip",
+            "right_o6_rh_middle_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_ring_dip",
+            "right_o6_rh_ring_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_pinky_dip",
+            "right_o6_rh_pinky_mcp_pitch"
+          ]
+        ],
+        "mocap_bodies": 0,
+        "body_gravity_compensation": 0.0,
+        "gravity_m_s2": [
+          0.0,
+          0.0,
+          -9.81
+        ],
+        "tendon_count": 0
+      },
+      "first_monitor_events": {
+        "left_hand_loss": null,
+        "right_hand_loss": null,
+        "left_foot_loss": null,
+        "right_foot_loss": null,
+        "left_hand_slip": null,
+        "right_hand_slip": null,
+        "left_foot_slip": null,
+        "right_foot_slip": null,
+        "drift": null,
+        "tilt": null,
+        "effort": null,
+        "joint": null,
+        "mimic": null,
+        "penetration": null,
+        "unintended": null,
+        "numerical": null,
+        "speed": null,
+        "angular_speed": null,
+        "applied": null,
+        "static_residual": null
+      },
+      "peak_net_external_force_N": 13.503720923778804
+    },
+    "passed": true
+  },
+  "free_right_2/release": {
+    "native_steps": 21240,
+    "hand_grasp_losses": [
+      0
+    ],
+    "thumb_opposition_losses": [
+      0
+    ],
+    "minimum_digit_normal_N": [
+      [
+        3.3519324378545154,
+        2.232346230944617,
+        2.514116087591044,
+        2.1615615411244957,
+        1.9306352633950274
+      ]
+    ],
+    "foot_contact_losses": [
+      0,
+      0
+    ],
+    "foot_minimum_Fz_N": [
+      154.72214693206496,
+      154.52655329224325
+    ],
+    "max_required_slip_m_s": 0.0011214609306300918,
+    "max_applied": 0.0,
+    "max_assist_gain": 0.0,
+    "max_fixture_wrench": 0.0,
+    "max_other_Fz_N": 0.0,
+    "unintended_loaded_steps": 0,
+    "hand_order": [
+      "left_hand"
+    ],
+    "contact_force_max_error_N": 0.0,
+    "first_missing": null,
+    "cycles": {
+      "1": {
+        "position_error_mm": 0.9073202635600173,
+        "angle_error_rad": 0.001926289386336184,
+        "clear_steps": 500,
+        "detached_steps": 500,
+        "minimum_gap_mm": 15.261185001132493,
+        "confirmation_steps": 500,
+        "hold_steps": 2000,
+        "max_regrasp_slip_m_s": 0.012610081453350713,
+        "invalid_confirm_or_hold_steps": 0,
+        "post_grasp_mean_Fz_N": [
+          5.490928698228553,
+          4.150949057666693,
+          165.34407277514873,
+          159.35010145799873
+        ]
+      },
+      "2": {
+        "position_error_mm": 1.096776604279015,
+        "angle_error_rad": 0.0020381609592700026,
+        "clear_steps": 500,
+        "detached_steps": 500,
+        "minimum_gap_mm": 14.729444119659707,
+        "confirmation_steps": 500,
+        "hold_steps": 2000,
+        "max_regrasp_slip_m_s": 0.017862876654058706,
+        "invalid_confirm_or_hold_steps": 0,
+        "post_grasp_mean_Fz_N": [
+          5.906067601550742,
+          4.092817489665933,
+          165.55961224752681,
+          158.76450677931967
+        ]
+      }
+    },
+    "clear_dwell_steps": 2000,
+    "clear_dwell_detached_steps": 2000,
+    "full_episode": {
+      "maximum_applied": 0.0,
+      "maximum_assist_gain": 0.0,
+      "maximum_fixture_wrench": 0.0,
+      "maximum_other_vertical_reaction_N": 0.0,
+      "all_native_steps": 26240,
+      "preparation_hand_losses": [
+        0,
+        0
+      ],
+      "preparation_max_slip_m_s": 0.003034974636302075,
+      "passed": true,
+      "body": {
+        "free_root_dofs": 6,
+        "internal_finger_couplings": [
+          [
+            "left_o6_lh_thumb_ip",
+            "left_o6_lh_thumb_cmc_pitch"
+          ],
+          [
+            "left_o6_lh_index_dip",
+            "left_o6_lh_index_mcp_pitch"
+          ],
+          [
+            "left_o6_lh_middle_dip",
+            "left_o6_lh_middle_mcp_pitch"
+          ],
+          [
+            "left_o6_lh_ring_dip",
+            "left_o6_lh_ring_mcp_pitch"
+          ],
+          [
+            "left_o6_lh_pinky_dip",
+            "left_o6_lh_pinky_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_thumb_ip",
+            "right_o6_rh_thumb_cmc_pitch"
+          ],
+          [
+            "right_o6_rh_index_dip",
+            "right_o6_rh_index_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_middle_dip",
+            "right_o6_rh_middle_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_ring_dip",
+            "right_o6_rh_ring_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_pinky_dip",
+            "right_o6_rh_pinky_mcp_pitch"
+          ]
+        ],
+        "mocap_bodies": 0,
+        "body_gravity_compensation": 0.0,
+        "gravity_m_s2": [
+          0.0,
+          0.0,
+          -9.81
+        ],
+        "tendon_count": 0
+      },
+      "first_monitor_events": {
+        "left_hand_loss": null,
+        "left_foot_loss": null,
+        "right_foot_loss": null,
+        "left_hand_slip": null,
+        "left_foot_slip": null,
+        "right_foot_slip": null,
+        "drift": null,
+        "tilt": null,
+        "effort": null,
+        "joint": null,
+        "mimic": null,
+        "penetration": null,
+        "unintended": null,
+        "numerical": null,
+        "speed": null,
+        "angular_speed": null,
+        "applied": null,
+        "static_residual": null
+      },
+      "peak_net_external_force_N": 22.91304372622987
+    },
+    "passed": true
+  },
+  "free_right_2/control": {
+    "native_steps": 21240,
+    "hand_grasp_losses": [
+      0,
+      0
+    ],
+    "thumb_opposition_losses": [
+      0,
+      0
+    ],
+    "minimum_digit_normal_N": [
+      [
+        4.3827508393186765,
+        2.975184544490292,
+        2.6490713137819184,
+        1.9959341225930842,
+        1.8385296870517738
+      ],
+      [
+        0.842097031645238,
+        1.7987249777140313,
+        1.4523683262787757,
+        1.0723890148696786,
+        0.734047676649901
+      ]
+    ],
+    "foot_contact_losses": [
+      0,
+      0
+    ],
+    "foot_minimum_Fz_N": [
+      162.4715034157689,
+      158.81887276122367
+    ],
+    "max_required_slip_m_s": 0.000914847980307271,
+    "max_applied": 0.0,
+    "max_assist_gain": 0.0,
+    "max_fixture_wrench": 0.0,
+    "max_other_Fz_N": 0.0,
+    "unintended_loaded_steps": 0,
+    "hand_order": [
+      "left_hand",
+      "right_hand"
+    ],
+    "contact_force_max_error_N": 0.0,
+    "first_missing": null,
+    "full_episode": {
+      "maximum_applied": 0.0,
+      "maximum_assist_gain": 0.0,
+      "maximum_fixture_wrench": 0.0,
+      "maximum_other_vertical_reaction_N": 0.0,
+      "all_native_steps": 26240,
+      "preparation_hand_losses": [
+        0,
+        0
+      ],
+      "preparation_max_slip_m_s": 0.003034974636302075,
+      "passed": true,
+      "body": {
+        "free_root_dofs": 6,
+        "internal_finger_couplings": [
+          [
+            "left_o6_lh_thumb_ip",
+            "left_o6_lh_thumb_cmc_pitch"
+          ],
+          [
+            "left_o6_lh_index_dip",
+            "left_o6_lh_index_mcp_pitch"
+          ],
+          [
+            "left_o6_lh_middle_dip",
+            "left_o6_lh_middle_mcp_pitch"
+          ],
+          [
+            "left_o6_lh_ring_dip",
+            "left_o6_lh_ring_mcp_pitch"
+          ],
+          [
+            "left_o6_lh_pinky_dip",
+            "left_o6_lh_pinky_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_thumb_ip",
+            "right_o6_rh_thumb_cmc_pitch"
+          ],
+          [
+            "right_o6_rh_index_dip",
+            "right_o6_rh_index_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_middle_dip",
+            "right_o6_rh_middle_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_ring_dip",
+            "right_o6_rh_ring_mcp_pitch"
+          ],
+          [
+            "right_o6_rh_pinky_dip",
+            "right_o6_rh_pinky_mcp_pitch"
+          ]
+        ],
+        "mocap_bodies": 0,
+        "body_gravity_compensation": 0.0,
+        "gravity_m_s2": [
+          0.0,
+          0.0,
+          -9.81
+        ],
+        "tendon_count": 0
+      },
+      "first_monitor_events": {
+        "left_hand_loss": null,
+        "right_hand_loss": null,
+        "left_foot_loss": null,
+        "right_foot_loss": null,
+        "left_hand_slip": null,
+        "right_hand_slip": null,
+        "left_foot_slip": null,
+        "right_foot_slip": null,
+        "drift": null,
+        "tilt": null,
+        "effort": null,
+        "joint": null,
+        "mimic": null,
+        "penetration": null,
+        "unintended": null,
+        "numerical": null,
+        "speed": null,
+        "angular_speed": null,
+        "applied": null,
+        "static_residual": null
+      },
+      "peak_net_external_force_N": 13.503720923778804
+    },
+    "passed": true
+  }
+}

@@ -1,0 +1,333 @@
+{
+  "revision": "d54527963a6a8822a45189ad1265992e14285eba",
+  "model": {
+    "source_model_sha256": "c4b50161e27f5d778c53cfa639e679152095bee61b8be9a3beb256ae7799e09a",
+    "acquisition": {
+      "robot_and_ground_sha256": "76cd558c7c3c4c2d96d54b222add1a13106100655572614e4ebf1eadff1c3872",
+      "solver_sha256": "2ef83f104a4bedbc0bb9015ad5ec214f95e2001a350409381d435030092a3ec0",
+      "controller_sha256": "9b6cba7051b3df2ac1d3cc4d57148d75e143de7ba6ad52a86364159c34d96dc9",
+      "physics_dt": 0.001
+    },
+    "scored": {
+      "robot_and_ground_sha256": "a1b2c22b5b5f3135efec9c2d7fc45a0cf7d7473ca8efb96f1fd47faf9b288044",
+      "solver_sha256": "2ef83f104a4bedbc0bb9015ad5ec214f95e2001a350409381d435030092a3ec0",
+      "controller_sha256": "9b6cba7051b3df2ac1d3cc4d57148d75e143de7ba6ad52a86364159c34d96dc9",
+      "physics_dt": 0.001
+    },
+    "changed_compiled_fields": [
+      "actuator_biasprm",
+      "actuator_gainprm"
+    ],
+    "stance_actuators": [
+      "left_hip_pitch_joint",
+      "left_hip_roll_joint",
+      "left_hip_yaw_joint",
+      "left_knee_joint",
+      "left_ankle_pitch_joint",
+      "left_ankle_roll_joint",
+      "right_hip_pitch_joint",
+      "right_hip_roll_joint",
+      "right_hip_yaw_joint",
+      "right_knee_joint",
+      "right_ankle_pitch_joint",
+      "right_ankle_roll_joint",
+      "waist_yaw_joint",
+      "waist_roll_joint",
+      "waist_pitch_joint"
+    ],
+    "final_to_initial_kp": [
+      2.0,
+      2.0,
+      2.0,
+      2.0,
+      3.0000000000000004,
+      3.0000000000000004,
+      2.0,
+      2.0,
+      2.0,
+      2.0,
+      3.0000000000000004,
+      3.0000000000000004,
+      3.000000000000001,
+      3.0000000000000004,
+      3.0000000000000004
+    ],
+    "final_to_initial_kd": [
+      1.414213562373095,
+      1.414213562373095,
+      1.414213562373095,
+      1.414213562373095,
+      1.7320508075688774,
+      1.7320508075688774,
+      1.414213562373095,
+      1.414213562373095,
+      1.414213562373095,
+      1.414213562373095,
+      1.7320508075688774,
+      1.7320508075688774,
+      1.7320508075688774,
+      1.7320508075688774,
+      1.7320508075688774
+    ],
+    "original_effort_limits_retained": true
+  },
+  "repeats": {
+    "left_release": [
+      "contacts.npz",
+      "physics.npz",
+      "commands.npz",
+      "outcome.json"
+    ],
+    "left_control": [
+      "contacts.npz",
+      "physics.npz",
+      "commands.npz",
+      "outcome.json"
+    ],
+    "right_release": [
+      "contacts.npz",
+      "physics.npz",
+      "commands.npz",
+      "outcome.json"
+    ],
+    "right_control": [
+      "contacts.npz",
+      "physics.npz",
+      "commands.npz",
+      "outcome.json"
+    ]
+  },
+  "branches": {
+    "free_left_1/release": {
+      "static_residual_ge_25N_steps": 0,
+      "first_s": null,
+      "phases": [],
+      "peak_net_N": 17.91622082860304,
+      "peak_final_hold_net_N": 8.549921729725742,
+      "max_effort_fraction": 0.7447352957185733
+    },
+    "free_left_1/control": {
+      "static_residual_ge_25N_steps": 0,
+      "first_s": null,
+      "phases": [],
+      "peak_net_N": 13.503720923778804,
+      "peak_final_hold_net_N": 1.513990745845883,
+      "max_effort_fraction": 0.7428503779770246
+    },
+    "free_right_1/release": {
+      "static_residual_ge_25N_steps": 0,
+      "first_s": null,
+      "phases": [],
+      "peak_net_N": 22.91304372622987,
+      "peak_final_hold_net_N": 11.440967076728233,
+      "max_effort_fraction": 0.7465954871617418
+    },
+    "free_right_1/control": {
+      "static_residual_ge_25N_steps": 0,
+      "first_s": null,
+      "phases": [],
+      "peak_net_N": 13.503720923778804,
+      "peak_final_hold_net_N": 1.9063083459512273,
+      "max_effort_fraction": 0.7427836482630987
+    }
+  },
+  "tests": {
+    "pytest": {
+      "tests": 128,
+      "failures": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "mutations": [
+      {
+        "mutation": "ignore_missing_gravity",
+        "killed": true
+      },
+      {
+        "mutation": "admit_other_couplings",
+        "killed": true
+      },
+      {
+        "mutation": "discard_measured_velocities",
+        "killed": true
+      },
+      {
+        "mutation": "accept_assisted_start",
+        "killed": true
+      },
+      {
+        "mutation": "halve_entire_joint_goal",
+        "killed": true
+      },
+      {
+        "mutation": "skip_servo_period",
+        "killed": true
+      },
+      {
+        "mutation": "ignore_preparation_losses",
+        "killed": true
+      },
+      {
+        "mutation": "accept_nonzero_capacity",
+        "killed": true
+      },
+      {
+        "mutation": "discard_attained_wrist",
+        "killed": true
+      },
+      {
+        "mutation": "accept_sliding_regrasp",
+        "killed": true
+      }
+    ],
+    "changed_function_count": 24,
+    "max_CRAP": 9.06997084548105,
+    "duplication_ge_0_8": [],
+    "viser_websocket": {
+      "served_scene": true,
+      "http_status": 200,
+      "advancing_frames": [
+        1,
+        2,
+        3
+      ],
+      "scene_updates": {
+        "FrameMessage": 62,
+        "SetSceneNodeVisibilityMessage": 235,
+        "BackgroundImageMessage": 1,
+        "SetOrientationMessage": 2,
+        "SetGuiPanelLabelMessage": 1,
+        "EnvironmentMapMessage": 1,
+        "GridMessage": 1,
+        "GlbMessage": 4,
+        "BatchedGlbMessage": 120,
+        "BatchedMeshesMessage": 48,
+        "RemoveSceneNodeMessage": 1,
+        "GuiCheckboxMessage": 1,
+        "GuiDropdownMessage": 1,
+        "GuiSliderMessage": 1,
+        "GuiMarkdownMessage": 1,
+        "SceneNodeUpdateMessage": 324,
+        "GuiUpdateMessage": 6
+      }
+    }
+  },
+  "recorded_git_revisions": [
+    "d54527963a6a8822a45189ad1265992e14285eba"
+  ],
+  "runner_sha256": {
+    "regrasp.py": "02f6fa0bd52f475863fcb7363e404fbcde5f07157456f9798bbce3ab7541eb0a",
+    "regrasp_actions.py": "0fddda70b65613126ce48c276e15e7fbf72ecb5b67f8f364991b159758616b6b",
+    "regrasp_balance.py": "903669268900649d4e82bee9f3c7a5b39cbbb3f20a7c2858294672bc40801557",
+    "regrasp_measure.py": "7a160b44aa7884ef2d6107c6c1a82e467dd79f403767584e78c3c8ee462baec7",
+    "regrasp_results.py": "50283a1991e7e380a81b2f633f7d60f7fb4a1901ec5ea353626b2cefbac38ba3",
+    "regrasp_trial.py": "31f3ea3415ca279ede7ec38371fdf63f7cd31eb89b095ee9a8477971726fed30",
+    "regrasp_unassisted.py": "ec47aee53f7fe0d8c70f8e75f33e8ae422f9da8f74223a5d748a98ea71f1c3c1"
+  },
+  "common_launch": {
+    "free_root_dofs": 6,
+    "internal_finger_couplings": [
+      [
+        "left_o6_lh_thumb_ip",
+        "left_o6_lh_thumb_cmc_pitch"
+      ],
+      [
+        "left_o6_lh_index_dip",
+        "left_o6_lh_index_mcp_pitch"
+      ],
+      [
+        "left_o6_lh_middle_dip",
+        "left_o6_lh_middle_mcp_pitch"
+      ],
+      [
+        "left_o6_lh_ring_dip",
+        "left_o6_lh_ring_mcp_pitch"
+      ],
+      [
+        "left_o6_lh_pinky_dip",
+        "left_o6_lh_pinky_mcp_pitch"
+      ],
+      [
+        "right_o6_rh_thumb_ip",
+        "right_o6_rh_thumb_cmc_pitch"
+      ],
+      [
+        "right_o6_rh_index_dip",
+        "right_o6_rh_index_mcp_pitch"
+      ],
+      [
+        "right_o6_rh_middle_dip",
+        "right_o6_rh_middle_mcp_pitch"
+      ],
+      [
+        "right_o6_rh_ring_dip",
+        "right_o6_rh_ring_mcp_pitch"
+      ],
+      [
+        "right_o6_rh_pinky_dip",
+        "right_o6_rh_pinky_mcp_pitch"
+      ]
+    ],
+    "mocap_bodies": 0,
+    "body_gravity_compensation": 0.0,
+    "gravity_m_s2": [
+      0.0,
+      0.0,
+      -9.81
+    ],
+    "tendon_count": 0,
+    "source_time_s": 12.039999999998766,
+    "start_time_s": 0.0,
+    "state_sha256": "0f7e94827a570d2958a6460a05197237e77731632dbfc9389a184d1e0513a8a8",
+    "reference_Fz_N": [
+      4.867866123179645,
+      4.768372245009818,
+      153.03097766311245,
+      161.4664600610591
+    ],
+    "opening_arm_preload_fraction": 0.5,
+    "grip_preload_rate_rad_s": 0.045,
+    "grip_preparation_s": 5.0
+  },
+  "matched_pairs": {
+    "count": 4,
+    "required_branches": 8,
+    "unique_state_digests": 1,
+    "max_stance_difference_rad": 0.0,
+    "identical_precommand_ticks": [
+      350,
+      350,
+      350,
+      350
+    ]
+  },
+  "replay": {
+    "left": {
+      "frames": 963,
+      "start_s": 7.0,
+      "end_s": 26.24
+    },
+    "right": {
+      "frames": 963,
+      "start_s": 7.0,
+      "end_s": 26.24
+    }
+  },
+  "maximum_absolute_window_momentum_residual_N": 1.366598040217215e-06,
+  "independent_window_comparison": {
+    "rows": 128,
+    "force_and_share_values": 1280,
+    "max_abs_difference_N_or_pp": 7.673861546209082e-13
+  },
+  "committed_launch_check": {
+    "revision": "d54527963a6a8822a45189ad1265992e14285eba",
+    "committed_dependencies": [
+      "teleopit.sim.g1_o6.env",
+      "teleopit.sim.g1_o6.model",
+      "teleopit.sim.g1_o6_support.scene_contract"
+    ],
+    "identical_command_ticks": 503,
+    "identical_physics_steps": 10060,
+    "through_event": "clear_verified1"
+  }
+}

@@ -1,0 +1,326 @@
+{
+  "free_left_1": {
+    "pelvis": "free",
+    "side": "left",
+    "offset_mm": 0,
+    "moving_completed": true,
+    "supported_cycle": true,
+    "opposite_grasp_and_feet_retained": true,
+    "first": {
+      "right_hand_loss": null,
+      "left_foot_loss": null,
+      "right_foot_loss": null,
+      "right_hand_slip": null,
+      "left_foot_slip": null,
+      "right_foot_slip": null,
+      "drift": null,
+      "tilt": null,
+      "effort": null,
+      "joint": null,
+      "mimic": null,
+      "penetration": null,
+      "unintended": null,
+      "numerical": null,
+      "speed": null,
+      "angular_speed": null,
+      "applied": null,
+      "static_residual": null
+    },
+    "events": {
+      "support_preparation": 0.0,
+      "settled": 7.0,
+      "open_request1": 7.0,
+      "opened1": 8.36,
+      "clear_verified1": 10.06,
+      "approach1": 12.06,
+      "close_request1": 13.28,
+      "grasp_verified1": 15.62,
+      "recovered1": 17.62,
+      "open_request2": 17.62,
+      "opened2": 18.98,
+      "clear_verified2": 20.68,
+      "approach2": 20.68,
+      "close_request2": 21.9,
+      "grasp_verified2": 24.24,
+      "recovered2": 26.24,
+      "last_contact_end1": 8.497,
+      "first_gap_5mm1": 8.845,
+      "last_contact_end2": 19.111,
+      "first_gap_5mm2": 19.489
+    },
+    "missing": null,
+    "handoffs": [
+      {
+        "time": 15.62,
+        "max_first_applied_change_rad": 0.020000000000000018,
+        "landmark": []
+      },
+      {
+        "time": 24.24,
+        "max_first_applied_change_rad": 0.020000000000000018,
+        "landmark": []
+      }
+    ],
+    "minimum_verified_gap_m": {
+      "1": 0.012171204037432659,
+      "2": 0.012309132923122412
+    },
+    "measured_retreat_m": {
+      "1": 0.019149648160998345,
+      "2": 0.019420783267179942
+    },
+    "max_pelvis_drift_m": 0.015099769768950727,
+    "max_tilt_rad": 0.0286459270509642,
+    "max_applied": 0.0,
+    "max_fixture_force_N": 0.0,
+    "mean_fixture_Fz_N": 0.0,
+    "opposite_grasp_loss_s": 0.0,
+    "min_foot_Fz_N": [
+      151.81169911929916,
+      158.9835942264968
+    ]
+  },
+  "free_left_2": {
+    "pelvis": "free",
+    "side": "left",
+    "offset_mm": 0,
+    "moving_completed": true,
+    "supported_cycle": true,
+    "opposite_grasp_and_feet_retained": true,
+    "first": {
+      "right_hand_loss": null,
+      "left_foot_loss": null,
+      "right_foot_loss": null,
+      "right_hand_slip": null,
+      "left_foot_slip": null,
+      "right_foot_slip": null,
+      "drift": null,
+      "tilt": null,
+      "effort": null,
+      "joint": null,
+      "mimic": null,
+      "penetration": null,
+      "unintended": null,
+      "numerical": null,
+      "speed": null,
+      "angular_speed": null,
+      "applied": null,
+      "static_residual": null
+    },
+    "events": {
+      "support_preparation": 0.0,
+      "settled": 7.0,
+      "open_request1": 7.0,
+      "opened1": 8.36,
+      "clear_verified1": 10.06,
+      "approach1": 12.06,
+      "close_request1": 13.28,
+      "grasp_verified1": 15.62,
+      "recovered1": 17.62,
+      "open_request2": 17.62,
+      "opened2": 18.98,
+      "clear_verified2": 20.68,
+      "approach2": 20.68,
+      "close_request2": 21.9,
+      "grasp_verified2": 24.24,
+      "recovered2": 26.24,
+      "last_contact_end1": 8.497,
+      "first_gap_5mm1": 8.845,
+      "last_contact_end2": 19.111,
+      "first_gap_5mm2": 19.489
+    },
+    "missing": null,
+    "handoffs": [
+      {
+        "time": 15.62,
+        "max_first_applied_change_rad": 0.020000000000000018,
+        "landmark": []
+      },
+      {
+        "time": 24.24,
+        "max_first_applied_change_rad": 0.020000000000000018,
+        "landmark": []
+      }
+    ],
+    "minimum_verified_gap_m": {
+      "1": 0.012171204037432659,
+      "2": 0.012309132923122412
+    },
+    "measured_retreat_m": {
+      "1": 0.019149648160998345,
+      "2": 0.019420783267179942
+    },
+    "max_pelvis_drift_m": 0.015099769768950727,
+    "max_tilt_rad": 0.0286459270509642,
+    "max_applied": 0.0,
+    "max_fixture_force_N": 0.0,
+    "mean_fixture_Fz_N": 0.0,
+    "opposite_grasp_loss_s": 0.0,
+    "min_foot_Fz_N": [
+      151.81169911929916,
+      158.9835942264968
+    ]
+  },
+  "free_right_1": {
+    "pelvis": "free",
+    "side": "right",
+    "offset_mm": 0,
+    "moving_completed": true,
+    "supported_cycle": true,
+    "opposite_grasp_and_feet_retained": true,
+    "first": {
+      "left_hand_loss": null,
+      "left_foot_loss": null,
+      "right_foot_loss": null,
+      "left_hand_slip": null,
+      "left_foot_slip": null,
+      "right_foot_slip": null,
+      "drift": null,
+      "tilt": null,
+      "effort": null,
+      "joint": null,
+      "mimic": null,
+      "penetration": null,
+      "unintended": null,
+      "numerical": null,
+      "speed": null,
+      "angular_speed": null,
+      "applied": null,
+      "static_residual": null
+    },
+    "events": {
+      "support_preparation": 0.0,
+      "settled": 7.0,
+      "open_request1": 7.0,
+      "opened1": 8.36,
+      "clear_verified1": 10.06,
+      "approach1": 12.06,
+      "close_request1": 13.28,
+      "grasp_verified1": 15.62,
+      "recovered1": 17.62,
+      "open_request2": 17.62,
+      "opened2": 18.98,
+      "clear_verified2": 20.68,
+      "approach2": 20.68,
+      "close_request2": 21.9,
+      "grasp_verified2": 24.24,
+      "recovered2": 26.24,
+      "last_contact_end1": 8.484,
+      "first_gap_5mm1": 8.778,
+      "last_contact_end2": 19.108,
+      "first_gap_5mm2": 19.379
+    },
+    "missing": null,
+    "handoffs": [
+      {
+        "time": 15.62,
+        "max_first_applied_change_rad": 0.020000000000000018,
+        "landmark": []
+      },
+      {
+        "time": 24.24,
+        "max_first_applied_change_rad": 0.020000000000000018,
+        "landmark": []
+      }
+    ],
+    "minimum_verified_gap_m": {
+      "1": 0.015261185001132493,
+      "2": 0.014729444119659707
+    },
+    "measured_retreat_m": {
+      "1": 0.0193610194364518,
+      "2": 0.020405701854816105
+    },
+    "max_pelvis_drift_m": 0.014571453412281062,
+    "max_tilt_rad": 0.03241146407606369,
+    "max_applied": 0.0,
+    "max_fixture_force_N": 0.0,
+    "mean_fixture_Fz_N": 0.0,
+    "opposite_grasp_loss_s": 0.0,
+    "min_foot_Fz_N": [
+      154.72214693206496,
+      154.52655329224325
+    ]
+  },
+  "free_right_2": {
+    "pelvis": "free",
+    "side": "right",
+    "offset_mm": 0,
+    "moving_completed": true,
+    "supported_cycle": true,
+    "opposite_grasp_and_feet_retained": true,
+    "first": {
+      "left_hand_loss": null,
+      "left_foot_loss": null,
+      "right_foot_loss": null,
+      "left_hand_slip": null,
+      "left_foot_slip": null,
+      "right_foot_slip": null,
+      "drift": null,
+      "tilt": null,
+      "effort": null,
+      "joint": null,
+      "mimic": null,
+      "penetration": null,
+      "unintended": null,
+      "numerical": null,
+      "speed": null,
+      "angular_speed": null,
+      "applied": null,
+      "static_residual": null
+    },
+    "events": {
+      "support_preparation": 0.0,
+      "settled": 7.0,
+      "open_request1": 7.0,
+      "opened1": 8.36,
+      "clear_verified1": 10.06,
+      "approach1": 12.06,
+      "close_request1": 13.28,
+      "grasp_verified1": 15.62,
+      "recovered1": 17.62,
+      "open_request2": 17.62,
+      "opened2": 18.98,
+      "clear_verified2": 20.68,
+      "approach2": 20.68,
+      "close_request2": 21.9,
+      "grasp_verified2": 24.24,
+      "recovered2": 26.24,
+      "last_contact_end1": 8.484,
+      "first_gap_5mm1": 8.778,
+      "last_contact_end2": 19.108,
+      "first_gap_5mm2": 19.379
+    },
+    "missing": null,
+    "handoffs": [
+      {
+        "time": 15.62,
+        "max_first_applied_change_rad": 0.020000000000000018,
+        "landmark": []
+      },
+      {
+        "time": 24.24,
+        "max_first_applied_change_rad": 0.020000000000000018,
+        "landmark": []
+      }
+    ],
+    "minimum_verified_gap_m": {
+      "1": 0.015261185001132493,
+      "2": 0.014729444119659707
+    },
+    "measured_retreat_m": {
+      "1": 0.0193610194364518,
+      "2": 0.020405701854816105
+    },
+    "max_pelvis_drift_m": 0.014571453412281062,
+    "max_tilt_rad": 0.03241146407606369,
+    "max_applied": 0.0,
+    "max_fixture_force_N": 0.0,
+    "mean_fixture_Fz_N": 0.0,
+    "opposite_grasp_loss_s": 0.0,
+    "min_foot_Fz_N": [
+      154.72214693206496,
+      154.52655329224325
+    ]
+  }
+}

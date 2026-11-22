@@ -1,5 +1,7 @@
 # Free-pelvis release and regrasp on rung 7
 
+The follow-on experiment starts from the same measured four-contact state on every run and checks the weight on each limb from preparation through the final regrasp. [Unassisted weight redistribution](../rung7_redistribution/README.md)
+
 Both hands completed the full floating-base cycle twice in CPU MuJoCo. On every 1 ms sample, the opposite thumb remained opposed, its four fingers retained loaded contact above rung 7, and both feet retained contact on rung 2. Applied assistance, fixture wrench and other external vertical reactions were zero throughout measurement. Both hands also retained their grasps throughout each matched hold control.
 
 ## Loads after regrasp

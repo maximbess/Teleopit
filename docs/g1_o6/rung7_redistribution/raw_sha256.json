@@ -1,0 +1,58 @@
+{
+  "free_left_1/control": {
+    "commands.npz": "16c41a24d20943be971c45b356b6a071da4338f8e7e916139e4e958751bcc0d1",
+    "contacts.npz": "0a79f3e2342eb8cd844da719ea7c337a2507d13dd03e0f7648b40269fda8c821",
+    "outcome.json": "a2f8f792ebbc7ff648cdda3de9aa4612d690487fc889cbf6c02d50bd68d499e2",
+    "physics.npz": "10437d2c1dc59e0b5cff61bfe953dec731a49061846dbca102615765a63a5d90",
+    "resolved.json": "9a3dd2f046c0fffa248c44f4dd6c45e2a5123c0a8c4c499c7ca61f764dc75d99"
+  },
+  "free_left_1/release": {
+    "commands.npz": "e74a634fa56670605c4ba6bec098b3e4e33e45dff46d2c2f90e42109faf9cec7",
+    "contacts.npz": "9e4aef35210cb9e18bfef30c79f15b7ce3574ddee1cdb3a396de59424987dcfb",
+    "outcome.json": "b73457a70ad7f8a13134a24caf4956d9825b4b3034046b9f223427ae2940923e",
+    "physics.npz": "df4507d9221ec2b2021fb93704f973855b15859ffe709ba437ff2fbe01b99d92",
+    "resolved.json": "a47db1a96ec1e526d34a7f4191a483f6ea88a0b3457bcb837153ea3d88100626"
+  },
+  "free_left_2/control": {
+    "commands.npz": "16c41a24d20943be971c45b356b6a071da4338f8e7e916139e4e958751bcc0d1",
+    "contacts.npz": "0a79f3e2342eb8cd844da719ea7c337a2507d13dd03e0f7648b40269fda8c821",
+    "outcome.json": "a2f8f792ebbc7ff648cdda3de9aa4612d690487fc889cbf6c02d50bd68d499e2",
+    "physics.npz": "10437d2c1dc59e0b5cff61bfe953dec731a49061846dbca102615765a63a5d90",
+    "resolved.json": "9a3dd2f046c0fffa248c44f4dd6c45e2a5123c0a8c4c499c7ca61f764dc75d99"
+  },
+  "free_left_2/release": {
+    "commands.npz": "e74a634fa56670605c4ba6bec098b3e4e33e45dff46d2c2f90e42109faf9cec7",
+    "contacts.npz": "9e4aef35210cb9e18bfef30c79f15b7ce3574ddee1cdb3a396de59424987dcfb",
+    "outcome.json": "b73457a70ad7f8a13134a24caf4956d9825b4b3034046b9f223427ae2940923e",
+    "physics.npz": "df4507d9221ec2b2021fb93704f973855b15859ffe709ba437ff2fbe01b99d92",
+    "resolved.json": "a47db1a96ec1e526d34a7f4191a483f6ea88a0b3457bcb837153ea3d88100626"
+  },
+  "free_right_1/control": {
+    "commands.npz": "b8677fe5323a5a733d8bc76adfca47e06ad1da00e4c2c7a031da6848644a3977",
+    "contacts.npz": "af4a56d09f275548f8bf3aa2e1ec3fa8214ccb9eefdd4d49b6e81f7a2a8addb8",
+    "outcome.json": "c1bd1dea4ac4b233bae42e8deb13f9bacee94c18eca37b13a2b41611f2b54e6c",
+    "physics.npz": "3aa313dc981812045de3f5d2940d496506d855bbc2a6fa4f3c61fa7b1dc8cf3f",
+    "resolved.json": "1663cc6c5505b6088e33c5bd5e5d0fc94113a60a0c19481a67d8a5b651f3e861"
+  },
+  "free_right_1/release": {
+    "commands.npz": "0318eaa3f663130ab1c23891c5f4dd8654c92318a097ac835662e0edc79c2567",
+    "contacts.npz": "5473447b7de2dd779ed966b14383a3d38457972f943d13f722c2e23db977d7e1",
+    "outcome.json": "4a2f9ac78d07142028f5a53ef6793309e16edeb2617b1482a88e3873df9074f9",
+    "physics.npz": "f963c53fe8180db6c4e244cd7bab95b6f5620172e6ea4ef74469eb082dc2cd3b",
+    "resolved.json": "af06446e52f8e2ea2fc9163b4947af39746fbaf5b115104cf2b0a8b97569a6d4"
+  },
+  "free_right_2/control": {
+    "commands.npz": "b8677fe5323a5a733d8bc76adfca47e06ad1da00e4c2c7a031da6848644a3977",
+    "contacts.npz": "af4a56d09f275548f8bf3aa2e1ec3fa8214ccb9eefdd4d49b6e81f7a2a8addb8",
+    "outcome.json": "c1bd1dea4ac4b233bae42e8deb13f9bacee94c18eca37b13a2b41611f2b54e6c",
+    "physics.npz": "3aa313dc981812045de3f5d2940d496506d855bbc2a6fa4f3c61fa7b1dc8cf3f",
+    "resolved.json": "1663cc6c5505b6088e33c5bd5e5d0fc94113a60a0c19481a67d8a5b651f3e861"
+  },
+  "free_right_2/release": {
+    "commands.npz": "0318eaa3f663130ab1c23891c5f4dd8654c92318a097ac835662e0edc79c2567",
+    "contacts.npz": "5473447b7de2dd779ed966b14383a3d38457972f943d13f722c2e23db977d7e1",
+    "outcome.json": "4a2f9ac78d07142028f5a53ef6793309e16edeb2617b1482a88e3873df9074f9",
+    "physics.npz": "f963c53fe8180db6c4e244cd7bab95b6f5620172e6ea4ef74469eb082dc2cd3b",
+    "resolved.json": "af06446e52f8e2ea2fc9163b4947af39746fbaf5b115104cf2b0a8b97569a6d4"
+  }
+}
