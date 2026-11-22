@@ -15,7 +15,7 @@ import numpy as np
 from scripts.g1_o6_g6_reference_replay import decoded_hash
 from teleopit.sim.g1_o6_support.ladder_campaign import file_hash
 from teleopit.sim.g1_o6_support.regrasp import write_json
-from teleopit.sim.g1_o6_support.regrasp_measure import SUPPORTS
+from teleopit.sim.g1_o6_support.regrasp_measure import STATES, SUPPORTS
 from teleopit.sim.g1_o6_support.regrasp_results import (
     contact_events,
     failures,
@@ -54,8 +54,8 @@ def cycle(outcome, cfg, t):
         and "clear_verified2" in events
     )
     opp = 1 - i
-    drops = (t["state"][:, opp] != 3) & active
-    verified_gaps, travel, _approach_errors = {}, {}, {}
+    drops = (t["state"][:, opp] != STATES.index("grasp")) & active
+    verified_gaps, travel = {}, {}
     for n in ("1", "2"):
         if "clear_verified" + n in events:
             stop = events["clear_verified" + n]
