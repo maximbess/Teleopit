@@ -47,12 +47,16 @@ def read_clip(run):
 def show(model, side, clock, phase, qpos, port):
     import viser
     from mjviser import ViserMujocoScene
+    from mjviser.conversions import get_body_name
 
     server = viser.ViserServer(
         host="127.0.0.1", port=port, label=f"Rung 7 · {side} hand"
     )
     data = mujoco.MjData(model)
     scene = ViserMujocoScene(server, model, num_envs=1)
+    for geom in np.flatnonzero(model.geom_type == mujoco.mjtGeom.mjGEOM_PLANE):
+        body = get_body_name(model, int(model.geom_bodyid[geom]))
+        server.scene.remove_by_name(f"/fixed_bodies/{body}/{model.geom(geom).name}")
     scene.camera_tracking_enabled = False
     scene.site_groups_visible = [False] * 6
     server.scene.set_up_direction("+z")
@@ -65,7 +69,7 @@ def show(model, side, clock, phase, qpos, port):
     @server.on_client_connect
     def camera(client):
         client.camera.up_direction = (0, 0, 1)
-        client.camera.position = focus + [-0.55, lateral * 0.8, 0.18]
+        client.camera.position = focus + [-0.36, lateral * 0.43, 0.12]
         client.camera.look_at = focus
 
     play = server.gui.add_checkbox("Play", initial_value=True)

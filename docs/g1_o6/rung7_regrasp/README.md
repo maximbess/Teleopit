@@ -1,5 +1,7 @@
 # Commanded O6 regrasp on G6 rung 7
 
+The follow-up floating-pelvis experiment completed both sides with continuous opposite-hand and foot support. It includes the post-regrasp loads from the matched trials. [Free-pelvis recovery and four-support forces](../rung7_free_recovery/README.md)
+
 With the pelvis fixed, each moving hand completed both grasps on rung 7. The opposite thumb briefly lost opposition in every run, so no trial passed the continuous-support criterion. With the pelvis free and assistance at zero, each hand opened, cleared rung 7 and stayed clear for 2 s. The opposite thumb lost opposition during opening. Both feet stayed on rung 2 as the pelvis drifted, and neither moving hand reached its return pose to regrasp.
 
 ## Cycle outcomes

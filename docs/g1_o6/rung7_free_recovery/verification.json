@@ -1,0 +1,220 @@
+{
+  "revision": "11aa1eeebd50ace9b2c076a7252fc5723c377277",
+  "model": {
+    "source_model_sha256": "c4b50161e27f5d778c53cfa639e679152095bee61b8be9a3beb256ae7799e09a",
+    "acquisition": {
+      "robot_and_ground_sha256": "76cd558c7c3c4c2d96d54b222add1a13106100655572614e4ebf1eadff1c3872",
+      "solver_sha256": "2ef83f104a4bedbc0bb9015ad5ec214f95e2001a350409381d435030092a3ec0",
+      "controller_sha256": "9b6cba7051b3df2ac1d3cc4d57148d75e143de7ba6ad52a86364159c34d96dc9",
+      "physics_dt": 0.001
+    },
+    "scored": {
+      "robot_and_ground_sha256": "a1b2c22b5b5f3135efec9c2d7fc45a0cf7d7473ca8efb96f1fd47faf9b288044",
+      "solver_sha256": "2ef83f104a4bedbc0bb9015ad5ec214f95e2001a350409381d435030092a3ec0",
+      "controller_sha256": "9b6cba7051b3df2ac1d3cc4d57148d75e143de7ba6ad52a86364159c34d96dc9",
+      "physics_dt": 0.001
+    },
+    "changed_compiled_fields": [
+      "actuator_biasprm",
+      "actuator_gainprm"
+    ],
+    "stance_actuators": [
+      "left_hip_pitch_joint",
+      "left_hip_roll_joint",
+      "left_hip_yaw_joint",
+      "left_knee_joint",
+      "left_ankle_pitch_joint",
+      "left_ankle_roll_joint",
+      "right_hip_pitch_joint",
+      "right_hip_roll_joint",
+      "right_hip_yaw_joint",
+      "right_knee_joint",
+      "right_ankle_pitch_joint",
+      "right_ankle_roll_joint",
+      "waist_yaw_joint",
+      "waist_roll_joint",
+      "waist_pitch_joint"
+    ],
+    "final_to_initial_kp": [
+      2.0,
+      2.0,
+      2.0,
+      2.0,
+      3.0000000000000004,
+      3.0000000000000004,
+      2.0,
+      2.0,
+      2.0,
+      2.0,
+      3.0000000000000004,
+      3.0000000000000004,
+      3.000000000000001,
+      3.0000000000000004,
+      3.0000000000000004
+    ],
+    "final_to_initial_kd": [
+      1.414213562373095,
+      1.414213562373095,
+      1.414213562373095,
+      1.414213562373095,
+      1.7320508075688774,
+      1.7320508075688774,
+      1.414213562373095,
+      1.414213562373095,
+      1.414213562373095,
+      1.414213562373095,
+      1.7320508075688774,
+      1.7320508075688774,
+      1.7320508075688774,
+      1.7320508075688774,
+      1.7320508075688774
+    ],
+    "original_effort_limits_retained": true
+  },
+  "repeats": {
+    "left_release": [
+      "contacts.npz",
+      "physics.npz",
+      "commands.npz",
+      "outcome.json"
+    ],
+    "left_control": [
+      "contacts.npz",
+      "physics.npz",
+      "commands.npz",
+      "outcome.json"
+    ],
+    "right_release": [
+      "contacts.npz",
+      "physics.npz",
+      "commands.npz",
+      "outcome.json"
+    ],
+    "right_control": [
+      "contacts.npz",
+      "physics.npz",
+      "commands.npz",
+      "outcome.json"
+    ]
+  },
+  "branches": {
+    "free_left_1/release": {
+      "static_residual_ge_25N_steps": 1,
+      "first_s": 26.24200000000909,
+      "phases": [
+        "opening2"
+      ],
+      "peak_net_N": 34.21575945479453,
+      "peak_final_hold_net_N": 9.403722383031596,
+      "max_effort_fraction": 0.7428935792779777
+    },
+    "free_left_1/control": {
+      "static_residual_ge_25N_steps": 0,
+      "first_s": null,
+      "phases": [],
+      "peak_net_N": 3.6605987406051947,
+      "peak_final_hold_net_N": 1.3944667751365742,
+      "max_effort_fraction": 0.7427874248522137
+    },
+    "free_right_1/release": {
+      "static_residual_ge_25N_steps": 1,
+      "first_s": 26.28500000000914,
+      "phases": [
+        "opening2"
+      ],
+      "peak_net_N": 34.51427670481461,
+      "peak_final_hold_net_N": 10.187468677950731,
+      "max_effort_fraction": 0.7461366059279001
+    },
+    "free_right_1/control": {
+      "static_residual_ge_25N_steps": 0,
+      "first_s": null,
+      "phases": [],
+      "peak_net_N": 2.2794214827655432,
+      "peak_final_hold_net_N": 1.9887728108770635,
+      "max_effort_fraction": 0.7427747454763598
+    }
+  },
+  "tests": {
+    "pytest": {
+      "tests": 121,
+      "failures": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "mutations": [
+      {
+        "mutation": "omit_static_compensation",
+        "killed": true
+      },
+      {
+        "mutation": "drop_support_preload",
+        "killed": true
+      },
+      {
+        "mutation": "discard_return_travel",
+        "killed": true
+      },
+      {
+        "mutation": "delegate_holding_wrist_to_motion",
+        "killed": true
+      },
+      {
+        "mutation": "discard_closed_chain_stiffness",
+        "killed": true
+      },
+      {
+        "mutation": "reverse_geom_force",
+        "killed": true
+      },
+      {
+        "mutation": "show_failed_grasp",
+        "killed": true
+      }
+    ],
+    "changed_function_count": 50,
+    "max_CRAP": 9.0,
+    "duplication_ge_0_8": [],
+    "viser_websocket": {
+      "served_scene": true,
+      "http_status": 200,
+      "advancing_frames": [
+        1,
+        2,
+        3
+      ],
+      "scene_updates": {
+        "FrameMessage": 62,
+        "SetSceneNodeVisibilityMessage": 235,
+        "BackgroundImageMessage": 1,
+        "SetOrientationMessage": 2,
+        "SetGuiPanelLabelMessage": 1,
+        "EnvironmentMapMessage": 1,
+        "GridMessage": 1,
+        "GlbMessage": 4,
+        "BatchedGlbMessage": 120,
+        "BatchedMeshesMessage": 48,
+        "RemoveSceneNodeMessage": 1,
+        "GuiCheckboxMessage": 1,
+        "GuiDropdownMessage": 1,
+        "GuiSliderMessage": 1,
+        "GuiMarkdownMessage": 1,
+        "SceneNodeUpdateMessage": 324,
+        "GuiUpdateMessage": 6
+      }
+    }
+  },
+  "recorded_git_revisions": [
+    "11aa1eeebd50ace9b2c076a7252fc5723c377277",
+    "783e2ca3731d19e6713b12ee9fcfc3840cdc1287"
+  ],
+  "runner_sha256": {
+    "regrasp.py": "66ed98a68c9ee0540593994448791bc6625505cd772e3b8ed7c2c76453033349",
+    "regrasp_actions.py": "bad64d80d9d908f895c7e54cdbb9806359ac59891120f3115f6ee5e4f4ad8f5e",
+    "regrasp_balance.py": "2bf0565e38a14398e520d724d65e098bda6fda1238eee7ec4c122ab5a3f73adc",
+    "regrasp_measure.py": "7a160b44aa7884ef2d6107c6c1a82e467dd79f403767584e78c3c8ee462baec7",
+    "regrasp_results.py": "50283a1991e7e380a81b2f633f7d60f7fb4a1901ec5ea353626b2cefbac38ba3",
+    "regrasp_trial.py": "bd456ac7c0ed8a0e859e4b7d05a08f710b41e557f6bad15f17781fa433b82af9"
+  },
+  "maximum_absolute_window_momentum_residual_N": 3.1928217201736275e-06
+}

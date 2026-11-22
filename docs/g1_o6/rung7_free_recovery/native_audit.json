@@ -1,0 +1,490 @@
+{
+  "free_left_1/release": {
+    "native_steps": 21200,
+    "hand_grasp_losses": [
+      0
+    ],
+    "thumb_opposition_losses": [
+      0
+    ],
+    "minimum_digit_normal_N": [
+      [
+        3.6976985465627936,
+        2.612787164367182,
+        2.6868828867443226,
+        2.1046558289398214,
+        1.8219988063778776
+      ]
+    ],
+    "foot_contact_losses": [
+      0,
+      0
+    ],
+    "foot_minimum_Fz_N": [
+      151.2728025956471,
+      159.33499000530443
+    ],
+    "max_required_slip_m_s": 0.0023505162662327984,
+    "max_applied": 0.0,
+    "max_assist_gain": 0.0,
+    "max_fixture_wrench": 0.0,
+    "max_other_Fz_N": 0.0,
+    "unintended_loaded_steps": 0,
+    "hand_order": [
+      "right_hand"
+    ],
+    "contact_force_max_error_N": 0.0,
+    "first_missing": null,
+    "cycles": {
+      "1": {
+        "position_error_mm": 0.6020243142590899,
+        "angle_error_rad": 0.0022627727537727657,
+        "clear_steps": 500,
+        "detached_steps": 500,
+        "minimum_gap_mm": 12.416337399034916,
+        "confirmation_steps": 500,
+        "hold_steps": 2000,
+        "invalid_confirm_or_hold_steps": 0,
+        "post_grasp_mean_Fz_N": [
+          4.059350103092394,
+          5.159753390710732,
+          161.29295063093488,
+          163.82538383958274
+        ]
+      },
+      "2": {
+        "position_error_mm": 0.6363130445411364,
+        "angle_error_rad": 0.0022299190622048965,
+        "clear_steps": 500,
+        "detached_steps": 500,
+        "minimum_gap_mm": 12.252674590215618,
+        "confirmation_steps": 500,
+        "hold_steps": 2000,
+        "invalid_confirm_or_hold_steps": 0,
+        "post_grasp_mean_Fz_N": [
+          3.9163215526000585,
+          5.578208282649441,
+          160.88787264740884,
+          163.94722132997393
+        ]
+      }
+    },
+    "clear_dwell_steps": 2000,
+    "clear_dwell_detached_steps": 2000,
+    "passed": true
+  },
+  "free_left_1/control": {
+    "native_steps": 21200,
+    "hand_grasp_losses": [
+      0,
+      0
+    ],
+    "thumb_opposition_losses": [
+      0,
+      0
+    ],
+    "minimum_digit_normal_N": [
+      [
+        0.8352014809077253,
+        1.8588655007362402,
+        1.4543762913726226,
+        0.9857228775195177,
+        0.5995233158311384
+      ],
+      [
+        4.651104917513516,
+        2.6160953013380626,
+        2.7343707697973185,
+        2.1011270699898867,
+        1.7887093001824486
+      ]
+    ],
+    "foot_contact_losses": [
+      0,
+      0
+    ],
+    "foot_minimum_Fz_N": [
+      160.31917633418522,
+      160.32657952156234
+    ],
+    "max_required_slip_m_s": 0.0015203566387727982,
+    "max_applied": 0.0,
+    "max_assist_gain": 0.0,
+    "max_fixture_wrench": 0.0,
+    "max_other_Fz_N": 0.0,
+    "unintended_loaded_steps": 0,
+    "hand_order": [
+      "left_hand",
+      "right_hand"
+    ],
+    "contact_force_max_error_N": 0.0,
+    "first_missing": null,
+    "passed": true
+  },
+  "free_left_2/release": {
+    "native_steps": 21200,
+    "hand_grasp_losses": [
+      0
+    ],
+    "thumb_opposition_losses": [
+      0
+    ],
+    "minimum_digit_normal_N": [
+      [
+        3.6976985465627936,
+        2.612787164367182,
+        2.6868828867443226,
+        2.1046558289398214,
+        1.8219988063778776
+      ]
+    ],
+    "foot_contact_losses": [
+      0,
+      0
+    ],
+    "foot_minimum_Fz_N": [
+      151.2728025956471,
+      159.33499000530443
+    ],
+    "max_required_slip_m_s": 0.0023505162662327984,
+    "max_applied": 0.0,
+    "max_assist_gain": 0.0,
+    "max_fixture_wrench": 0.0,
+    "max_other_Fz_N": 0.0,
+    "unintended_loaded_steps": 0,
+    "hand_order": [
+      "right_hand"
+    ],
+    "contact_force_max_error_N": 0.0,
+    "first_missing": null,
+    "cycles": {
+      "1": {
+        "position_error_mm": 0.6020243142590899,
+        "angle_error_rad": 0.0022627727537727657,
+        "clear_steps": 500,
+        "detached_steps": 500,
+        "minimum_gap_mm": 12.416337399034916,
+        "confirmation_steps": 500,
+        "hold_steps": 2000,
+        "invalid_confirm_or_hold_steps": 0,
+        "post_grasp_mean_Fz_N": [
+          4.059350103092394,
+          5.159753390710732,
+          161.29295063093488,
+          163.82538383958274
+        ]
+      },
+      "2": {
+        "position_error_mm": 0.6363130445411364,
+        "angle_error_rad": 0.0022299190622048965,
+        "clear_steps": 500,
+        "detached_steps": 500,
+        "minimum_gap_mm": 12.252674590215618,
+        "confirmation_steps": 500,
+        "hold_steps": 2000,
+        "invalid_confirm_or_hold_steps": 0,
+        "post_grasp_mean_Fz_N": [
+          3.9163215526000585,
+          5.578208282649441,
+          160.88787264740884,
+          163.94722132997393
+        ]
+      }
+    },
+    "clear_dwell_steps": 2000,
+    "clear_dwell_detached_steps": 2000,
+    "passed": true
+  },
+  "free_left_2/control": {
+    "native_steps": 21200,
+    "hand_grasp_losses": [
+      0,
+      0
+    ],
+    "thumb_opposition_losses": [
+      0,
+      0
+    ],
+    "minimum_digit_normal_N": [
+      [
+        0.8352014809077253,
+        1.8588655007362402,
+        1.4543762913726226,
+        0.9857228775195177,
+        0.5995233158311384
+      ],
+      [
+        4.651104917513516,
+        2.6160953013380626,
+        2.7343707697973185,
+        2.1011270699898867,
+        1.7887093001824486
+      ]
+    ],
+    "foot_contact_losses": [
+      0,
+      0
+    ],
+    "foot_minimum_Fz_N": [
+      160.31917633418522,
+      160.32657952156234
+    ],
+    "max_required_slip_m_s": 0.0015203566387727982,
+    "max_applied": 0.0,
+    "max_assist_gain": 0.0,
+    "max_fixture_wrench": 0.0,
+    "max_other_Fz_N": 0.0,
+    "unintended_loaded_steps": 0,
+    "hand_order": [
+      "left_hand",
+      "right_hand"
+    ],
+    "contact_force_max_error_N": 0.0,
+    "first_missing": null,
+    "passed": true
+  },
+  "free_right_1/release": {
+    "native_steps": 21280,
+    "hand_grasp_losses": [
+      0
+    ],
+    "thumb_opposition_losses": [
+      0
+    ],
+    "minimum_digit_normal_N": [
+      [
+        3.402482730397526,
+        2.4888499904864045,
+        2.5256550383135536,
+        2.1910009739302168,
+        2.114004354005185
+      ]
+    ],
+    "foot_contact_losses": [
+      0,
+      0
+    ],
+    "foot_minimum_Fz_N": [
+      155.0437388134588,
+      153.70053978308414
+    ],
+    "max_required_slip_m_s": 0.0010276141382137077,
+    "max_applied": 0.0,
+    "max_assist_gain": 0.0,
+    "max_fixture_wrench": 0.0,
+    "max_other_Fz_N": 0.0,
+    "unintended_loaded_steps": 0,
+    "hand_order": [
+      "left_hand"
+    ],
+    "contact_force_max_error_N": 0.0,
+    "first_missing": null,
+    "cycles": {
+      "1": {
+        "position_error_mm": 0.769108774821208,
+        "angle_error_rad": 0.0018303064980158333,
+        "clear_steps": 500,
+        "detached_steps": 500,
+        "minimum_gap_mm": 15.079964999202499,
+        "confirmation_steps": 500,
+        "hold_steps": 2000,
+        "invalid_confirm_or_hold_steps": 0,
+        "post_grasp_mean_Fz_N": [
+          5.551401069066035,
+          4.112512390397729,
+          165.53174203516457,
+          159.14021077215028
+        ]
+      },
+      "2": {
+        "position_error_mm": 0.9935282510470799,
+        "angle_error_rad": 0.0025146037645780847,
+        "clear_steps": 500,
+        "detached_steps": 500,
+        "minimum_gap_mm": 14.601009814064536,
+        "confirmation_steps": 500,
+        "hold_steps": 2000,
+        "invalid_confirm_or_hold_steps": 0,
+        "post_grasp_mean_Fz_N": [
+          5.829196262803677,
+          4.191724579621833,
+          165.54682792804073,
+          158.78248687753143
+        ]
+      }
+    },
+    "clear_dwell_steps": 2000,
+    "clear_dwell_detached_steps": 2000,
+    "passed": true
+  },
+  "free_right_1/control": {
+    "native_steps": 21280,
+    "hand_grasp_losses": [
+      0,
+      0
+    ],
+    "thumb_opposition_losses": [
+      0,
+      0
+    ],
+    "minimum_digit_normal_N": [
+      [
+        4.222012622612278,
+        2.9637915052046298,
+        2.6410158646143405,
+        2.087160783354276,
+        1.9755600332793593
+      ],
+      [
+        0.8404381820587711,
+        1.8798494524436384,
+        1.4725151886445549,
+        0.9678963445837203,
+        0.5366514530913736
+      ]
+    ],
+    "foot_contact_losses": [
+      0,
+      0
+    ],
+    "foot_minimum_Fz_N": [
+      162.95208339205635,
+      158.03838901132056
+    ],
+    "max_required_slip_m_s": 0.000967291671577194,
+    "max_applied": 0.0,
+    "max_assist_gain": 0.0,
+    "max_fixture_wrench": 0.0,
+    "max_other_Fz_N": 0.0,
+    "unintended_loaded_steps": 0,
+    "hand_order": [
+      "left_hand",
+      "right_hand"
+    ],
+    "contact_force_max_error_N": 0.0,
+    "first_missing": null,
+    "passed": true
+  },
+  "free_right_2/release": {
+    "native_steps": 21280,
+    "hand_grasp_losses": [
+      0
+    ],
+    "thumb_opposition_losses": [
+      0
+    ],
+    "minimum_digit_normal_N": [
+      [
+        3.402482730397526,
+        2.4888499904864045,
+        2.5256550383135536,
+        2.1910009739302168,
+        2.114004354005185
+      ]
+    ],
+    "foot_contact_losses": [
+      0,
+      0
+    ],
+    "foot_minimum_Fz_N": [
+      155.0437388134588,
+      153.70053978308414
+    ],
+    "max_required_slip_m_s": 0.0010276141382137077,
+    "max_applied": 0.0,
+    "max_assist_gain": 0.0,
+    "max_fixture_wrench": 0.0,
+    "max_other_Fz_N": 0.0,
+    "unintended_loaded_steps": 0,
+    "hand_order": [
+      "left_hand"
+    ],
+    "contact_force_max_error_N": 0.0,
+    "first_missing": null,
+    "cycles": {
+      "1": {
+        "position_error_mm": 0.769108774821208,
+        "angle_error_rad": 0.0018303064980158333,
+        "clear_steps": 500,
+        "detached_steps": 500,
+        "minimum_gap_mm": 15.079964999202499,
+        "confirmation_steps": 500,
+        "hold_steps": 2000,
+        "invalid_confirm_or_hold_steps": 0,
+        "post_grasp_mean_Fz_N": [
+          5.551401069066035,
+          4.112512390397729,
+          165.53174203516457,
+          159.14021077215028
+        ]
+      },
+      "2": {
+        "position_error_mm": 0.9935282510470799,
+        "angle_error_rad": 0.0025146037645780847,
+        "clear_steps": 500,
+        "detached_steps": 500,
+        "minimum_gap_mm": 14.601009814064536,
+        "confirmation_steps": 500,
+        "hold_steps": 2000,
+        "invalid_confirm_or_hold_steps": 0,
+        "post_grasp_mean_Fz_N": [
+          5.829196262803677,
+          4.191724579621833,
+          165.54682792804073,
+          158.78248687753143
+        ]
+      }
+    },
+    "clear_dwell_steps": 2000,
+    "clear_dwell_detached_steps": 2000,
+    "passed": true
+  },
+  "free_right_2/control": {
+    "native_steps": 21280,
+    "hand_grasp_losses": [
+      0,
+      0
+    ],
+    "thumb_opposition_losses": [
+      0,
+      0
+    ],
+    "minimum_digit_normal_N": [
+      [
+        4.222012622612278,
+        2.9637915052046298,
+        2.6410158646143405,
+        2.087160783354276,
+        1.9755600332793593
+      ],
+      [
+        0.8404381820587711,
+        1.8798494524436384,
+        1.4725151886445549,
+        0.9678963445837203,
+        0.5366514530913736
+      ]
+    ],
+    "foot_contact_losses": [
+      0,
+      0
+    ],
+    "foot_minimum_Fz_N": [
+      162.95208339205635,
+      158.03838901132056
+    ],
+    "max_required_slip_m_s": 0.000967291671577194,
+    "max_applied": 0.0,
+    "max_assist_gain": 0.0,
+    "max_fixture_wrench": 0.0,
+    "max_other_Fz_N": 0.0,
+    "unintended_loaded_steps": 0,
+    "hand_order": [
+      "left_hand",
+      "right_hand"
+    ],
+    "contact_force_max_error_N": 0.0,
+    "first_missing": null,
+    "passed": true
+  }
+}

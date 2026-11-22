@@ -1,0 +1,742 @@
+{
+  "free_left_1": {
+    "matching": {
+      "identical_precommand_ticks": 777,
+      "maximum_stance_difference_rad": 0.0
+    },
+    "release_first_events": {
+      "right_hand_loss": null,
+      "left_foot_loss": null,
+      "right_foot_loss": null,
+      "right_hand_slip": null,
+      "left_foot_slip": null,
+      "right_foot_slip": null,
+      "drift": null,
+      "tilt": null,
+      "effort": null,
+      "joint": null,
+      "mimic": null,
+      "penetration": null,
+      "unintended": null,
+      "numerical": null,
+      "speed": null,
+      "angular_speed": null,
+      "applied": null,
+      "static_residual": 26.242
+    },
+    "control_first_events": {
+      "left_hand_loss": null,
+      "right_hand_loss": null,
+      "left_foot_loss": null,
+      "right_foot_loss": null,
+      "left_hand_slip": null,
+      "right_hand_slip": null,
+      "left_foot_slip": null,
+      "right_foot_slip": null,
+      "drift": null,
+      "tilt": null,
+      "effort": null,
+      "joint": null,
+      "mimic": null,
+      "penetration": null,
+      "unintended": null,
+      "numerical": null,
+      "speed": null,
+      "angular_speed": null,
+      "applied": null,
+      "static_residual": null
+    },
+    "events": {
+      "support_preparation": 12.04,
+      "settled": 15.54,
+      "open_request1": 15.54,
+      "opened1": 16.9,
+      "clear_verified1": 18.6,
+      "approach1": 20.6,
+      "close_request1": 21.82,
+      "grasp_verified1": 24.14,
+      "recovered1": 26.14,
+      "open_request2": 26.14,
+      "opened2": 27.5,
+      "clear_verified2": 29.2,
+      "approach2": 29.2,
+      "close_request2": 30.42,
+      "grasp_verified2": 32.74,
+      "recovered2": 34.74,
+      "last_contact_end1": 17.077,
+      "first_gap_5mm1": 17.432,
+      "last_contact_end2": 27.683,
+      "first_gap_5mm2": 28.053
+    },
+    "unavailable": {},
+    "balance": {
+      "baseline": {
+        "release": {
+          "mean_net_Fz_N": 8.893721264371379e-07,
+          "delta_vertical_momentum_Ns": 1.8651423017569495e-06,
+          "external_impulse_Ns": 1.7787442528742759e-06,
+          "mean_dynamic_residual_N": -4.31990244413368e-08
+        },
+        "control": {
+          "mean_net_Fz_N": 8.893721264371379e-07,
+          "delta_vertical_momentum_Ns": 1.8651423017569495e-06,
+          "external_impulse_Ns": 1.7787442528742759e-06,
+          "mean_dynamic_residual_N": -4.31990244413368e-08
+        }
+      },
+      "opening1": {
+        "release": {
+          "mean_net_Fz_N": -0.03883471168211025,
+          "delta_vertical_momentum_Ns": -0.052817520029495406,
+          "external_impulse_Ns": -0.05281520788766994,
+          "mean_dynamic_residual_N": 1.7001042834294267e-06
+        },
+        "control": {
+          "mean_net_Fz_N": 0.0005486627053642223,
+          "delta_vertical_momentum_Ns": 0.0007461833183867819,
+          "external_impulse_Ns": 0.0007461812792953424,
+          "mean_dynamic_residual_N": -1.4993319408284148e-09
+        }
+      },
+      "retreat1": {
+        "release": {
+          "mean_net_Fz_N": 0.020697632965150307,
+          "delta_vertical_momentum_Ns": 0.03518998573183718,
+          "external_impulse_Ns": 0.03518597604075552,
+          "mean_dynamic_residual_N": -2.358641812739287e-06
+        },
+        "control": {
+          "mean_net_Fz_N": -0.0010954719387831682,
+          "delta_vertical_momentum_Ns": -0.0018623025158303115,
+          "external_impulse_Ns": -0.0018623022959313859,
+          "mean_dynamic_residual_N": 1.2935230924576713e-10
+        }
+      },
+      "clear1": {
+        "release": {
+          "mean_net_Fz_N": 0.007597307387494623,
+          "delta_vertical_momentum_Ns": 0.01519488342016855,
+          "external_impulse_Ns": 0.015194614774989249,
+          "mean_dynamic_residual_N": -1.3432258965176413e-07
+        },
+        "control": {
+          "mean_net_Fz_N": 0.0004830001782861757,
+          "delta_vertical_momentum_Ns": 0.0009660012515787105,
+          "external_impulse_Ns": 0.0009660003565723515,
+          "mean_dynamic_residual_N": -4.4750317958631297e-10
+        }
+      },
+      "hold1": {
+        "release": {
+          "mean_net_Fz_N": 0.001827344320769015,
+          "delta_vertical_momentum_Ns": 0.0036546990295621288,
+          "external_impulse_Ns": 0.00365468864153803,
+          "mean_dynamic_residual_N": -5.194012049451746e-09
+        },
+        "control": {
+          "mean_net_Fz_N": -9.17786326861858e-05,
+          "delta_vertical_momentum_Ns": -0.0001835572745895439,
+          "external_impulse_Ns": -0.0001835572653723716,
+          "mean_dynamic_residual_N": 4.608586149962464e-12
+        }
+      },
+      "opening2": {
+        "release": {
+          "mean_net_Fz_N": -0.04637730866511075,
+          "delta_vertical_momentum_Ns": -0.06307688932172928,
+          "external_impulse_Ns": -0.06307313978455062,
+          "mean_dynamic_residual_N": 2.7570126313603005e-06
+        },
+        "control": {
+          "mean_net_Fz_N": 0.0008944391157231818,
+          "delta_vertical_momentum_Ns": 0.0012164383676536226,
+          "external_impulse_Ns": 0.0012164371973835274,
+          "mean_dynamic_residual_N": -8.604927171198054e-10
+        }
+      },
+      "retreat2": {
+        "release": {
+          "mean_net_Fz_N": 0.02297572056397528,
+          "delta_vertical_momentum_Ns": 0.03906415275568227,
+          "external_impulse_Ns": 0.03905872495875798,
+          "mean_dynamic_residual_N": -3.1928217201736275e-06
+        },
+        "control": {
+          "mean_net_Fz_N": -0.0013134453878772025,
+          "delta_vertical_momentum_Ns": -0.002232858704131931,
+          "external_impulse_Ns": -0.0022328571593912445,
+          "mean_dynamic_residual_N": 9.086709923996489e-10
+        }
+      },
+      "hold2": {
+        "release": {
+          "mean_net_Fz_N": -0.005986807367743666,
+          "delta_vertical_momentum_Ns": -0.011973630618328106,
+          "external_impulse_Ns": -0.011973614735487331,
+          "mean_dynamic_residual_N": 7.941420387611031e-09
+        },
+        "control": {
+          "mean_net_Fz_N": 0.0012819265494225646,
+          "delta_vertical_momentum_Ns": 0.002563854983136958,
+          "external_impulse_Ns": 0.0025638530988451296,
+          "mean_dynamic_residual_N": -9.421459144526995e-10
+        }
+      }
+    }
+  },
+  "free_left_2": {
+    "matching": {
+      "identical_precommand_ticks": 777,
+      "maximum_stance_difference_rad": 0.0
+    },
+    "release_first_events": {
+      "right_hand_loss": null,
+      "left_foot_loss": null,
+      "right_foot_loss": null,
+      "right_hand_slip": null,
+      "left_foot_slip": null,
+      "right_foot_slip": null,
+      "drift": null,
+      "tilt": null,
+      "effort": null,
+      "joint": null,
+      "mimic": null,
+      "penetration": null,
+      "unintended": null,
+      "numerical": null,
+      "speed": null,
+      "angular_speed": null,
+      "applied": null,
+      "static_residual": 26.242
+    },
+    "control_first_events": {
+      "left_hand_loss": null,
+      "right_hand_loss": null,
+      "left_foot_loss": null,
+      "right_foot_loss": null,
+      "left_hand_slip": null,
+      "right_hand_slip": null,
+      "left_foot_slip": null,
+      "right_foot_slip": null,
+      "drift": null,
+      "tilt": null,
+      "effort": null,
+      "joint": null,
+      "mimic": null,
+      "penetration": null,
+      "unintended": null,
+      "numerical": null,
+      "speed": null,
+      "angular_speed": null,
+      "applied": null,
+      "static_residual": null
+    },
+    "events": {
+      "support_preparation": 12.04,
+      "settled": 15.54,
+      "open_request1": 15.54,
+      "opened1": 16.9,
+      "clear_verified1": 18.6,
+      "approach1": 20.6,
+      "close_request1": 21.82,
+      "grasp_verified1": 24.14,
+      "recovered1": 26.14,
+      "open_request2": 26.14,
+      "opened2": 27.5,
+      "clear_verified2": 29.2,
+      "approach2": 29.2,
+      "close_request2": 30.42,
+      "grasp_verified2": 32.74,
+      "recovered2": 34.74,
+      "last_contact_end1": 17.077,
+      "first_gap_5mm1": 17.432,
+      "last_contact_end2": 27.683,
+      "first_gap_5mm2": 28.053
+    },
+    "unavailable": {},
+    "balance": {
+      "baseline": {
+        "release": {
+          "mean_net_Fz_N": 8.893721264371379e-07,
+          "delta_vertical_momentum_Ns": 1.8651423017569495e-06,
+          "external_impulse_Ns": 1.7787442528742759e-06,
+          "mean_dynamic_residual_N": -4.31990244413368e-08
+        },
+        "control": {
+          "mean_net_Fz_N": 8.893721264371379e-07,
+          "delta_vertical_momentum_Ns": 1.8651423017569495e-06,
+          "external_impulse_Ns": 1.7787442528742759e-06,
+          "mean_dynamic_residual_N": -4.31990244413368e-08
+        }
+      },
+      "opening1": {
+        "release": {
+          "mean_net_Fz_N": -0.03883471168211025,
+          "delta_vertical_momentum_Ns": -0.052817520029495406,
+          "external_impulse_Ns": -0.05281520788766994,
+          "mean_dynamic_residual_N": 1.7001042834294267e-06
+        },
+        "control": {
+          "mean_net_Fz_N": 0.0005486627053642223,
+          "delta_vertical_momentum_Ns": 0.0007461833183867819,
+          "external_impulse_Ns": 0.0007461812792953424,
+          "mean_dynamic_residual_N": -1.4993319408284148e-09
+        }
+      },
+      "retreat1": {
+        "release": {
+          "mean_net_Fz_N": 0.020697632965150307,
+          "delta_vertical_momentum_Ns": 0.03518998573183718,
+          "external_impulse_Ns": 0.03518597604075552,
+          "mean_dynamic_residual_N": -2.358641812739287e-06
+        },
+        "control": {
+          "mean_net_Fz_N": -0.0010954719387831682,
+          "delta_vertical_momentum_Ns": -0.0018623025158303115,
+          "external_impulse_Ns": -0.0018623022959313859,
+          "mean_dynamic_residual_N": 1.2935230924576713e-10
+        }
+      },
+      "clear1": {
+        "release": {
+          "mean_net_Fz_N": 0.007597307387494623,
+          "delta_vertical_momentum_Ns": 0.01519488342016855,
+          "external_impulse_Ns": 0.015194614774989249,
+          "mean_dynamic_residual_N": -1.3432258965176413e-07
+        },
+        "control": {
+          "mean_net_Fz_N": 0.0004830001782861757,
+          "delta_vertical_momentum_Ns": 0.0009660012515787105,
+          "external_impulse_Ns": 0.0009660003565723515,
+          "mean_dynamic_residual_N": -4.4750317958631297e-10
+        }
+      },
+      "hold1": {
+        "release": {
+          "mean_net_Fz_N": 0.001827344320769015,
+          "delta_vertical_momentum_Ns": 0.0036546990295621288,
+          "external_impulse_Ns": 0.00365468864153803,
+          "mean_dynamic_residual_N": -5.194012049451746e-09
+        },
+        "control": {
+          "mean_net_Fz_N": -9.17786326861858e-05,
+          "delta_vertical_momentum_Ns": -0.0001835572745895439,
+          "external_impulse_Ns": -0.0001835572653723716,
+          "mean_dynamic_residual_N": 4.608586149962464e-12
+        }
+      },
+      "opening2": {
+        "release": {
+          "mean_net_Fz_N": -0.04637730866511075,
+          "delta_vertical_momentum_Ns": -0.06307688932172928,
+          "external_impulse_Ns": -0.06307313978455062,
+          "mean_dynamic_residual_N": 2.7570126313603005e-06
+        },
+        "control": {
+          "mean_net_Fz_N": 0.0008944391157231818,
+          "delta_vertical_momentum_Ns": 0.0012164383676536226,
+          "external_impulse_Ns": 0.0012164371973835274,
+          "mean_dynamic_residual_N": -8.604927171198054e-10
+        }
+      },
+      "retreat2": {
+        "release": {
+          "mean_net_Fz_N": 0.02297572056397528,
+          "delta_vertical_momentum_Ns": 0.03906415275568227,
+          "external_impulse_Ns": 0.03905872495875798,
+          "mean_dynamic_residual_N": -3.1928217201736275e-06
+        },
+        "control": {
+          "mean_net_Fz_N": -0.0013134453878772025,
+          "delta_vertical_momentum_Ns": -0.002232858704131931,
+          "external_impulse_Ns": -0.0022328571593912445,
+          "mean_dynamic_residual_N": 9.086709923996489e-10
+        }
+      },
+      "hold2": {
+        "release": {
+          "mean_net_Fz_N": -0.005986807367743666,
+          "delta_vertical_momentum_Ns": -0.011973630618328106,
+          "external_impulse_Ns": -0.011973614735487331,
+          "mean_dynamic_residual_N": 7.941420387611031e-09
+        },
+        "control": {
+          "mean_net_Fz_N": 0.0012819265494225646,
+          "delta_vertical_momentum_Ns": 0.002563854983136958,
+          "external_impulse_Ns": 0.0025638530988451296,
+          "mean_dynamic_residual_N": -9.421459144526995e-10
+        }
+      }
+    }
+  },
+  "free_right_1": {
+    "matching": {
+      "identical_precommand_ticks": 777,
+      "maximum_stance_difference_rad": 0.0
+    },
+    "release_first_events": {
+      "left_hand_loss": null,
+      "left_foot_loss": null,
+      "right_foot_loss": null,
+      "left_hand_slip": null,
+      "left_foot_slip": null,
+      "right_foot_slip": null,
+      "drift": null,
+      "tilt": null,
+      "effort": null,
+      "joint": null,
+      "mimic": null,
+      "penetration": null,
+      "unintended": null,
+      "numerical": null,
+      "speed": null,
+      "angular_speed": null,
+      "applied": null,
+      "static_residual": 26.285
+    },
+    "control_first_events": {
+      "left_hand_loss": null,
+      "right_hand_loss": null,
+      "left_foot_loss": null,
+      "right_foot_loss": null,
+      "left_hand_slip": null,
+      "right_hand_slip": null,
+      "left_foot_slip": null,
+      "right_foot_slip": null,
+      "drift": null,
+      "tilt": null,
+      "effort": null,
+      "joint": null,
+      "mimic": null,
+      "penetration": null,
+      "unintended": null,
+      "numerical": null,
+      "speed": null,
+      "angular_speed": null,
+      "applied": null,
+      "static_residual": null
+    },
+    "events": {
+      "support_preparation": 12.04,
+      "settled": 15.54,
+      "open_request1": 15.54,
+      "opened1": 16.9,
+      "clear_verified1": 18.6,
+      "approach1": 20.6,
+      "close_request1": 21.82,
+      "grasp_verified1": 24.18,
+      "recovered1": 26.18,
+      "open_request2": 26.18,
+      "opened2": 27.54,
+      "clear_verified2": 29.24,
+      "approach2": 29.24,
+      "close_request2": 30.46,
+      "grasp_verified2": 32.82,
+      "recovered2": 34.82,
+      "last_contact_end1": 17.092,
+      "first_gap_5mm1": 17.381,
+      "last_contact_end2": 27.709,
+      "first_gap_5mm2": 28.006
+    },
+    "unavailable": {},
+    "balance": {
+      "baseline": {
+        "release": {
+          "mean_net_Fz_N": 0.0007275548446285711,
+          "delta_vertical_momentum_Ns": 0.0014551051906157462,
+          "external_impulse_Ns": 0.0014551096892571422,
+          "mean_dynamic_residual_N": 2.2493206980160607e-09
+        },
+        "control": {
+          "mean_net_Fz_N": 0.0007275548446285711,
+          "delta_vertical_momentum_Ns": 0.0014551051906157462,
+          "external_impulse_Ns": 0.0014551096892571422,
+          "mean_dynamic_residual_N": 2.2493206980160607e-09
+        }
+      },
+      "opening1": {
+        "release": {
+          "mean_net_Fz_N": -0.02997432453888987,
+          "delta_vertical_momentum_Ns": -0.040767100493186256,
+          "external_impulse_Ns": -0.04076508137289022,
+          "mean_dynamic_residual_N": 1.4846472764923346e-06
+        },
+        "control": {
+          "mean_net_Fz_N": 9.196082041063559e-05,
+          "delta_vertical_momentum_Ns": 0.00012506689610909325,
+          "external_impulse_Ns": 0.0001250667157584644,
+          "mean_dynamic_residual_N": -1.326107564958521e-10
+        }
+      },
+      "retreat1": {
+        "release": {
+          "mean_net_Fz_N": 0.006891901741069044,
+          "delta_vertical_momentum_Ns": 0.011720616613229259,
+          "external_impulse_Ns": 0.011716232959817377,
+          "mean_dynamic_residual_N": -2.5786196540490344e-06
+        },
+        "control": {
+          "mean_net_Fz_N": -0.001352701162864157,
+          "delta_vertical_momentum_Ns": -0.0022995895171601674,
+          "external_impulse_Ns": -0.002299591976869067,
+          "mean_dynamic_residual_N": -1.4468875878231174e-09
+        }
+      },
+      "clear1": {
+        "release": {
+          "mean_net_Fz_N": 0.011761157673199307,
+          "delta_vertical_momentum_Ns": 0.023522881741599586,
+          "external_impulse_Ns": 0.023522315346398613,
+          "mean_dynamic_residual_N": -2.831976004865483e-07
+        },
+        "control": {
+          "mean_net_Fz_N": 0.0005745745449735579,
+          "delta_vertical_momentum_Ns": 0.0011491479527735299,
+          "external_impulse_Ns": 0.001149149089947116,
+          "mean_dynamic_residual_N": 5.685867929912033e-10
+        }
+      },
+      "hold1": {
+        "release": {
+          "mean_net_Fz_N": 0.0002556467789692931,
+          "delta_vertical_momentum_Ns": 0.0005112950923419238,
+          "external_impulse_Ns": 0.0005112935579385862,
+          "mean_dynamic_residual_N": -7.672016687850121e-10
+        },
+        "control": {
+          "mean_net_Fz_N": -0.0001857064054560169,
+          "delta_vertical_momentum_Ns": -0.0003714112451023712,
+          "external_impulse_Ns": -0.0003714128109120338,
+          "mean_dynamic_residual_N": -7.82904831296647e-10
+        }
+      },
+      "opening2": {
+        "release": {
+          "mean_net_Fz_N": -0.03707098558420871,
+          "delta_vertical_momentum_Ns": -0.05041770211215275,
+          "external_impulse_Ns": -0.050416540394523854,
+          "mean_dynamic_residual_N": 8.542041388948096e-07
+        },
+        "control": {
+          "mean_net_Fz_N": 0.0008334720584033265,
+          "delta_vertical_momentum_Ns": 0.0011335210941959967,
+          "external_impulse_Ns": 0.001133521999428524,
+          "mean_dynamic_residual_N": 6.656121525261058e-10
+        }
+      },
+      "retreat2": {
+        "release": {
+          "mean_net_Fz_N": -0.011706884750413985,
+          "delta_vertical_momentum_Ns": -0.019896712573105824,
+          "external_impulse_Ns": -0.019901704075703776,
+          "mean_dynamic_residual_N": -2.936177998794781e-06
+        },
+        "control": {
+          "mean_net_Fz_N": 5.246026586960665e-07,
+          "delta_vertical_momentum_Ns": 8.919727778806431e-07,
+          "external_impulse_Ns": 8.918245197833131e-07,
+          "mean_dynamic_residual_N": -8.721064548832652e-11
+        }
+      },
+      "hold2": {
+        "release": {
+          "mean_net_Fz_N": 0.014625027997628251,
+          "delta_vertical_momentum_Ns": 0.029250107277993934,
+          "external_impulse_Ns": 0.029250055995256503,
+          "mean_dynamic_residual_N": -2.5641368715800805e-08
+        },
+        "control": {
+          "mean_net_Fz_N": 0.000477071182620449,
+          "delta_vertical_momentum_Ns": 0.0009541405201699798,
+          "external_impulse_Ns": 0.000954142365240898,
+          "mean_dynamic_residual_N": 9.22535459103261e-10
+        }
+      }
+    }
+  },
+  "free_right_2": {
+    "matching": {
+      "identical_precommand_ticks": 777,
+      "maximum_stance_difference_rad": 0.0
+    },
+    "release_first_events": {
+      "left_hand_loss": null,
+      "left_foot_loss": null,
+      "right_foot_loss": null,
+      "left_hand_slip": null,
+      "left_foot_slip": null,
+      "right_foot_slip": null,
+      "drift": null,
+      "tilt": null,
+      "effort": null,
+      "joint": null,
+      "mimic": null,
+      "penetration": null,
+      "unintended": null,
+      "numerical": null,
+      "speed": null,
+      "angular_speed": null,
+      "applied": null,
+      "static_residual": 26.285
+    },
+    "control_first_events": {
+      "left_hand_loss": null,
+      "right_hand_loss": null,
+      "left_foot_loss": null,
+      "right_foot_loss": null,
+      "left_hand_slip": null,
+      "right_hand_slip": null,
+      "left_foot_slip": null,
+      "right_foot_slip": null,
+      "drift": null,
+      "tilt": null,
+      "effort": null,
+      "joint": null,
+      "mimic": null,
+      "penetration": null,
+      "unintended": null,
+      "numerical": null,
+      "speed": null,
+      "angular_speed": null,
+      "applied": null,
+      "static_residual": null
+    },
+    "events": {
+      "support_preparation": 12.04,
+      "settled": 15.54,
+      "open_request1": 15.54,
+      "opened1": 16.9,
+      "clear_verified1": 18.6,
+      "approach1": 20.6,
+      "close_request1": 21.82,
+      "grasp_verified1": 24.18,
+      "recovered1": 26.18,
+      "open_request2": 26.18,
+      "opened2": 27.54,
+      "clear_verified2": 29.24,
+      "approach2": 29.24,
+      "close_request2": 30.46,
+      "grasp_verified2": 32.82,
+      "recovered2": 34.82,
+      "last_contact_end1": 17.092,
+      "first_gap_5mm1": 17.381,
+      "last_contact_end2": 27.709,
+      "first_gap_5mm2": 28.006
+    },
+    "unavailable": {},
+    "balance": {
+      "baseline": {
+        "release": {
+          "mean_net_Fz_N": 0.0007275548446285711,
+          "delta_vertical_momentum_Ns": 0.0014551051906157462,
+          "external_impulse_Ns": 0.0014551096892571422,
+          "mean_dynamic_residual_N": 2.2493206980160607e-09
+        },
+        "control": {
+          "mean_net_Fz_N": 0.0007275548446285711,
+          "delta_vertical_momentum_Ns": 0.0014551051906157462,
+          "external_impulse_Ns": 0.0014551096892571422,
+          "mean_dynamic_residual_N": 2.2493206980160607e-09
+        }
+      },
+      "opening1": {
+        "release": {
+          "mean_net_Fz_N": -0.02997432453888987,
+          "delta_vertical_momentum_Ns": -0.040767100493186256,
+          "external_impulse_Ns": -0.04076508137289022,
+          "mean_dynamic_residual_N": 1.4846472764923346e-06
+        },
+        "control": {
+          "mean_net_Fz_N": 9.196082041063559e-05,
+          "delta_vertical_momentum_Ns": 0.00012506689610909325,
+          "external_impulse_Ns": 0.0001250667157584644,
+          "mean_dynamic_residual_N": -1.326107564958521e-10
+        }
+      },
+      "retreat1": {
+        "release": {
+          "mean_net_Fz_N": 0.006891901741069044,
+          "delta_vertical_momentum_Ns": 0.011720616613229259,
+          "external_impulse_Ns": 0.011716232959817377,
+          "mean_dynamic_residual_N": -2.5786196540490344e-06
+        },
+        "control": {
+          "mean_net_Fz_N": -0.001352701162864157,
+          "delta_vertical_momentum_Ns": -0.0022995895171601674,
+          "external_impulse_Ns": -0.002299591976869067,
+          "mean_dynamic_residual_N": -1.4468875878231174e-09
+        }
+      },
+      "clear1": {
+        "release": {
+          "mean_net_Fz_N": 0.011761157673199307,
+          "delta_vertical_momentum_Ns": 0.023522881741599586,
+          "external_impulse_Ns": 0.023522315346398613,
+          "mean_dynamic_residual_N": -2.831976004865483e-07
+        },
+        "control": {
+          "mean_net_Fz_N": 0.0005745745449735579,
+          "delta_vertical_momentum_Ns": 0.0011491479527735299,
+          "external_impulse_Ns": 0.001149149089947116,
+          "mean_dynamic_residual_N": 5.685867929912033e-10
+        }
+      },
+      "hold1": {
+        "release": {
+          "mean_net_Fz_N": 0.0002556467789692931,
+          "delta_vertical_momentum_Ns": 0.0005112950923419238,
+          "external_impulse_Ns": 0.0005112935579385862,
+          "mean_dynamic_residual_N": -7.672016687850121e-10
+        },
+        "control": {
+          "mean_net_Fz_N": -0.0001857064054560169,
+          "delta_vertical_momentum_Ns": -0.0003714112451023712,
+          "external_impulse_Ns": -0.0003714128109120338,
+          "mean_dynamic_residual_N": -7.82904831296647e-10
+        }
+      },
+      "opening2": {
+        "release": {
+          "mean_net_Fz_N": -0.03707098558420871,
+          "delta_vertical_momentum_Ns": -0.05041770211215275,
+          "external_impulse_Ns": -0.050416540394523854,
+          "mean_dynamic_residual_N": 8.542041388948096e-07
+        },
+        "control": {
+          "mean_net_Fz_N": 0.0008334720584033265,
+          "delta_vertical_momentum_Ns": 0.0011335210941959967,
+          "external_impulse_Ns": 0.001133521999428524,
+          "mean_dynamic_residual_N": 6.656121525261058e-10
+        }
+      },
+      "retreat2": {
+        "release": {
+          "mean_net_Fz_N": -0.011706884750413985,
+          "delta_vertical_momentum_Ns": -0.019896712573105824,
+          "external_impulse_Ns": -0.019901704075703776,
+          "mean_dynamic_residual_N": -2.936177998794781e-06
+        },
+        "control": {
+          "mean_net_Fz_N": 5.246026586960665e-07,
+          "delta_vertical_momentum_Ns": 8.919727778806431e-07,
+          "external_impulse_Ns": 8.918245197833131e-07,
+          "mean_dynamic_residual_N": -8.721064548832652e-11
+        }
+      },
+      "hold2": {
+        "release": {
+          "mean_net_Fz_N": 0.014625027997628251,
+          "delta_vertical_momentum_Ns": 0.029250107277993934,
+          "external_impulse_Ns": 0.029250055995256503,
+          "mean_dynamic_residual_N": -2.5641368715800805e-08
+        },
+        "control": {
+          "mean_net_Fz_N": 0.000477071182620449,
+          "delta_vertical_momentum_Ns": 0.0009541405201699798,
+          "external_impulse_Ns": 0.000954142365240898,
+          "mean_dynamic_residual_N": 9.22535459103261e-10
+        }
+      }
+    }
+  }
+}
