@@ -59,6 +59,10 @@ class WristPath:
         self.world_home = env.data.site(env.hands[side]["mount"]).xpos.copy()
         self.outward = -rung.xmat.reshape(3, 3)[:, 0].copy()
 
+    @property
+    def preload(self):
+        return self.digit.amount * self.contact_preload
+
     def target(self, distance, lateral=1.0):
         env, data = self.env, self.scratch
         self.goal = self.origin + lateral * self.offset - [distance, 0.0, 0.0]
@@ -78,7 +82,7 @@ class WristPath:
                 data.qpos[self.addr] + scale * dq, *self.bounds.T
             )
         gravity = env.data.qfrc_bias[self.dofs] / self.kp
-        return data.qpos[self.addr] + gravity + self.digit.amount * self.contact_preload
+        return data.qpos[self.addr] + gravity + self.preload
 
     def error(self):
         position, rotation = rung_pose(self.env, self.env.data, self.side)

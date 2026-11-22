@@ -146,6 +146,9 @@ class FloatingTrial(Trial):
 
     def settle(self):
         self.acquire("support_preparation")
+        self.prepare_balance()
+
+    def prepare_balance(self):
         self.balance = FloatingBalance(self.env, self.policy, SIDES[1 - self.i])
         timer = Confirmation(2.0, self.dt)
         start = self.time

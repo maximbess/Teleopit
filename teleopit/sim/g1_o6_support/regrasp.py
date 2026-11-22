@@ -27,6 +27,7 @@ from .regrasp_trial import (
     Trial,
     WristPath,
 )
+from .regrasp_unassisted import UnassistedTrial
 from .scene_contract import restore_environment
 
 SOURCE = Path("outputs/g1_o6/g6_thumb_reference/runs/control_screen")
@@ -78,6 +79,8 @@ def run_branch(args, directory, matched=None):
     policy = PhysicalHands.install(env)
     trial = make_trial(env, policy, args)
     settings = resolved_trial(trial, args, meta, hashes, matched, probe)
+    if isinstance(trial, UnassistedTrial):
+        settings["unassisted_launch"] = trial.launch
     write_json(directory / "resolved.json", settings)
     result = run_probe(trial, probe) if probe else trial.run(matched)
     if isinstance(trial, FloatingTrial) and trial.balance is not None:
@@ -102,6 +105,8 @@ def run_branch(args, directory, matched=None):
 
 
 def make_trial(env, policy, args):
+    if args.pelvis == "free" and args.free_controller == "unassisted":
+        return UnassistedTrial(env, policy, args.hand, args.offset_mm, args.source)
     if args.pelvis == "free" and args.free_controller == "balanced":
         return FloatingTrial(env, policy, args.hand, args.offset_mm)
     tape = stance_recording(args.source) if args.pelvis == "free" else None
@@ -243,9 +248,9 @@ def main():
     trial.add_argument("--hand", choices=("left", "right"), required=True)
     trial.add_argument(
         "--free-controller",
-        choices=("balanced", "reference"),
+        choices=("balanced", "reference", "unassisted"),
         default="balanced",
-        help="Free-pelvis stance and supporting grip; reference replays the original experiment",
+        help="Use a balanced acquisition, the original reference, or start in the unassisted four-contact hold",
     )
     trial.add_argument("--offset-mm", choices=(-2, 0, 2), type=int, default=0)
     trial.add_argument("--output", required=True, type=Path)
