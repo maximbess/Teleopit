@@ -1,6 +1,7 @@
 """Check floating release and hold trials against the native contacts and measured wrist poses."""
 
 import argparse
+import json
 from pathlib import Path
 
 import mujoco
@@ -11,7 +12,8 @@ from teleopit.sim.g1_o6.diagnostics import region
 from teleopit.sim.g1_o6_support.guards import detached, measured_opening
 from teleopit.sim.g1_o6_support.regrasp import write_json
 from teleopit.sim.g1_o6_support.regrasp_measure import STATES, SUPPORTS
-from teleopit.sim.g1_o6_support.regrasp_results import interval, read_run
+from teleopit.sim.g1_o6_support.regrasp_results import failures, interval, read_run
+from teleopit.sim.g1_o6_support.regrasp_unassisted import free_body_setup
 
 
 def native_forces(contacts, owners, targets, steps):
@@ -59,6 +61,60 @@ def required_supports(trace, active, hands):
     }
 
 
+def launch_checks(trace, limits, opening):
+    before = trace["time"] < opening - 1e-8
+    losses = (trace["state"][before] != STATES.index("grasp")).sum(axis=0).tolist()
+    slip = float(trace["slip"][before].max(initial=0))
+    external = {
+        "maximum_applied": float(np.max(abs(trace["applied"]))),
+        "maximum_assist_gain": float(np.max(abs(trace["assist_gain"]))),
+        "maximum_fixture_wrench": float(np.max(abs(trace["fixture"]))),
+        "maximum_other_vertical_reaction_N": float(np.max(abs(trace["other_fz"]))),
+    }
+    caps = [
+        limits[k]
+        for k in ("assistance_force_N", "assistance_moment_Nm", "disturbance_N")
+    ]
+    return {
+        **external,
+        "all_native_steps": len(trace["time"]),
+        "preparation_hand_losses": losses,
+        "preparation_max_slip_m_s": slip,
+        "passed": all(
+            (
+                abs(trace["time"][0]) < 1e-8,
+                not any(caps),
+                not any(external.values()),
+                not any(losses),
+                slip < limits["max_slip_m_s"],
+            )
+        ),
+    }
+
+
+def unassisted_receipt(cfg, trace, opening):
+    source = Path(cfg["source"])
+    model = mujoco.MjModel.from_binary_path(str(source / "scene.mjb"))
+    hands = json.loads((source / "resolved.json").read_bytes())["model"]["hands"]
+    body = free_body_setup(model, hands)
+    if any(cfg["unassisted_launch"][k] != v for k, v in body.items()):
+        raise ValueError("The recorded free-body setup differs from the source model.")
+    report = launch_checks(trace, cfg["config"], opening)
+    monitors = failures(trace, cfg, 0.0)
+    net = (
+        trace["external_force"]
+        + trace["fixture"][:, :3]
+        + [0.0, 0.0, cfg["mass_kg"] * cfg["gravity_z"]]
+    )
+    report.update(
+        body=body,
+        first_monitor_events=monitors,
+        peak_net_external_force_N=float(np.linalg.norm(net, axis=1).max()),
+    )
+    report["passed"] = report["passed"] and all(t is None for t in monitors.values())
+    return report
+
+
 def detached_steps(trace, side, start_s, mask):
     start = np.argmin(abs(trace["time"] - start_s))
     opened = measured_opening(trace["digits"][start, side], trace["digits"][mask, side])
@@ -99,6 +155,7 @@ def release_cycle(events, commands, trace, cfg, number):
         "minimum_gap_mm": float(trace["gap"][clear].min() * 1000),
         "confirmation_steps": int(grasp.sum()),
         "hold_steps": int(hold.sum()),
+        "max_regrasp_slip_m_s": float(trace["slip"][grasp | hold, side].max()),
         "invalid_confirm_or_hold_steps": int(
             np.sum(trace["state"][grasp | hold, side] != STATES.index("grasp"))
         ),
@@ -119,6 +176,7 @@ def cycle_passes(cycle, cfg):
             == samples,
             cycle["hold_steps"] == round(2 / dt),
             cycle["invalid_confirm_or_hold_steps"] == 0,
+            cycle["max_regrasp_slip_m_s"] < cfg["config"]["max_slip_m_s"],
         )
     )
 
@@ -179,6 +237,11 @@ def audit_branch(directory):
     ]
     if cfg["branch"] == "release":
         checks.append(check_release(directory, outcome, cfg, trace, report))
+    if "unassisted_launch" in cfg:
+        report["full_episode"] = unassisted_receipt(
+            cfg, trace, outcome["events"]["settled"]
+        )
+        checks.append(report["full_episode"]["passed"])
     report["passed"] = all(checks)
     return report
 

@@ -22,6 +22,18 @@ def test_unassisted_model_accepts_internal_finger_mimics_and_rejects_a_world_pin
     ):
         with pytest.raises(ValueError, match="coupling|fixture"):
             free_body_setup(mujoco.MjModel.from_xml_string(robot.format(pin)), hands)
+    with pytest.raises(ValueError, match="couplings"):
+        free_body_setup(mujoco.MjModel.from_xml_string(robot.format("")), {})
+    for source, error in (
+        (robot.replace("<freejoint/>", ""), "free root"),
+        (robot.replace('name="pelvis"', 'name="pelvis" gravcomp="1"'), "compensation"),
+        (
+            robot.replace("<worldbody>", '<option gravity="0 0 0"/><worldbody>'),
+            "gravity",
+        ),
+    ):
+        with pytest.raises(ValueError, match=error):
+            free_body_setup(mujoco.MjModel.from_xml_string(source.format("")), hands)
 
 
 def test_hold_start_restores_measured_velocities_and_rejects_an_assisted_frame():
@@ -66,3 +78,81 @@ def test_releasing_relaxes_only_the_arm_contact_preload_at_the_same_pose():
     np.testing.assert_allclose(opened[0], [0.34, -0.28])
     np.testing.assert_array_equal(closed[0], joint_goal)
     assert opened[1] is None
+
+
+def test_episode_check_includes_the_preparation_before_the_scored_baseline():
+    from scripts.g1_o6_free_regrasp_audit import launch_checks
+
+    trace = {
+        "time": np.array([0.0, 0.001, 0.002]),
+        "state": np.full((3, 2), 3),
+        "slip": np.zeros((3, 4)),
+        "applied": np.zeros(3),
+        "assist_gain": np.zeros(3),
+        "fixture": np.zeros((3, 6)),
+        "other_fz": np.zeros(3),
+    }
+    limits = {
+        "max_slip_m_s": 0.02,
+        "assistance_force_N": 0.0,
+        "assistance_moment_Nm": 0.0,
+        "disturbance_N": 0.0,
+    }
+    assert launch_checks(trace, limits, 0.002)["passed"]
+    trace["state"][0, 0] = 2
+    trace["applied"][0] = 1.0
+    result = launch_checks(trace, limits, 0.002)
+    assert not result["passed"] and result["preparation_hand_losses"] == [1, 0]
+    assert result["maximum_applied"] == 1.0
+
+
+def test_preloading_grips_slews_from_applied_angles_without_slowing_the_wrists(
+    monkeypatch,
+):
+    from types import SimpleNamespace
+
+    from teleopit.sim.g1_o6_support.g6_grip_preview import PreviewReference
+    from teleopit.sim.g1_o6_support.regrasp_actions import PhysicalHands
+
+    policy = object.__new__(PhysicalHands)
+    policy.fingers = np.array([1, 3])
+    policy.requests = {"left": 1.0, "right": 1.0}
+    policy.digits = {
+        "left": SimpleNamespace(target=np.array([0.8])),
+        "right": SimpleNamespace(target=np.array([0.3])),
+    }
+    env = SimpleNamespace(
+        hand_act={"left": [1], "right": [3]},
+        config=SimpleNamespace(control_dt=0.02),
+        target=np.array([0.1, 0.5, -0.1, 0.6]),
+    )
+    monkeypatch.setattr(
+        PreviewReference, "desired", lambda *_: np.array([0.3, 0.0, -0.4, 0.0])
+    )
+    policy.grip_slew_rad_s = 0.03
+    np.testing.assert_allclose(policy.desired(env, 1.0), [0.3, 0.5006, -0.4, 0.5994])
+    policy.grip_slew_rad_s = None
+    np.testing.assert_allclose(policy.desired(env, 1.0), [0.3, 0.8, -0.4, 0.3])
+
+
+def test_a_regrasp_with_loaded_fingers_still_fails_if_the_returned_hand_slips():
+    from scripts.g1_o6_free_regrasp_audit import cycle_passes
+
+    cfg = {
+        "config": {"physics_dt": 0.001, "max_slip_m_s": 0.02},
+        "criteria": {"persistence_s": 0.5},
+        "position_tolerance_m": 0.003,
+        "rotation_tolerance_rad": 0.035,
+    }
+    cycle = {
+        "position_error_mm": 1.0,
+        "angle_error_rad": 0.01,
+        "detached_steps": 500,
+        "clear_steps": 500,
+        "confirmation_steps": 500,
+        "hold_steps": 2000,
+        "invalid_confirm_or_hold_steps": 0,
+        "max_regrasp_slip_m_s": 0.01,
+    }
+    assert cycle_passes(cycle, cfg)
+    assert not cycle_passes({**cycle, "max_regrasp_slip_m_s": 0.021}, cfg)

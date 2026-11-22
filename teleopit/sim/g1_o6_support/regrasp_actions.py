@@ -108,6 +108,7 @@ class PhysicalHands(PreviewReference):
         self.arms = dict.fromkeys(SIDES)
         self.requests = dict.fromkeys(SIDES)
         self.stance = None
+        self.grip_slew_rad_s = None
         self.digits = {
             s: DigitCommand(
                 env.pose.closed_pose,
@@ -282,4 +283,10 @@ class PhysicalHands(PreviewReference):
         for side in SIDES:
             if self.requests[side] is not None:
                 command[env.hand_act[side]] = self.digits[side].target
+        if self.grip_slew_rad_s is not None:
+            step = self.grip_slew_rad_s * env.config.control_dt
+            applied = env.target[self.fingers]
+            command[self.fingers] = applied + np.clip(
+                command[self.fingers] - applied, -step, step
+            )
         return command

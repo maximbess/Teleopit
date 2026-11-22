@@ -12,9 +12,11 @@ from .regrasp_measure import SUPPORTS
 
 REFERENCE_HOLD_S = 12.04
 OPEN_PRELOAD_FRACTION = 0.5
+GRIP_PRELOAD_RATE_RAD_S = 0.045
+GRIP_PREPARATION_S = 5.0
 
 
-def free_body_setup(model, hands):
+def require_floating_root(model):
     pelvis = model.body("pelvis")
     root = pelvis.jntadr[0]
     if not (
@@ -32,6 +34,9 @@ def free_body_setup(model, hands):
         or model.opt.gravity[2] >= 0
     ):
         raise ValueError("The free-body experiment requires downward gravity.")
+
+
+def finger_couplings(model, hands):
     expected = sorted((p, a) for hand in hands.values() for p, a, _ in hand["passive"])
     pairs = []
     for kind, a, b in zip(model.eq_type, model.eq_obj1id, model.eq_obj2id, strict=True):
@@ -42,9 +47,14 @@ def free_body_setup(model, hands):
         pairs.append((model.joint(a).name, model.joint(b).name))
     if sorted(pairs) != expected:
         raise ValueError("Only the declared internal O6 finger couplings are allowed.")
+    return pairs
+
+
+def free_body_setup(model, hands):
+    require_floating_root(model)
     return {
         "free_root_dofs": 6,
-        "internal_finger_couplings": [list(p) for p in pairs],
+        "internal_finger_couplings": [list(p) for p in finger_couplings(model, hands)],
         "mocap_bodies": model.nmocap,
         "body_gravity_compensation": 0.0,
         "gravity_m_s2": model.opt.gravity.tolist(),
@@ -107,6 +117,9 @@ def restore_hold(env, policy, source):
         **setup,
         "source_time_s": frame["time"],
         "start_time_s": data.time,
+        "qpos": qpos.tolist(),
+        "qvel": qvel.tolist(),
+        "ctrl": ctrl.tolist(),
         "state_sha256": array_digest([("qpos", qpos), ("qvel", qvel), ("ctrl", ctrl)]),
         "reference_Fz_N": [frame["supports"][s]["force_world"][2] for s in SUPPORTS],
     }
@@ -116,7 +129,11 @@ class UnassistedTrial(FloatingTrial):
     def __init__(self, env, policy, side, offset_mm, source):
         super().__init__(env, policy, side, offset_mm)
         self.launch = restore_hold(env, policy, source)
-        self.launch["opening_arm_preload_fraction"] = OPEN_PRELOAD_FRACTION
+        self.launch.update(
+            opening_arm_preload_fraction=OPEN_PRELOAD_FRACTION,
+            grip_preload_rate_rad_s=GRIP_PRELOAD_RATE_RAD_S,
+            grip_preparation_s=GRIP_PREPARATION_S,
+        )
 
     def actions(self, arm, request):
         arms, grips = super().actions(arm, request)
@@ -128,4 +145,6 @@ class UnassistedTrial(FloatingTrial):
         self.event("support_preparation")
         self.holding_wrist = HoldingWrist(self.env, self.policy, self.side)
         self.path = self.holding_wrist.path
-        self.prepare_balance()
+        self.policy.grip_slew_rad_s = GRIP_PRELOAD_RATE_RAD_S
+        self.prepare_balance(GRIP_PREPARATION_S)
+        self.policy.grip_slew_rad_s = None

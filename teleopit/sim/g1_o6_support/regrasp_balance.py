@@ -148,13 +148,13 @@ class FloatingTrial(Trial):
         self.acquire("support_preparation")
         self.prepare_balance()
 
-    def prepare_balance(self):
+    def prepare_balance(self, preparation_s=RAMP_S):
         self.balance = FloatingBalance(self.env, self.policy, SIDES[1 - self.i])
         timer = Confirmation(2.0, self.dt)
         start = self.time
-        while self.time - start < 8.0:
+        while self.time - start < preparation_s + 6.5:
             self.tick("prepare_support")
-            after_ramp = self.last("time") >= start + RAMP_S - 1e-8
+            after_ramp = self.last("time") >= start + preparation_s - 1e-8
             if timer.update(self.support_ready() & after_ramp):
                 self.event("settled")
                 self.begin_measurement()
