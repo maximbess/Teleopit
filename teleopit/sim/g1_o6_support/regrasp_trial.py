@@ -335,13 +335,18 @@ class Trial:
     def control(self, matched):
         self.event("control_start")
         ends = [
-            (start, matched["events"].get("opened" + str(i), matched["end_s"]))
+            (start, matched["events"].get("opened" + str(i), matched["end_s"]), i)
             for i in (1, 2)
             if (start := matched["events"].get("open_request" + str(i))) is not None
         ]
         while self.time < matched["end_s"] - self.tick_s / 2:
-            freeze = any(start <= self.time < end for start, end in ends)
-            self.tick("control", self.path.target(0.0) if freeze else None)
+            cycle = next(
+                (i for start, end, i in ends if start <= self.time < end), None
+            )
+            arm = (
+                self.path.target(0.0, float(cycle != 1)) if cycle is not None else None
+            )
+            self.tick("control", arm)
         self.windows.update(matched["windows"])
 
     def run(self, matched=None):

@@ -204,6 +204,34 @@ def test_loss_invalidates_settled_comparison_but_preserves_transient():
     assert unavailable["hold1"] == "opposition lost"
 
 
+def test_matched_control_freezes_the_same_tread_offset_in_each_opening():
+    from types import SimpleNamespace
+
+    from teleopit.sim.g1_o6_support.regrasp_trial import Trial
+
+    trial = SimpleNamespace(time=0.0, tick_s=0.02, windows={}, event=lambda name: None)
+    trial.path = SimpleNamespace(target=lambda distance, lateral=1.0: lateral)
+    commands = []
+
+    def tick(phase, arm):
+        commands.append(arm)
+        trial.time = round(trial.time + 0.02, 8)
+
+    trial.tick = tick
+    matched = {
+        "events": {
+            "open_request1": 0.0,
+            "opened1": 0.04,
+            "open_request2": 0.06,
+            "opened2": 0.08,
+        },
+        "end_s": 0.10,
+        "windows": {},
+    }
+    Trial.control(trial, matched)
+    assert commands == [0.0, 0.0, None, 1.0, None]
+
+
 def test_pelvis_angle_is_zero_at_the_rounded_source_quaternion():
     from teleopit.sim.g1_o6_support.regrasp_measure import pelvis_angle
 
