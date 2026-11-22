@@ -79,6 +79,15 @@ def hand_contacts(env, rows, side):
     return selected
 
 
+def external_hand_contacts(env, rows, side):
+    """Also include contacts with the other hand or another robot link."""
+    selected = hand_contacts(env, rows, side)
+    for index, row in enumerate(rows):
+        if "environment" not in row["regions"] and row["regions"].count(side+"_hand") == 1:
+            selected.append(contact_detail(env, index, row, side))
+    return selected
+
+
 def thumb_opposition(loaded):
     thumb = [c["normal_on_hand_world"] for c in loaded if c["group"] == "thumb"]
     others = [c["normal_on_hand_world"] for c in loaded if c["group"] in FINGERS[1:]]

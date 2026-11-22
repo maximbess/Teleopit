@@ -1,0 +1,263 @@
+"""Publish four-support comparisons and cycle outcomes from native rung-7 recordings."""
+
+import argparse
+import csv
+from collections import defaultdict
+from pathlib import Path
+
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import numpy as np
+
+from teleopit.sim.g1_o6_support.regrasp import write_json
+from teleopit.sim.g1_o6_support.regrasp_measure import SUPPORTS
+from teleopit.sim.g1_o6_support.regrasp_results import (
+    contact_events,
+    failures,
+    interval,
+    read_run,
+    score_pair,
+)
+
+
+def csv_file(path, rows):
+    with path.open("w", newline="", encoding="utf-8") as out:
+        writer = csv.DictWriter(out, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def cycle(outcome, cfg, t):
+    events = contact_events(t, outcome)
+    start = (
+        events.get("clear_verified1")
+        if cfg["pelvis"] == "fixed"
+        else events.get("settled")
+    )
+    if start is None:
+        return {
+            "moving_completed": False,
+            "supported_cycle": False,
+            "events": events,
+            "missing": outcome["missing"],
+        }
+    active = t["time"] >= start - 1e-8
+    first = failures(t, cfg, start)
+    i = int(cfg["side"] == "right")
+    moving = (
+        all(key in outcome["windows"] for key in ("hold1", "hold2"))
+        and "clear_verified2" in events
+    )
+    opp = 1 - i
+    drops = (t["state"][:, opp] != 3) & active
+    verified_gaps, travel, _approach_errors = {}, {}, {}
+    for n in ("1", "2"):
+        if "clear_verified" + n in events:
+            stop = events["clear_verified" + n]
+            mask = interval(t["time"], (stop - 0.5, stop))
+            verified_gaps[n] = float(min(t["gap"][mask]))
+            base = np.argmin(abs(t["time"] - events["open_request" + n]))
+            travel[n] = float(
+                t["wrist"][base, i, 0] - t["wrist"][np.flatnonzero(mask)[-1], i, 0]
+            )
+    return {
+        "moving_completed": moving,
+        "supported_cycle": moving and not any(v is not None for v in first.values()),
+        "first": first,
+        "events": events,
+        "missing": outcome["missing"],
+        "handoffs": outcome["handoffs"],
+        "minimum_verified_gap_m": verified_gaps,
+        "measured_retreat_m": travel,
+        "max_pelvis_drift_m": t["drift"][active].max(),
+        "max_tilt_rad": t["tilt"][active].max(),
+        "max_applied": t["applied"][active].max(),
+        "max_fixture_force_N": np.linalg.norm(t["fixture"][active, :3], axis=1).max(),
+        "mean_fixture_Fz_N": t["fixture"][active, 2].mean(),
+        "opposite_grasp_loss_s": float(drops.sum() * cfg["config"]["physics_dt"]),
+        "min_foot_Fz_N": t["fz"][active, 2:].min(axis=0).tolist(),
+    }
+
+
+def collect(root):
+    results, pairs, plots, rows = {}, {}, defaultdict(list), []
+    for path in sorted(root.glob("*/release/outcome.json")):
+        directory = path.parent.parent
+        outcome, cfg, trace = read_run(path.parent)
+        record = cycle(outcome, cfg, trace)
+        results[directory.name] = dict(
+            pelvis=cfg["pelvis"], side=cfg["side"], offset_mm=cfg["offset_mm"], **record
+        )
+        if cfg["pelvis"] == "free" and (directory / "control/outcome.json").is_file():
+            pair = score_pair(directory)
+            pairs[directory.name] = {k: v for k, v in pair.items() if k != "forces"}
+            rows.extend(
+                dict(trial=directory.name, side=cfg["side"], **f)
+                for f in pair["forces"]
+            )
+            _, _, control = read_run(directory / "control")
+            baseline = outcome["windows"]["baseline"]
+            mask = trace["time"] >= baseline[0] - 1e-8
+            plots[cfg["side"]].append(
+                (
+                    trace["time"][mask] - baseline[1],
+                    trace["fz"][mask],
+                    control["fz"][mask],
+                    pair["events"],
+                    pair["release_first_events"],
+                    baseline[1],
+                )
+            )
+    return results, pairs, plots, rows
+
+
+def summary(records):
+    rows = []
+    for mode in ("fixed", "free"):
+        for side in ("left", "right"):
+            selected = [
+                r for r in records.values() if r["pelvis"] == mode and r["side"] == side
+            ]
+            nominal = [r for r in selected if r["offset_mm"] == 0]
+            rows.append(
+                {
+                    "pelvis": mode,
+                    "hand": side,
+                    "nominal_repeats": len(nominal),
+                    "moving_cycles": sum(r["moving_completed"] for r in nominal),
+                    "continuously_supported_cycles": sum(
+                        r["supported_cycle"] for r in nominal
+                    ),
+                    "passed_moving_offsets_mm": " ".join(
+                        str(v)
+                        for v in sorted(
+                            {r["offset_mm"] for r in selected if r["moving_completed"]}
+                        )
+                    ),
+                    "first_missing": next(
+                        (r["missing"] for r in nominal if r["missing"]), ""
+                    ),
+                }
+            )
+    return rows
+
+
+def force_summary(rows):
+    groups = defaultdict(list)
+    for row in rows:
+        groups[row["side"], row["window"], row["support"]].append(row)
+    result = []
+    for (side, window, support), repeats in groups.items():
+        effects = [r["effect_N"] for r in repeats]
+        result.append(
+            {
+                "side": side,
+                "window": window,
+                "support": support,
+                "n": len(repeats),
+                "status": repeats[0]["status"],
+                "mean_effect_N": np.mean(effects),
+                "mean_effect_pp": np.mean([r["effect_pp"] for r in repeats]),
+                "between_repeat_range_N": np.ptp(effects),
+                "raw_min_N": min(r["min_N"] for r in repeats),
+                "raw_max_N": max(r["max_N"] for r in repeats),
+            }
+        )
+    return result
+
+
+def event_marks(events, violations, origin):
+    marks = [
+        (events.get(k), label)
+        for k, label in (
+            ("open_request1", "Open"),
+            ("opened1", "Opened"),
+            ("last_contact_end1", "Last contact"),
+            ("clear_verified1", "Clear"),
+            ("approach1", "Approach"),
+            ("grasp_verified1", "Grasp"),
+            ("recovered1", "Recovery"),
+        )
+    ]
+    losses = [v for k, v in violations.items() if k.endswith("_loss") and v is not None]
+    if losses:
+        marks.append((min(losses), "Support loss"))
+    return sorted((t - origin, label) for t, label in marks if t is not None)
+
+
+def figure(output, side, runs):
+    time, _release, _control, events, violations, origin = runs[0]
+    fig, axes = plt.subplots(4, 2, figsize=(12, 8), sharex=True, layout="constrained")
+    fig.suptitle(
+        f"{side.title()} hand release on rung 7   ·   free pelvis", fontsize=17
+    )
+    marks = event_marks(events, violations, origin)
+    arrays = {"time_s": time}
+    axes[0, 0].set_title("Vertical reaction (N)", loc="left")
+    axes[0, 1].set_title("Release effect above matched baseline (N)", loc="left")
+    for i, name in enumerate(SUPPORTS):
+        ax, diff = axes[i]
+        for j, (t, r, c, *_) in enumerate(runs):
+            arrays[f"release_{j + 1}_{name}_N"], arrays[f"control_{j + 1}_{name}_N"] = (
+                r[:, i],
+                c[:, i],
+            )
+            arrays[f"time_{j + 1}_s"] = t
+            baseline = (t >= -2.0 - 1e-8) & (t < -1e-8)
+            net = r[:, i] - c[:, i]
+            net -= net[baseline].mean()
+            ax.plot(
+                t,
+                c[:, i],
+                color="#696b72",
+                lw=0.55,
+                alpha=0.75,
+                label="Both hold" if j == 0 else None,
+            )
+            ax.plot(
+                t,
+                r[:, i],
+                color="#087b8d",
+                lw=0.55,
+                alpha=0.8,
+                label="Release" if j == 0 else None,
+            )
+            diff.plot(t, net, color="#884678", lw=0.55, alpha=0.7)
+        ax.set_ylabel(name.replace("_", " ").title())
+        for cell in (ax, diff):
+            cell.axhline(0, color="0.7", lw=0.6)
+            for when, _ in marks:
+                cell.axvline(when, color=".55", lw=0.65, ls=":")
+            cell.spines[["top", "right"]].set_visible(False)
+            cell.grid(axis="y", alpha=0.18)
+    axes[0, 0].legend(loc="best", fontsize=8)
+    for ax in axes[-1]:
+        ax.set_xlabel("Seconds from open request")
+    legend = "    ".join(f"{when:.3f} s  {label.lower()}" for when, label in marks)
+    fig.supxlabel(legend, fontsize=8)
+    fig.savefig(output / f"{side}_forces.png", dpi=160)
+    plt.close(fig)
+    np.savez_compressed(output / f"{side}_forces.npz", **arrays)
+
+
+def publish(root, output):
+    output.mkdir(parents=True, exist_ok=True)
+    records, pairs, plots, rows = collect(root)
+    write_json(output / "outcomes.json", records)
+    write_json(output / "matched_events.json", pairs)
+    csv_file(output / "cycles.csv", summary(records))
+    if rows:
+        csv_file(output / "paired_forces.csv", rows)
+        csv_file(output / "paired_repeats.csv", force_summary(rows))
+    for side, runs in plots.items():
+        figure(output, side, runs)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("root", type=Path)
+    parser.add_argument("output", type=Path)
+    args = parser.parse_args()
+    publish(args.root, args.output)
