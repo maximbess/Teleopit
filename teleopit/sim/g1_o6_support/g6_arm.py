@@ -101,6 +101,7 @@ class AcquisitionArmReference(ArmReference):
     def reset(self, env):
         super().reset(env)
         self.anchor, self.seek, self.quality = {}, {}, {}
+        self.external_arms = set()
         self.inhibition = []
         self.displacement, self.angle = {}, {}
 
@@ -118,7 +119,8 @@ class AcquisitionArmReference(ArmReference):
             self.quality, self.inhibition = feedback_contacts(env)
             self.latch(env)
             for side, indices in self.indices.items():
-                self.update(env, desired, side, indices)
+                if side not in self.external_arms:
+                    self.update(env, desired, side, indices)
         self.raw = desired.copy()
         return desired
 
