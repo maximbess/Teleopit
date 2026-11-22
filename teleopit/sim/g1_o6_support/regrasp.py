@@ -17,6 +17,7 @@ from .ladder_identity import physical_identity
 from .long_hold import run_hold
 from .pose_arm import rung_pose
 from .regrasp_actions import PhysicalHands, fixed_model
+from .regrasp_balance import FloatingTrial
 from .regrasp_measure import STATES, SUPPORTS
 from .regrasp_trial import (
     ANGLE_TOL_RAD,
@@ -75,11 +76,14 @@ def run_branch(args, directory, matched=None):
     probe = getattr(args, "probe", None)
     prepare_scene(env, args, directory, probe)
     policy = PhysicalHands.install(env)
-    tape = stance_recording(args.source) if args.pelvis == "free" else None
-    trial = Trial(env, policy, args.hand, args.pelvis, tape, args.offset_mm)
+    trial = make_trial(env, policy, args)
     settings = resolved_trial(trial, args, meta, hashes, matched, probe)
     write_json(directory / "resolved.json", settings)
     result = run_probe(trial, probe) if probe else trial.run(matched)
+    if isinstance(trial, FloatingTrial) and trial.balance is not None:
+        settings["floating_stance"] = trial.balance.settings()
+        settings["scored_model"] = physical_identity(env.model)
+        write_json(directory / "resolved.json", settings)
     mujoco.mj_subtreeVel(env.model, env.data)
     result["end_momentum_Ns"] = (
         env.mass * env.data.subtree_linvel[env.model.body("pelvis").id, 2]
@@ -95,6 +99,13 @@ def run_branch(args, directory, matched=None):
         flush=True,
     )
     return result
+
+
+def make_trial(env, policy, args):
+    if args.pelvis == "free" and args.free_controller == "balanced":
+        return FloatingTrial(env, policy, args.hand, args.offset_mm)
+    tape = stance_recording(args.source) if args.pelvis == "free" else None
+    return Trial(env, policy, args.hand, args.pelvis, tape, args.offset_mm)
 
 
 def prepare_scene(env, args, directory, probe):
@@ -121,6 +132,9 @@ def resolved_trial(trial, args, meta, hashes, matched, probe):
     env, policy = trial.env, trial.policy
     return {
         "pelvis": args.pelvis,
+        "free_controller": getattr(args, "free_controller", None)
+        if args.pelvis == "free"
+        else None,
         "side": args.hand,
         "offset_mm": args.offset_mm,
         "branch": "release" if matched is None else "control",
@@ -227,6 +241,12 @@ def main():
     trial = commands.add_parser("trial")
     trial.add_argument("--pelvis", choices=("fixed", "free"), required=True)
     trial.add_argument("--hand", choices=("left", "right"), required=True)
+    trial.add_argument(
+        "--free-controller",
+        choices=("balanced", "reference"),
+        default="balanced",
+        help="Free-pelvis stance and supporting grip; reference replays the original experiment",
+    )
     trial.add_argument("--offset-mm", choices=(-2, 0, 2), type=int, default=0)
     trial.add_argument("--output", required=True, type=Path)
     negative = commands.add_parser("probe")

@@ -17,7 +17,7 @@ python -m $runner reference --output "$root/reference"
 foreach ($hand in 'left','right') {
     foreach ($repeat in 1,2) {
         python -m $runner trial --pelvis fixed --hand $hand --output "$root/fixed_${hand}_$repeat"
-        python -m $runner trial --pelvis free --hand $hand --output "$root/free_${hand}_$repeat"
+        python -m $runner trial --pelvis free --free-controller reference --hand $hand --output "$root/free_${hand}_$repeat"
     }
     python -m $runner trial --pelvis fixed --hand $hand --offset-mm -2 --output "$root/fixed_${hand}_minus2"
     python -m $runner trial --pelvis fixed --hand $hand --offset-mm  2 --output "$root/fixed_${hand}_plus2"

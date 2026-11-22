@@ -126,10 +126,14 @@ class Trial:
                 raise Unmet("reference stance recording exhausted")
             p.stance = self.stance[index, p.indices]
 
-    def tick(self, phase, arm=None, request=None, *, gap=False):
-        e, p = self.env, self.policy
+    def actions(self, arm, request):
         arms, grips = [None] * 2, [None] * 2
         arms[self.i], grips[self.i] = arm, request
+        return arms, grips
+
+    def tick(self, phase, arm=None, request=None, *, gap=False):
+        e, p = self.env, self.policy
+        arms, grips = self.actions(arm, request)
         self.readings.phase, self.readings.check_gap = phase, gap
         self.set_stance()
         row = p.step(arms, grips, physics_observer=self.readings)
@@ -159,7 +163,17 @@ class Trial:
         for key, value in sample.items():
             self.ticks[key].append(value)
 
-    def settle(self):
+    def support_ready(self):
+        return (
+            (self.last("state") == STATES.index("grasp")).all(axis=1)
+            & self.last("loaded").all(axis=1)
+            & (self.last("applied") == 0)
+            & (self.last("assist_gain") == 0)
+            & (self.last("wrong") == 0)
+            & (self.last("slip").max(axis=1) < self.env.config.max_slip_m_s)
+        )
+
+    def acquire(self, event):
         timer = Confirmation(2.0, self.dt)
         while self.time < 16.0:
             if (
@@ -170,22 +184,20 @@ class Trial:
                 self.fixed_stance = self.env.data.ctrl[self.policy.indices].copy()
             self.tick("setup")
             engaged = self.policy.parent.updates["right"] > 0
-            ready = (
-                (self.last("state") == STATES.index("grasp")).all(axis=1)
-                & self.last("loaded").all(axis=1)
-                & (self.last("applied") == 0)
-                & (self.last("assist_gain") == 0)
-                & (self.last("wrong") == 0)
-                & (self.last("slip").max(axis=1) < self.env.config.max_slip_m_s)
-            )
-            if timer.update(ready & engaged):
-                self.event("settled")
-                self.path = WristPath(self.env, self.policy, self.side, self.offset_mm)
-                self.windows["baseline"] = [self.time - 2.0, self.time]
+            if timer.update(self.support_ready() & engaged):
+                self.event(event)
                 return
         raise Unmet(
             "two continuous seconds of unassisted four-support hold with wrist feedback"
         )
+
+    def begin_measurement(self):
+        self.path = WristPath(self.env, self.policy, self.side, self.offset_mm)
+        self.windows["baseline"] = [self.time - 2.0, self.time]
+
+    def settle(self):
+        self.acquire("settled")
+        self.begin_measurement()
 
     def opened(self):
         return measured_opening(self.start_angles, self.last("digits")[:, self.i])
