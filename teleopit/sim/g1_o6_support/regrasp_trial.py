@@ -10,6 +10,7 @@ from teleopit.sim.o6_grasp.controller import smooth
 
 from .config import TransferCriteria
 from .g6_grip_feedback import SIDES
+from .guards import detached, measured_opening
 from .pose_arm import correction_rate, rung_pose
 from .regrasp_measure import STATES, NativeTrace
 
@@ -103,7 +104,6 @@ class Trial:
         self.fixed_stance = None
         self.dt, self.tick_s = env.config.physics_dt, env.config.control_dt
         self.n = round(self.tick_s / self.dt)
-        self.criterion = self.settle_start = None
 
     @property
     def time(self):
@@ -116,11 +116,8 @@ class Trial:
         self.events[name] = self.time
         print(f"{self.mode} {self.side} {self.time:.3f} s  {name}", flush=True)
 
-    def tick(self, phase, arm=None, request=None, *, gap=False):
-        e, p = self.env, self.policy
-        arms, grips = [None] * 2, [None] * 2
-        arms[self.i], grips[self.i] = arm, request
-        self.readings.phase, self.readings.check_gap = phase, gap
+    def set_stance(self):
+        p = self.policy
         if self.fixed_stance is not None:
             p.stance = self.fixed_stance
         elif self.path is not None and self.mode == "free":
@@ -128,17 +125,30 @@ class Trial:
             if index >= len(self.stance):
                 raise Unmet("reference stance recording exhausted")
             p.stance = self.stance[index, p.indices]
+
+    def tick(self, phase, arm=None, request=None, *, gap=False):
+        e, p = self.env, self.policy
+        arms, grips = [None] * 2, [None] * 2
+        arms[self.i], grips[self.i] = arm, request
+        self.readings.phase, self.readings.check_gap = phase, gap
+        self.set_stance()
         row = p.step(
             arms, grips, physics_observer=self.readings, advance_phase=e.phase != "HOLD"
         )
-        obs = row["physical_hands"]
+        self.record_command(row, phase, arm, grips)
+        if e.phase == "ABORT":
+            raise Unmet(", ".join(e.abort_reasons))
+        return row
+
+    def record_command(self, row, phase, arm, grips):
+        e, obs = self.env, row["physical_hands"]
         sample = {
             "time": self.time,
             "phase": phase,
             "qpos": e.data.qpos.copy(),
             "qvel": e.data.qvel.copy(),
             "arm_request": np.full(7, np.nan) if arm is None else arm.copy(),
-            "grip_request": [np.nan if g is None else g for g in grips],
+            "grip_request": np.array(grips, dtype=float),
             "desired": e.desired_target.copy(),
             "target": e.target.copy(),
             "ctrl": e.data.ctrl.copy(),
@@ -150,9 +160,6 @@ class Trial:
         }
         for key, value in sample.items():
             self.ticks[key].append(value)
-        if e.phase == "ABORT":
-            raise Unmet(", ".join(e.abort_reasons))
-        return row
 
     def settle(self):
         timer = Confirmation(2.0, self.dt)
@@ -183,17 +190,10 @@ class Trial:
         )
 
     def opened(self):
-        actual = self.last("digits")[:, self.i]
-        return (np.abs(actual).max(axis=1) <= CRITERIA.open_tolerance_rad) & (
-            (self.start_angles - actual).max(axis=1) >= CRITERIA.minimum_open_motion_rad
-        )
+        return measured_opening(self.start_angles, self.last("digits")[:, self.i])
 
     def clear(self):
-        return (
-            self.opened()
-            & (self.last("external_count") == 0)
-            & (self.last("gap") >= CRITERIA.clearance_m)
-        )
+        return detached(self.opened(), self.last("external_count"), self.last("gap"))
 
     def open_retreat(self, cycle):
         prefix, start = str(cycle), self.time
@@ -232,7 +232,7 @@ class Trial:
                 self.event("clear_verified" + prefix)
                 self.windows["retreat" + prefix] = [start, self.time]
                 return
-        self.windows["retreat_transient" + prefix] = [start, self.time]
+        self.windows["retreat" + prefix + "_transient"] = [start, self.time]
         raise Unmet(
             f"retreat confirmation lasted {timer.count * self.dt:.3f} s; "
             f"last displacement {displacement[-1] * 1000:.1f} mm, gap {self.last('gap')[-1] * 1000:.1f} mm, "
@@ -252,8 +252,8 @@ class Trial:
         name = stage + "_transient" if stage in self.interruptions else stage
         self.windows[name] = [start, self.time]
 
-    def grasp(self, cycle):
-        prefix, start = str(cycle), self.time
+    def approach(self, prefix):
+        start = self.time
         self.event("approach" + prefix)
         while self.time - start < 4.0:
             f = smooth((self.time - start) / MOVE_S)
@@ -279,6 +279,10 @@ class Trial:
                 f"open approach missed pose or clearance: position error {1000 * pos:.1f} mm, "
                 f"angle {angle:.3f} rad, external contacts {self.last('external_count')[-1]}"
             )
+
+    def grasp(self, cycle):
+        prefix = str(cycle)
+        self.approach(prefix)
         self.event("close_request" + prefix)
         timer = Confirmation(CRITERIA.persistence_s, self.dt)
         start = self.time

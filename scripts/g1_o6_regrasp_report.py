@@ -114,34 +114,28 @@ def collect(root):
 
 
 def summary(records):
-    rows = []
-    for mode in ("fixed", "free"):
-        for side in ("left", "right"):
-            selected = [
-                r for r in records.values() if r["pelvis"] == mode and r["side"] == side
-            ]
-            nominal = [r for r in selected if r["offset_mm"] == 0]
-            rows.append(
-                {
-                    "pelvis": mode,
-                    "hand": side,
-                    "nominal_repeats": len(nominal),
-                    "moving_cycles": sum(r["moving_completed"] for r in nominal),
-                    "continuously_supported_cycles": sum(
-                        r["supported_cycle"] for r in nominal
-                    ),
-                    "passed_moving_offsets_mm": " ".join(
-                        str(v)
-                        for v in sorted(
-                            {r["offset_mm"] for r in selected if r["moving_completed"]}
-                        )
-                    ),
-                    "first_missing": next(
-                        (r["missing"] for r in nominal if r["missing"]), ""
-                    ),
-                }
-            )
-    return rows
+    groups = defaultdict(list)
+    for record in records.values():
+        groups[record["pelvis"], record["side"]].append(record)
+    return [
+        cycle_counts(mode, side, groups[mode, side])
+        for mode in ("fixed", "free")
+        for side in ("left", "right")
+    ]
+
+
+def cycle_counts(mode, side, selected):
+    nominal = [r for r in selected if r["offset_mm"] == 0]
+    offsets = sorted({r["offset_mm"] for r in selected if r["moving_completed"]})
+    return {
+        "pelvis": mode,
+        "hand": side,
+        "nominal_repeats": len(nominal),
+        "moving_cycles": sum(r["moving_completed"] for r in nominal),
+        "continuously_supported_cycles": sum(r["supported_cycle"] for r in nominal),
+        "passed_moving_offsets_mm": " ".join(map(str, offsets)),
+        "first_missing": next((r["missing"] for r in nominal if r["missing"]), ""),
+    }
 
 
 def force_summary(rows):
@@ -187,6 +181,18 @@ def event_marks(events, violations, origin):
     return sorted((t - origin, label) for t, label in marks if t is not None)
 
 
+def force_line(ax, t, values, color, label):
+    # Keep every transient peak visible. The darker line averages 101 native samples.
+    ax.fill_between(
+        t, np.min(values, axis=0), np.max(values, axis=0), color=color, alpha=0.2
+    )
+    for trace in values:
+        ax.plot(t, trace, color=color, lw=0.5, alpha=0.27)
+        trend = np.convolve(trace, np.ones(101) / 101, mode="valid")
+        ax.plot(t[50:-50], trend, color=color, lw=1.0, label=label)
+        label = None
+
+
 def figure(output, side, runs):
     time, _release, _control, events, violations, origin = runs[0]
     fig, axes = plt.subplots(4, 2, figsize=(12, 8), sharex=True, layout="constrained")
@@ -196,9 +202,10 @@ def figure(output, side, runs):
     marks = event_marks(events, violations, origin)
     arrays = {"time_s": time}
     axes[0, 0].set_title("Vertical reaction (N)", loc="left")
-    axes[0, 1].set_title("Release effect above matched baseline (N)", loc="left")
+    axes[0, 1].set_title("Change relative to matched hold (N)", loc="left")
     for i, name in enumerate(SUPPORTS):
         ax, diff = axes[i]
+        differences = []
         for j, (t, r, c, *_) in enumerate(runs):
             arrays[f"release_{j + 1}_{name}_N"], arrays[f"control_{j + 1}_{name}_N"] = (
                 r[:, i],
@@ -208,26 +215,25 @@ def figure(output, side, runs):
             baseline = (t >= -2.0 - 1e-8) & (t < -1e-8)
             net = r[:, i] - c[:, i]
             net -= net[baseline].mean()
-            ax.plot(
-                t,
-                c[:, i],
-                color="#696b72",
-                lw=0.55,
-                alpha=0.75,
-                label="Both hold" if j == 0 else None,
-            )
-            ax.plot(
-                t,
-                r[:, i],
-                color="#087b8d",
-                lw=0.55,
-                alpha=0.8,
-                label="Release" if j == 0 else None,
-            )
-            diff.plot(t, net, color="#884678", lw=0.55, alpha=0.7)
+            differences.append(net)
+        # The repeats may end at different timeouts. Bands use their common prefix.
+        n = min(map(len, differences))
+        force_line(
+            ax, time[:n], [run[2][:n, i] for run in runs], "#63656b", "Both hold"
+        )
+        force_line(ax, time[:n], [run[1][:n, i] for run in runs], "#087b8d", "Release")
+        force_line(diff, time[:n], [v[:n] for v in differences], "#884678", None)
+        diff.axhline(0, color="0.7", lw=0.6)
         ax.set_ylabel(name.replace("_", " ").title())
         for cell in (ax, diff):
-            cell.axhline(0, color="0.7", lw=0.6)
+            if "clear_verified1" in events and "approach1" in events:
+                cell.axvspan(
+                    events["clear_verified1"] - origin,
+                    events["approach1"] - origin,
+                    color="#c7e6dd",
+                    alpha=0.22,
+                    lw=0,
+                )
             for when, _ in marks:
                 cell.axvline(when, color=".55", lw=0.65, ls=":")
             cell.spines[["top", "right"]].set_visible(False)

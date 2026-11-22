@@ -72,13 +72,19 @@ def operating_bound(side, target, cfg, capacity_shares):
     return min(capacity_shares[side], target / 2 + cfg.per_hand_balance_tolerance)
 
 
-def released(start, actual, contacts, clearance, cfg=CRITERIA):
-    return bool(
-        np.max(np.abs(actual)) <= cfg.open_tolerance_rad
-        and np.max(np.asarray(start) - actual) >= cfg.minimum_open_motion_rad
-        and contacts == 0
-        and clearance >= cfg.clearance_m
+def measured_opening(start, actual, cfg=CRITERIA):
+    """Six encoders per hand, with an optional leading native-sample axis."""
+    return (np.max(np.abs(actual), axis=-1) <= cfg.open_tolerance_rad) & (
+        np.max(np.asarray(start) - actual, axis=-1) >= cfg.minimum_open_motion_rad
     )
+
+
+def detached(opened, contacts, clearance, cfg=CRITERIA):
+    return opened & (np.asarray(contacts) == 0) & (np.asarray(clearance) >= cfg.clearance_m)
+
+
+def released(start, actual, contacts, clearance, cfg=CRITERIA):
+    return bool(detached(measured_opening(start, actual, cfg), contacts, clearance, cfg))
 
 
 def wrench_covered(demand, passed_wrenches, reserve=1.2):

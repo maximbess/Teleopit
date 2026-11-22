@@ -124,7 +124,8 @@ class PhysicalHands(PreviewReference):
         self.env.hold_controller = self
         return self
 
-    def action(self, arms=(None, None), grip=(None, None)):
+    @staticmethod
+    def parse_action(arms, grip):
         arms, grip = (
             dict(zip(SIDES, arms, strict=True)),
             dict(zip(SIDES, grip, strict=True)),
@@ -136,30 +137,34 @@ class PhysicalHands(PreviewReference):
                 raise ValueError("an arm action needs seven finite joint targets")
             if grip[side] is not None and not np.isfinite(grip[side]):
                 raise ValueError("grip request must be finite")
+        return arms, grip
+
+    def action(self, arms=(None, None), grip=(None, None)):
+        arms, grip = self.parse_action(arms, grip)
         for side, arm in arms.items():
             if arm is not None:
                 self.parent.external_arms.add(side)
             elif side in self.parent.external_arms:
                 recapture_wrist(self.env, side, self.parent)
-            if self.requests[side] is None and grip[side] is not None:
-                digit = self.digits[side]
-                digit.follow(self.env.target[self.env.hand_act[side]], digit.amount)
-            if (
-                self.requests[side] is not None
-                and grip[side] is None
-                and self.cap is not None
-            ):
-                i = SIDES.index(side)
-                attained = self.env.target[self.env.hand_act[side]]
-                self.cap[i] = attained
-                self.grip.ceiling.reshape(2, 6)[i] = attained
-                self.height_at_capture[i] = (
-                    self.env.data.site(self.env.hands[side]["palm"]).xpos[2]
-                    - self.env.data.geom(self.env.support_targets[side + "_hand"]).xpos[
-                        2
-                    ]
-                )
+            self.handoff_digits(side, grip[side])
         self.arms, self.requests = arms, grip
+
+    def handoff_digits(self, side, request):
+        was_automatic = self.requests[side] is None
+        if was_automatic == (request is None):
+            return
+        attained = self.env.target[self.env.hand_act[side]]
+        if was_automatic:
+            digit = self.digits[side]
+            digit.follow(attained, digit.amount)
+        elif self.cap is not None:
+            i = SIDES.index(side)
+            self.cap[i] = attained
+            self.grip.ceiling.reshape(2, 6)[i] = attained
+            self.height_at_capture[i] = (
+                self.env.data.site(self.env.hands[side]["palm"]).xpos[2]
+                - self.env.data.geom(self.env.support_targets[side + "_hand"]).xpos[2]
+            )
 
     def step(
         self,

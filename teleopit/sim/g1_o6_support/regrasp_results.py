@@ -162,34 +162,11 @@ def score_pair(directory):
         np.testing.assert_array_equal(r[key][pre], c[key][pre])
     loss = failures(r, cfg, baseline[1])
     control_loss = failures(c, ccfg, baseline[1])
+    first_loss = min(first_support_loss(loss), first_support_loss(control_loss))
+    windows, unavailable = measured_windows(outcome, first_loss)
     weight = cfg["mass_kg"] * abs(cfg["gravity_z"])
-    rows, balance, unavailable = [], {}, {}
-    for name in (
-        "baseline",
-        "opening1",
-        "retreat1",
-        "retreat_transient1",
-        "clear1",
-        "hold1",
-        "hold2",
-    ):
-        bounds = outcome["windows"].get(name)
-        if bounds is None:
-            if name != "retreat_transient1":
-                unavailable[name] = outcome["missing"] or "window not reached"
-            continue
-        loss_times = [
-            v
-            for d in (loss, control_loss)
-            for k, v in d.items()
-            if k.endswith("_loss") and v is not None
-        ]
-        status = "measured"
-        if name in ("clear1", "hold1", "hold2") and any(
-            time < bounds[1] - 1e-8 for time in loss_times
-        ):
-            unavailable[name] = "required support lost before window ended"
-            status = "transient; settled interval unavailable"
+    rows, balance = [], {}
+    for name, bounds, status in windows:
         rows.extend(
             dict(window=name, status=status, start_s=bounds[0], end_s=bounds[1], **row)
             for row in paired_window(r, c, baseline, bounds, weight)
@@ -210,3 +187,29 @@ def score_pair(directory):
         "balance": balance,
         "forces": rows,
     }
+
+
+def first_support_loss(events):
+    return min(
+        (v for k, v in events.items() if k.endswith("_loss") and v is not None),
+        default=np.inf,
+    )
+
+
+def measured_windows(outcome, first_loss):
+    phases = ("baseline", "opening1", "retreat1", "clear1", "hold1", "hold2")
+    windows, unavailable = [], {}
+    for name in phases:
+        bounds = outcome["windows"].get(name)
+        if bounds is None:
+            unavailable[name] = outcome["missing"] or "window not reached"
+            bounds = outcome["windows"].get(name + "_transient")
+            if bounds:
+                windows.append((name + "_transient", bounds, "incomplete"))
+            continue
+        status = "measured"
+        if name in ("clear1", "hold1", "hold2") and first_loss < bounds[1] - 1e-8:
+            unavailable[name] = "required support lost before window ended"
+            status = "transient, settled interval unavailable"
+        windows.append((name, bounds, status))
+    return windows, unavailable

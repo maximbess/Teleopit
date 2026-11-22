@@ -164,3 +164,36 @@ def test_signed_forces_include_tiny_contacts_and_account_for_other_surfaces():
     np.testing.assert_allclose(fz, [-1.99, 0, 170, 0])
     np.testing.assert_array_equal(loaded, [True, False, True, False])
     assert other == 2 and wrong == 1 and slip[0] == 0.006
+
+
+def test_release_needs_encoder_motion_no_contact_and_five_mm_on_each_sample():
+    from teleopit.sim.g1_o6_support.regrasp_trial import Trial
+
+    trial = Trial.__new__(Trial)
+    trial.i = 0
+    trial.start_angles = np.full(6, 0.5)
+    angles = np.zeros((5, 2, 6))
+    angles[3, 0, 4] = 0.14
+    values = {
+        "digits": angles,
+        "gap": np.array([0.005, 0.00499, 0.05, 0.05, np.nan]),
+        "external_count": np.array([0, 0, 1, 0, 0]),
+    }
+    trial.last = values.__getitem__
+    np.testing.assert_array_equal(trial.clear(), [True, False, False, False, False])
+    trial.start_angles[:] = 0.0
+    assert not trial.clear().any()
+
+
+def test_loss_invalidates_settled_comparison_but_preserves_transient():
+    from teleopit.sim.g1_o6_support.regrasp_results import measured_windows
+
+    result = {
+        "windows": {"baseline": [0, 2], "clear1": [3, 5], "hold1_transient": [7, 9]},
+        "missing": "opposition lost",
+    }
+    windows, unavailable = measured_windows(result, 2.3)
+    assert ("clear1", [3, 5], "transient, settled interval unavailable") in windows
+    assert ("hold1_transient", [7, 9], "incomplete") in windows
+    assert unavailable["clear1"] == "required support lost before window ended"
+    assert unavailable["hold1"] == "opposition lost"

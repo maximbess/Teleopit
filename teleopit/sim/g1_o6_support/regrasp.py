@@ -73,6 +73,31 @@ def run_branch(args, directory, matched=None):
     directory.mkdir(parents=True, exist_ok=False)
     env, meta, hashes = verified_environment(args.source)
     probe = getattr(args, "probe", None)
+    prepare_scene(env, args, directory, probe)
+    policy = PhysicalHands.install(env)
+    tape = stance_recording(args.source) if args.pelvis == "free" else None
+    trial = Trial(env, policy, args.hand, args.pelvis, tape, args.offset_mm)
+    settings = resolved_trial(trial, args, meta, hashes, matched, probe)
+    write_json(directory / "resolved.json", settings)
+    result = run_probe(trial, probe) if probe else trial.run(matched)
+    mujoco.mj_subtreeVel(env.model, env.data)
+    result["end_momentum_Ns"] = (
+        env.mass * env.data.subtree_linvel[env.model.body("pelvis").id, 2]
+    )
+    trial.readings.save(directory)
+    np.savez_compressed(directory / "commands.npz", **trial.ticks)
+    write_json(directory / "outcome.json", result)
+    print(
+        directory,
+        result["end_s"],
+        result["last_phase"],
+        result["missing"] or "completed",
+        flush=True,
+    )
+    return result
+
+
+def prepare_scene(env, args, directory, probe):
     if probe == "wrong_surface":
         env.pose = replace(
             env.pose, hand_rungs=(6, 7) if args.hand == "left" else (7, 6)
@@ -83,15 +108,18 @@ def run_branch(args, directory, matched=None):
         (directory / "fixture.xml").write_text(xml, encoding="utf-8")
     if probe == "wrong_surface":
         env.support_targets[args.hand + "_hand"] = "left_ladder_rung_07"
-    policy = PhysicalHands.install(env)
-    tape = None
-    if args.pelvis == "free":
-        with (args.source / "steps.jsonl").open() as stream:
-            tape = np.array(
-                [json.loads(line)["applied_position_targets_rad"] for line in stream]
-            )
-    trial = Trial(env, policy, args.hand, args.pelvis, tape, args.offset_mm)
-    settings = {
+
+
+def stance_recording(source):
+    with (source / "steps.jsonl").open() as stream:
+        return np.array(
+            [json.loads(line)["applied_position_targets_rad"] for line in stream]
+        )
+
+
+def resolved_trial(trial, args, meta, hashes, matched, probe):
+    env, policy = trial.env, trial.policy
+    return {
         "pelvis": args.pelvis,
         "side": args.hand,
         "offset_mm": args.offset_mm,
@@ -132,23 +160,6 @@ def run_branch(args, directory, matched=None):
         "position_tolerance_m": POSITION_TOL_M,
         "rotation_tolerance_rad": ANGLE_TOL_RAD,
     }
-    write_json(directory / "resolved.json", settings)
-    result = run_probe(trial, probe) if probe else trial.run(matched)
-    mujoco.mj_subtreeVel(env.model, env.data)
-    result["end_momentum_Ns"] = (
-        env.mass * env.data.subtree_linvel[env.model.body("pelvis").id, 2]
-    )
-    trial.readings.save(directory)
-    np.savez_compressed(directory / "commands.npz", **trial.ticks)
-    write_json(directory / "outcome.json", result)
-    print(
-        directory,
-        result["end_s"],
-        result["last_phase"],
-        result["missing"] or "completed",
-        flush=True,
-    )
-    return result
 
 
 def run_probe(trial, kind):
@@ -171,6 +182,10 @@ def run_probe(trial, kind):
     trial.event("close_request")
     for _ in range(round(2.0 / trial.tick_s)):
         trial.tick("negative_close", arm, 1.0)
+    return score_probe(trial, kind)
+
+
+def score_probe(trial, kind):
     samples = trial.readings.samples
     mask = np.asarray(samples["phase"]) == "negative_close"
     states = np.asarray(samples["state"])[mask, trial.i]
