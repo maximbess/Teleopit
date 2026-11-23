@@ -4,12 +4,16 @@ From the repository root on `dex-hand-exp`, activate the `teleopit` environment.
 
 ## Replay the recorded cycle in Viser
 
-```powershell
+Run the same command from the repository root in WSL or PowerShell.
+
+```sh
 conda activate teleopit
 python -m scripts.view.view_rung7_regrasp --run outputs/g1_o6/rung7_redistribution_verified/free_left_1/release
 ```
 
 Open the [local viewer](http://127.0.0.1:8012). For the right side, use `outputs/g1_o6/rung7_redistribution_verified/free_right_1/release`. The replay uses the measured joint states from the first open request through the final two-second hold. The speed and frame controls let you inspect either regrasp.
+
+The left-hand recording includes a close-up with the measured contact state and time since the first release. [Watch the MP4](media/left-release-regrasp.mp4)
 
 ## Rerun the matched experiment
 

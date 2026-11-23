@@ -2,6 +2,8 @@
 
 Both hands completed two release–retreat–regrasp cycles in each of two nominal repeats. Every release and both-hands-holding control passed from its first 1 ms physics step through its last. Both feet remained on rung 2. The opposite thumb stayed opposed below rung 7 with all four fingers loaded above it. All external assistance, applied generalized forces, fixture reactions and unintended vertical support were zero.
 
+The Viser video shows both left-hand cycles at their recorded speed. The full-body view shows the stance, and the close-up shows the fingers clearing and regrasping rung 7, highlighted in teal. Opposing thumb and finger contacts verify the two regrasps at 8.62 s and 17.24 s in the video. [Watch the full release and regrasp (MP4)](media/left-release-regrasp.mp4)
+
 ## Where the released load went
 
 The released hand carried exactly 0 N throughout each two-second clear interval. On left release, the left foot gained 7.66 N relative to the matched hold (2.29 percentage points of body weight). The right hand changed by −1.09 N and the right foot by −2.15 N. On right release, the right foot gained 5.90 N (1.76 points). The left hand changed by −0.13 N and the left foot by −1.37 N.

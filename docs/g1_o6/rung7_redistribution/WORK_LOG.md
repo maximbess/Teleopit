@@ -17,3 +17,13 @@
 | Ran the controller, contact, force-accounting, transfer and replay regressions. | All 128 tests passed, with one dependency deprecation warning. All ten targeted mutations failed their behavior checks. The named crapper, dryer and mutator executables were unavailable. The repository's Radon and measured-coverage checker found a maximum CRAP score of 9.07 across 24 changed functions and zero duplication scores at or above 0.8. Ruff passed. |
 
 The published raw runs are in `outputs/g1_o6/rung7_redistribution_verified`. The preceding matched runs with the wrist handoff fault are in `outputs/g1_o6/rung7_redistribution`. Local screens, coverage results, mutation outputs and independent checks are in `outputs/g1_o6/redistribution_dev`. The four-support results, event clocks and force traces are archived alongside this log. [Full report](README.md) · [Verification](verification.json)
+
+## WSL replay and left-hand video
+
+The Ubuntu replay failed because the Windows recording used backslashes in its relative source directory. A regression reproduced the error with a saved MuJoCo scene and checked that replacing that scene still raises the recorded-hash error. The reader now resolves historical paths, and the trial writer saves relative paths with forward slashes. The original WSL command served the scene meshes and advanced through successive poses.
+
+The three regrasp suites passed all 26 tests in WSL. The free-pelvis and redistribution suites passed all 15 tests on Windows. The native audit also passed all eight archived trajectories in WSL. Removing separator conversion or the scene-hash check made the replay regression fail. The repository quality check measured all six changed functions, with a maximum CRAP score of 9.0 and no duplicate score at or above 0.8.
+
+The recording uses the first nominal left release. The renderer verified the model, command, physics, outcome and configuration hashes, then displayed all 963 saved poses at their recorded 50 Hz. It starts at simulation time 7.00 s and ends at 26.24 s. The close-up uses the measured contact state at each pose. Four frames from the two-camera export were compared with individual Viser captures, including the first clear interval and both verified holds. [Source hashes](raw_sha256.json) · [Event times](matched_events.json)
+
+The final 1440 × 810 H.264 file decoded through all 963 frames and plays for 19.26 s. Six decoded frames were inspected across both cycles. The MP4 has SHA-256 `dc83fea7af1fc40a8c2062270f9c2cc92deb387235a42d2b07ba0c2a79740c62`. [Recorded video](media/left-release-regrasp.mp4)
