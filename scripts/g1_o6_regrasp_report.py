@@ -21,6 +21,7 @@ from teleopit.sim.g1_o6_support.regrasp_results import (
     failures,
     interval,
     read_run,
+    recorded_source,
     score_pair,
 )
 
@@ -324,7 +325,7 @@ def evidence_ledger(root, output, records):
     write_json(output / "raw_sha256.json", ledger)
     reference = root / "reference"
     if (reference / "manifest.json").is_file() and runs:
-        source = Path(json.loads((runs[0] / "resolved.json").read_bytes())["source"])
+        source = recorded_source(json.loads((runs[0] / "resolved.json").read_bytes()))
         write_json(output / "reference.json", reference_receipt(reference, source))
 
 

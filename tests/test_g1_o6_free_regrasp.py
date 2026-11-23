@@ -126,6 +126,52 @@ def test_replay_includes_open_and_both_holds_and_rejects_an_interrupted_cycle():
         cycle_frames(clock, {"events": events, "missing": "first hold lost"})
 
 
+def test_replay_opens_a_windows_recording_and_checks_its_scene_hash(
+    tmp_path, monkeypatch
+):
+    import hashlib
+    import json
+
+    import mujoco
+    import pytest
+
+    from scripts.view.view_rung7_regrasp import read_clip
+
+    monkeypatch.chdir(tmp_path)
+    source = tmp_path / "outputs" / "reference"
+    source.mkdir(parents=True)
+    scene = source / "scene.mjb"
+    model = mujoco.MjModel.from_xml_string(
+        '<mujoco><worldbody><body><joint/><geom size=".1"/></body></worldbody></mujoco>'
+    )
+    mujoco.mj_saveModel(model, str(scene))
+    cfg = {
+        "pelvis": "free",
+        "side": "left",
+        "source": r"outputs\reference",
+        "source_sha256": {"scene.mjb": hashlib.sha256(scene.read_bytes()).hexdigest()},
+    }
+    run = tmp_path / "release"
+    run.mkdir()
+    (run / "resolved.json").write_text(json.dumps(cfg))
+    outcome = {"missing": None, "events": {"open_request1": 1.0, "recovered2": 1.04}}
+    (run / "outcome.json").write_text(json.dumps(outcome))
+    np.savez(
+        run / "commands.npz",
+        time=[0.98, 1.0, 1.02, 1.04],
+        phase=["prepare", "opening1", "closing2", "hold2"],
+        qpos=[[0.0], [0.2], [0.4], [0.3]],
+    )
+    replay, side, times, phases, poses = read_clip(run)
+    assert replay.nq == 1 and side == "left"
+    np.testing.assert_array_equal(times, [1.0, 1.02, 1.04])
+    np.testing.assert_array_equal(phases, ["opening1", "closing2", "hold2"])
+    np.testing.assert_array_equal(poses[:, 0], [0.2, 0.4, 0.3])
+    scene.write_bytes(b"changed scene")
+    with pytest.raises(ValueError, match="differs from the recorded model"):
+        read_clip(run)
+
+
 def test_held_hand_keeps_its_wrist_equilibrium_when_the_control_repeats_a_rung_goal():
     from types import SimpleNamespace
 

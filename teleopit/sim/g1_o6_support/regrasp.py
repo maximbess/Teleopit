@@ -154,7 +154,7 @@ def resolved_trial(trial, args, meta, hashes, matched, probe):
         "mass_kg": env.mass,
         "gravity_z": env.model.opt.gravity[2],
         "initial_qpos": env.initial_qpos.tolist(),
-        "source": str(args.source),
+        "source": args.source.as_posix(),
         "source_sha256": {
             n: hashes[n] for n in ("resolved.json", "scene.mjb", "steps.jsonl")
         },

@@ -9,6 +9,7 @@ import mujoco
 import numpy as np
 
 from teleopit.sim.g1_o6_support.ladder_campaign import file_hash
+from teleopit.sim.g1_o6_support.regrasp_results import recorded_source
 
 ROOT = Path("outputs/g1_o6/rung7_free_regrasp")
 
@@ -28,7 +29,7 @@ def read_clip(run):
     if cfg["pelvis"] == "fixed":
         model = mujoco.MjModel.from_xml_path(str(run / "fixture.xml"))
     else:
-        scene = Path(cfg["source"]) / "scene.mjb"
+        scene = recorded_source(cfg) / "scene.mjb"
         if file_hash(scene) != cfg["source_sha256"]["scene.mjb"]:
             raise ValueError("The scene differs from the recorded model.")
         model = mujoco.MjModel.from_binary_path(str(scene))

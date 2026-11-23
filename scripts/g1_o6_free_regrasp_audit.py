@@ -12,7 +12,12 @@ from teleopit.sim.g1_o6.diagnostics import region
 from teleopit.sim.g1_o6_support.guards import detached, measured_opening
 from teleopit.sim.g1_o6_support.regrasp import write_json
 from teleopit.sim.g1_o6_support.regrasp_measure import STATES, SUPPORTS
-from teleopit.sim.g1_o6_support.regrasp_results import failures, interval, read_run
+from teleopit.sim.g1_o6_support.regrasp_results import (
+    failures,
+    interval,
+    read_run,
+    recorded_source,
+)
 from teleopit.sim.g1_o6_support.regrasp_unassisted import free_body_setup
 
 
@@ -28,7 +33,7 @@ def native_forces(contacts, owners, targets, steps):
 
 
 def force_error(directory, cfg, trace):
-    model = mujoco.MjModel.from_binary_path(str(Path(cfg["source"]) / "scene.mjb"))
+    model = mujoco.MjModel.from_binary_path(str(recorded_source(cfg) / "scene.mjb"))
     if cfg["geom_names"] != [model.geom(g).name for g in range(model.ngeom)]:
         raise ValueError("Contact geometry order differs from the recorded scene.")
     ids = {name: i for i, name in enumerate(SUPPORTS)}
@@ -93,7 +98,7 @@ def launch_checks(trace, limits, opening):
 
 
 def unassisted_receipt(cfg, trace, opening):
-    source = Path(cfg["source"])
+    source = recorded_source(cfg)
     model = mujoco.MjModel.from_binary_path(str(source / "scene.mjb"))
     hands = json.loads((source / "resolved.json").read_bytes())["model"]["hands"]
     body = free_body_setup(model, hands)

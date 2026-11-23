@@ -8,6 +8,14 @@ import numpy as np
 from .regrasp_measure import STATES, SUPPORTS, pelvis_angle
 
 
+def recorded_source(config):
+    """Read native paths and the Windows separators in older run metadata."""
+    source = Path(config["source"])
+    if source.is_dir():
+        return source
+    return Path(config["source"].replace("\\", "/"))
+
+
 def interval(time, window):
     # The solver clock labels the start of [t,t+dt); no boundary is counted twice.
     return (time >= window[0] - 1e-8) & (time < window[1] - 1e-8)
