@@ -75,6 +75,7 @@ from train_mimic.tasks.tracking.mdp.ladder import (
     phase_reward_scale,
     install_episode_sum_reward_logs,
     LadderClimbCommand,
+    LadderGripAction,
     LadderGripActionCfg,
     FLIGHT_RATE,
     FLIGHT_TOTAL,
@@ -334,6 +335,7 @@ def test_ladder_task_moves_one_body_point() -> None:
     assert cfg.commands["ladder"].debug_vis is True
     assert set(cfg.actions) == {"joint_pos", "grip"}
     assert isinstance(cfg.actions["grip"], LadderGripActionCfg)
+    assert LadderGripAction.action_dim.fget(object()) == 2
     assert isinstance(cfg.commands["ladder"], BodyPointTargetCommandCfg)
     assert set(cfg.rewards) == {
         "target_pos",
@@ -354,7 +356,7 @@ def test_ladder_task_moves_one_body_point() -> None:
     assert cfg.rewards["joint_limit"].weight == -1.0
     assert cfg.rewards["feet_acc"].weight == pytest.approx(-2.5e-6)
     assert cfg.rewards["self_collisions"].weight == pytest.approx(-0.1)
-    assert cfg.episode_length_s == pytest.approx(5.0)
+    assert cfg.episode_length_s == pytest.approx(8.0)
     assert cfg.terminations["time_out"].time_out is True
     assert set(cfg.terminations) == {"time_out", "touched_ground"}
     assert cfg.terminations["touched_ground"].func.__name__ == "ladder_touched_ground"
@@ -2732,6 +2734,8 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
     spec = robot_cfg.spec_fn()
     model = Entity(robot_cfg).spec.compile()
 
+    assert model.nu == 29
+    assert model.nu + LadderGripAction.action_dim.fget(object()) == 31
     assert robot_cfg.init_state.pos == (-0.816186, 0.0, 1.576016)
     assert tuple(robot_cfg.init_state.rot) == (0.999150, 0.0, 0.041219, 0.0)
     arm_actuator_effort_limits = {

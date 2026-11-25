@@ -1,7 +1,9 @@
-"""Move one body point toward a nearby target. The other points stay put.
+"""Track five body points with continuous penalty weights.
 
-Latches are not used. The grip action is still accepted so the policy width
-matches the ladder action, and the welds are forced inactive.
+One limb target moves inside a ball. The other points stay where they were
+measured, and the head weight is a soft tether. Latches are not used. The
+grip action is still accepted so the policy width matches the ladder action,
+and the welds are forced inactive.
 """
 
 from __future__ import annotations
@@ -35,13 +37,21 @@ SITE_NAMES = (
 # The head mesh is fixed on the torso. This is the site-frame offset of its center.
 HEAD_SITE_OFFSET = (0.0, 0.0, 0.43)
 
-TARGET_BALL_RADIUS_M = 0.20
+TARGET_BALL_RADIUS_M = 0.25
 # Per second, before the reward manager multiplies by the control step.
-# The cap is five points times the ball radius, so a fresh target is still
-# worth a positive rate and a drift of one meter of total error stays positive.
+# The cap is one meter of weighted error, so a fresh target is still worth a
+# positive rate and a drift of one meter of weighted error stays positive.
 TARGET_ALIVE_RATE = 1.25
 TARGET_DISTANCE_CAP_M = 1.0
 TARGET_GAIN_SCALE = 2.0
+# The first four sites are the limbs. The head is a tether, not a swing point.
+NUM_LIMB_POINTS = 4
+FIRM_WEIGHT = 0.5
+FIRM_HOLD_DISTANCE_M = 0.035
+FIRM_HOLD_STEPS = 12
+SUBGOAL_TIME_RANGE_S = (1.5, 2.0)
+COMMAND_DIM = 35
+PRIVILEGED_DIM = 6
 
 
 def sample_ball_offsets(
@@ -113,6 +123,126 @@ def point_distance_sum(points: torch.Tensor, targets: torch.Tensor) -> torch.Ten
     return torch.linalg.vector_norm(points - targets, dim=-1).sum(dim=-1)
 
 
+def weighted_distance_sum(
+    distances: torch.Tensor, weights: torch.Tensor
+) -> torch.Tensor:
+    """``sum_i w_i d_i``. ``distances`` and ``weights`` have shape ``(E, 5)``."""
+
+    return (distances * weights).sum(dim=-1)
+
+
+def sample_point_weights(
+    count: int,
+    *,
+    generator: torch.Generator | None = None,
+    device: torch.device | str | None = None,
+    dtype: torch.dtype = torch.float32,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Anchor-biased weights and the limb that receives the ball offset.
+
+    Limb weights start in ``[0.75, 1]``. Half of the rows soften the swing
+    limb into ``[0.05, 0.75]``. The head is usually a soft tether, and is
+    exactly ``0`` on 5% of rows. Returns ``(weights, swing)`` with shapes
+    ``(count, 5)`` and ``(count,)``. ``swing`` is in ``0..3``.
+    """
+
+    if count < 0:
+        raise ValueError(f"count must be >= 0, got {count}")
+    weights = torch.empty(count, 5, device=device, dtype=dtype)
+    swing = torch.empty(count, dtype=torch.long, device=device)
+    if count == 0:
+        return weights, swing
+    weights[:, :NUM_LIMB_POINTS] = 0.75 + 0.25 * torch.rand(
+        count, NUM_LIMB_POINTS, generator=generator, device=device, dtype=dtype
+    )
+    swing = torch.randint(0, NUM_LIMB_POINTS, (count,), generator=generator, device=device)
+    soften = torch.rand(count, generator=generator, device=device) < 0.5
+    soft = 0.05 + 0.70 * torch.rand(
+        count, generator=generator, device=device, dtype=dtype
+    )
+    if bool(soften.any()):
+        weights[soften, swing[soften]] = soft[soften]
+    draw = torch.rand(count, generator=generator, device=device)
+    low = 0.05 + 0.30 * torch.rand(
+        count, generator=generator, device=device, dtype=dtype
+    )
+    high = 0.35 + 0.65 * torch.rand(
+        count, generator=generator, device=device, dtype=dtype
+    )
+    head = torch.where(
+        draw < 0.70,
+        low,
+        torch.where(draw < 0.95, high, torch.zeros(count, device=device, dtype=dtype)),
+    )
+    weights[:, 4] = head
+    return weights.clamp(0.0, 1.0), swing
+
+
+def sample_subgoal_times(
+    count: int,
+    *,
+    generator: torch.Generator | None = None,
+    device: torch.device | str | None = None,
+    low: float = SUBGOAL_TIME_RANGE_S[0],
+    high: float = SUBGOAL_TIME_RANGE_S[1],
+) -> torch.Tensor:
+    """Uniform subgoal lifetimes in seconds. Shape ``(count,)``."""
+
+    if count < 0:
+        raise ValueError(f"count must be >= 0, got {count}")
+    if high < low:
+        raise ValueError(f"high must be >= low, got {low} and {high}")
+    return low + (high - low) * torch.rand(
+        count, generator=generator, device=device
+    )
+
+
+def point_gain_valid(
+    stored_valid: torch.Tensor, previous_weights: torch.Tensor
+) -> torch.Tensor:
+    """A point pays gain only after a weighted step with the same target."""
+
+    return stored_valid & (previous_weights > 0.0)
+
+
+def pack_body_target_command(
+    weights: torch.Tensor,
+    points_torso: torch.Tensor,
+    targets_torso: torch.Tensor,
+) -> torch.Tensor:
+    """35D command. A zero weight copies the measured point and zeros its error."""
+
+    if weights.shape[-1] != 5 or points_torso.shape[-2:] != (5, 3):
+        raise ValueError(
+            "expected weights (E, 5) and torso points (E, 5, 3), got "
+            f"{tuple(weights.shape)} and {tuple(points_torso.shape)}"
+        )
+    if targets_torso.shape != points_torso.shape:
+        raise ValueError(
+            "targets_torso and points_torso must match, got "
+            f"{tuple(targets_torso.shape)} and {tuple(points_torso.shape)}"
+        )
+    free = weights == 0.0
+    targets = torch.where(free.unsqueeze(-1), points_torso, targets_torso)
+    errors = torch.where(
+        free.unsqueeze(-1),
+        torch.zeros_like(points_torso),
+        targets_torso - points_torso,
+    )
+    flat = weights.shape[0]
+    return torch.cat(
+        (weights, targets.reshape(flat, -1), errors.reshape(flat, -1)),
+        dim=-1,
+    )
+
+
+def pack_privileged(distances: torch.Tensor, weights: torch.Tensor) -> torch.Tensor:
+    """Five raw distances and the weighted sum. Shape ``(E, 6)``."""
+
+    weighted = weighted_distance_sum(distances, weights).unsqueeze(-1)
+    return torch.cat((distances, weighted), dim=-1)
+
+
 def target_position_rate(
     distance: torch.Tensor,
     on_ground: torch.Tensor,
@@ -130,19 +260,28 @@ def target_gain_rate(
     previous: torch.Tensor,
     current: torch.Tensor,
     *,
-    fresh: torch.Tensor,
+    weights: torch.Tensor,
+    valid: torch.Tensor,
     on_ground: torch.Tensor,
     dt: float,
     scale: float = TARGET_GAIN_SCALE,
 ) -> torch.Tensor:
-    """Per-second rate whose step integral is ``scale * (previous - current)``.
+    """Per-second rate for ``scale * sum_i w_i * valid_i * (previous_i - current_i)``.
 
-    The first sample after a reset, and a ground contact, pay 0.
+    ``previous`` and ``current`` are per-point distances. Weight sits outside
+    the difference, so a new weight on a stationary body pays 0. An invalid
+    point pays 0. Ground contact pays 0.
     """
 
+    if previous.shape != current.shape or weights.shape != previous.shape:
+        raise ValueError(
+            "previous, current, and weights must match, got "
+            f"{tuple(previous.shape)}, {tuple(current.shape)}, {tuple(weights.shape)}"
+        )
     safe_dt = max(float(dt), 1.0e-8)
-    rate = scale * (previous - current) / safe_dt
-    return torch.where(fresh | on_ground, torch.zeros_like(rate), rate)
+    delta = (previous - current) * weights * valid.to(dtype=weights.dtype)
+    rate = scale * delta.sum(dim=-1) / safe_dt
+    return torch.where(on_ground.reshape(rate.shape), torch.zeros_like(rate), rate)
 
 
 def joint_targets_from_patterns(
@@ -170,11 +309,13 @@ def _as_rotation_matrix(value: torch.Tensor) -> torch.Tensor:
 
 
 class BodyPointTargetCommand(CommandTerm):
-    """Sample a pose, then a target for one of five body points.
+    """Sample a keyframe pose, then weighted targets for five body points.
 
-    The other four targets stay on the points measured after that pose is
-    written. ``latches_enabled`` is false: grip actions are stored and both
-    welds are cleared every update.
+    One limb target moves inside the ball. The other targets stay on the
+    points measured after that pose is written. A later subgoal resamples
+    the targets and weights without writing the pose again.
+    ``latches_enabled`` is false: grip actions are stored and both welds are
+    cleared every update.
     """
 
     cfg: BodyPointTargetCommandCfg
@@ -249,8 +390,11 @@ class BodyPointTargetCommand(CommandTerm):
             root_rows, dtype=torch.float32, device=self.device
         )
         self.pose_index = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
-        self.active_index = torch.zeros(
+        self.swing_index = torch.zeros(
             self.num_envs, dtype=torch.long, device=self.device
+        )
+        self.point_weights = torch.ones(
+            self.num_envs, self.num_points, dtype=torch.float32, device=self.device
         )
         self.targets_w = torch.zeros(
             self.num_envs, self.num_points, 3, dtype=torch.float32, device=self.device
@@ -258,11 +402,20 @@ class BodyPointTargetCommand(CommandTerm):
         self._pending_targets = torch.ones(
             self.num_envs, dtype=torch.bool, device=self.device
         )
-        self._distance_valid = torch.zeros(
-            self.num_envs, dtype=torch.bool, device=self.device
+        self._point_valid = torch.zeros(
+            self.num_envs, self.num_points, dtype=torch.bool, device=self.device
         )
-        self._distance_prev = torch.zeros(
+        self._point_dist_prev = torch.zeros(
+            self.num_envs, self.num_points, dtype=torch.float32, device=self.device
+        )
+        self._point_weights_prev = torch.zeros(
+            self.num_envs, self.num_points, dtype=torch.float32, device=self.device
+        )
+        self._subgoal_time_left = torch.zeros(
             self.num_envs, dtype=torch.float32, device=self.device
+        )
+        self._firm_hold_steps = torch.zeros(
+            self.num_envs, dtype=torch.long, device=self.device
         )
         self._reward_cache_step = -1
         self._reward_cache: dict[str, torch.Tensor] | None = None
@@ -293,22 +446,11 @@ class BodyPointTargetCommand(CommandTerm):
 
     @property
     def command(self) -> torch.Tensor:
-        """One-hot, torso-frame targets, and torso-frame point-to-target errors."""
+        """Weights, torso-frame targets, and unscaled torso-frame errors."""
 
         points_t = self._points_to_torso(self.point_pos_w)
         targets_t = self._points_to_torso(self.targets_w)
-        one_hot = torch.nn.functional.one_hot(
-            self.active_index, num_classes=self.num_points
-        ).to(dtype=points_t.dtype)
-        flat = points_t.shape[0]
-        return torch.cat(
-            (
-                one_hot,
-                targets_t.reshape(flat, -1),
-                (targets_t - points_t).reshape(flat, -1),
-            ),
-            dim=-1,
-        )
+        return pack_body_target_command(self.point_weights, points_t, targets_t)
 
     @property
     def rung_endpoints_torso(self) -> torch.Tensor:
@@ -336,10 +478,9 @@ class BodyPointTargetCommand(CommandTerm):
         return torch.linalg.vector_norm(self.point_pos_w - self.targets_w, dim=-1)
 
     def privileged(self) -> torch.Tensor:
-        """Five distances and their sum."""
+        """Five raw distances and the weighted sum."""
 
-        distances = self.point_distances()
-        return torch.cat((distances, distances.sum(dim=-1, keepdim=True)), dim=-1)
+        return pack_privileged(self.point_distances(), self.point_weights)
 
     def apply_grip_requests(self, request: torch.Tensor) -> None:
         """Store the two grip actions and leave both welds inactive."""
@@ -362,31 +503,38 @@ class BodyPointTargetCommand(CommandTerm):
         if len(resample_env_ids) > 0:
             self._resample(resample_env_ids)
         self._update_command()
+        self._advance_subgoals(dt)
         self._update_metrics()
 
     def reward_terms(self) -> dict[str, torch.Tensor]:
-        """Position rate and distance-gain rate for this control step.
+        """Weighted position rate and per-point distance-gain rate.
 
-        Both terms share one sample. The gain is 0 on the first call after a
-        reset. Ground contact zeros both rates.
+        Both terms share one sample. Gain is 0 on the first call after a
+        reset, after a target rewrite, and when the previous weight was 0.
+        Changing the weights of a stationary body also pays 0. Ground contact
+        zeros both rates.
         """
 
         step_id = int(getattr(self._env, "common_step_counter", -1))
         if self._reward_cache is not None and self._reward_cache_step == step_id:
             return self._reward_cache
-        distance = point_distance_sum(self.point_pos_w, self.targets_w)
+        distances = self.point_distances()
         on_ground = self._on_ground()
-        fresh = ~self._distance_valid
-        position = target_position_rate(distance, on_ground)
+        valid = point_gain_valid(self._point_valid, self._point_weights_prev)
+        position = target_position_rate(
+            weighted_distance_sum(distances, self.point_weights), on_ground
+        )
         gain = target_gain_rate(
-            self._distance_prev,
-            distance,
-            fresh=fresh,
+            self._point_dist_prev,
+            distances,
+            weights=self.point_weights,
+            valid=valid,
             on_ground=on_ground,
             dt=float(self._env.step_dt),
         )
-        self._distance_prev.copy_(distance)
-        self._distance_valid[:] = True
+        self._point_dist_prev.copy_(distances)
+        self._point_weights_prev.copy_(self.point_weights)
+        self._point_valid[:] = True
         self._reward_cache = {"target_pos": position, "target_gain": gain}
         self._reward_cache_step = step_id
         return self._reward_cache
@@ -395,8 +543,10 @@ class BodyPointTargetCommand(CommandTerm):
         if env_ids.numel() == 0:
             return
         self._pending_targets[env_ids] = True
-        self._distance_valid[env_ids] = False
-        self._distance_prev[env_ids] = 0.0
+        self._point_valid[env_ids] = False
+        self._point_dist_prev[env_ids] = 0.0
+        self._point_weights_prev[env_ids] = 0.0
+        self._firm_hold_steps[env_ids] = 0
         self._reward_cache_step = -1
         self.grip_request[env_ids] = 0.0
         self._write_pose(env_ids)
@@ -405,26 +555,65 @@ class BodyPointTargetCommand(CommandTerm):
     def _update_command(self) -> None:
         self._force_welds_off()
         pending = torch.where(self._pending_targets)[0]
-        if pending.numel() == 0:
-            self._update_target_caption()
-            return
-        points = self.point_pos_w[pending]
-        active = sample_active_indices(
-            int(pending.numel()), self.num_points, device=self.device
-        )
-        offsets = sample_ball_offsets(
-            int(pending.numel()),
-            float(self.cfg.target_ball_radius),
-            device=self.device,
-        )
-        self.targets_w[pending] = assign_targets(points, active, offsets)
-        self.active_index[pending] = active
-        self._pending_targets[pending] = False
+        if pending.numel() > 0:
+            self._assign_sampled_targets(pending)
+            self._pending_targets[pending] = False
         self._update_target_caption()
 
+    def _assign_sampled_targets(self, env_ids: torch.Tensor) -> None:
+        """Write a new weight vector and one limb offset. The pose stays put."""
+
+        count = int(env_ids.numel())
+        if count == 0:
+            return
+        points = self.point_pos_w[env_ids]
+        weights, swing = sample_point_weights(count, device=self.device)
+        offsets = sample_ball_offsets(
+            count, float(self.cfg.target_ball_radius), device=self.device
+        )
+        self.targets_w[env_ids] = assign_targets(points, swing, offsets)
+        self.point_weights[env_ids] = weights
+        self.swing_index[env_ids] = swing
+        self._point_valid[env_ids] = False
+        self._firm_hold_steps[env_ids] = 0
+        self._subgoal_time_left[env_ids] = sample_subgoal_times(count, device=self.device)
+        self._reward_cache_step = -1
+
+    def _advance_subgoals(self, dt: float) -> None:
+        """Chain a subgoal when the firm points settle or the timer expires.
+
+        This does not write a pose and does not reset observation history.
+        """
+
+        armed = ~self._pending_targets
+        if not bool(armed.any()):
+            return
+        self._subgoal_time_left[armed] -= float(dt)
+        distances = self.point_distances()
+        firm = self.point_weights >= FIRM_WEIGHT
+        close = distances <= FIRM_HOLD_DISTANCE_M
+        held = armed & torch.where(firm, close, torch.ones_like(close)).all(dim=-1)
+        zeros = torch.zeros_like(self._firm_hold_steps)
+        self._firm_hold_steps = torch.where(
+            held,
+            self._firm_hold_steps + 1,
+            torch.where(armed, zeros, self._firm_hold_steps),
+        )
+        advance = armed & (
+            (self._subgoal_time_left <= 0.0)
+            | (self._firm_hold_steps >= FIRM_HOLD_STEPS)
+        )
+        env_ids = advance.nonzero(as_tuple=False).flatten()
+        if env_ids.numel() == 0:
+            return
+        self._assign_sampled_targets(env_ids)
+
     def _update_metrics(self) -> None:
-        self.metrics["distance"].copy_(self.point_distances().sum(dim=-1))
-        self.metrics["active_point"].copy_(self.active_index.float())
+        distances = self.point_distances()
+        self.metrics["distance"].copy_(
+            weighted_distance_sum(distances, self.point_weights)
+        )
+        self.metrics["active_point"].copy_(self.swing_index.float())
 
     def _write_pose(self, env_ids: torch.Tensor) -> None:
         count = int(env_ids.numel())
@@ -487,6 +676,7 @@ class BodyPointTargetCommand(CommandTerm):
         env_indices = list(visualizer.get_env_indices(self.num_envs))
         current = self.point_pos_w.detach().cpu().numpy()
         targets = self.targets_w.detach().cpu().numpy()
+        weights = self.point_weights.detach().cpu().numpy()
         for batch in env_indices:
             for point_id in range(self.num_points):
                 visualizer.add_sphere(
@@ -497,7 +687,7 @@ class BodyPointTargetCommand(CommandTerm):
                 visualizer.add_sphere(
                     targets[batch, point_id],
                     0.045,
-                    (1.0, 0.55, 0.1, 0.85),
+                    (1.0, 0.55, 0.1, float(weights[batch, point_id])),
                 )
 
     def _install_viser_target_markers(self, visualizer) -> None:
@@ -532,12 +722,15 @@ class BodyPointTargetCommand(CommandTerm):
         offset = np.asarray(scene_offset, dtype=np.float64)
         current = self.point_pos_w.detach().cpu().numpy()
         targets = self.targets_w.detach().cpu().numpy()
+        weights = self.point_weights.detach().cpu().numpy()
         current_positions: list[np.ndarray] = []
         target_positions: list[np.ndarray] = []
+        target_opacities: list[float] = []
         for batch in env_indices:
             for point_id in range(self.num_points):
                 current_positions.append(self._offset_point(current[batch, point_id], offset))
                 target_positions.append(self._offset_point(targets[batch, point_id], offset))
+                target_opacities.append(float(weights[batch, point_id]))
         self._current_marker_handle = self._sync_viser_spheres(
             visualizer,
             "/debug/body_points",
@@ -557,7 +750,8 @@ class BodyPointTargetCommand(CommandTerm):
             target_positions,
             color=(255, 140, 26),
             radius=0.045,
-            opacity=0.8,
+            opacity=1.0,
+            opacities=np.asarray(target_opacities, dtype=np.float32),
         )
         self._target_marker_count = len(target_positions)
 
@@ -581,12 +775,18 @@ class BodyPointTargetCommand(CommandTerm):
         color: tuple[int, int, int],
         radius: float,
         opacity: float,
+        opacities: np.ndarray | None = None,
     ):
         count = len(positions)
         pos = np.stack(positions).astype(np.float32)
         cols = np.tile(np.asarray(color, dtype=np.uint8), (count, 1))
         quats = np.tile(np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32), (count, 1))
         scales = np.full((count, 3), radius, dtype=np.float32)
+        alphas = (
+            np.full(count, opacity, dtype=np.float32)
+            if opacities is None
+            else np.asarray(opacities, dtype=np.float32)
+        )
         if handle is None or previous_count != count:
             if handle is not None:
                 handle.remove()
@@ -599,7 +799,8 @@ class BodyPointTargetCommand(CommandTerm):
                 batched_positions=pos,
                 batched_scales=scales,
                 batched_colors=cols,
-                opacity=opacity,
+                batched_opacities=alphas,
+                opacity=1.0,
                 side="double",
                 cast_shadow=False,
                 receive_shadow=False,
@@ -610,6 +811,7 @@ class BodyPointTargetCommand(CommandTerm):
         handle.batched_wxyzs = quats
         handle.batched_scales = scales
         handle.batched_colors = cols
+        handle.batched_opacities = alphas
         handle.visible = True
         return handle
 
@@ -623,7 +825,7 @@ class BodyPointTargetCommand(CommandTerm):
         return self._target_marker_vertices, self._target_marker_faces
 
     def create_gui(self, name, server, get_env_idx, on_change=None, request_action=None) -> None:
-        """Show which point is being moved and how far the five points are."""
+        """Show the swing limb, the five weights, and the weighted distance."""
 
         del name, on_change, request_action
         self._gui_env = get_env_idx
@@ -636,13 +838,19 @@ class BodyPointTargetCommand(CommandTerm):
             return
         env_idx = 0 if self._gui_env is None else int(self._gui_env())
         env_idx = min(max(env_idx, 0), self.num_envs - 1)
-        point = self.cfg.point_names[int(self.active_index[env_idx].item())]
+        point = self.cfg.point_names[int(self.swing_index[env_idx].item())]
+        weights = self.point_weights[env_idx].detach().tolist()
+        weight_lines = "\n\n".join(
+            f"**{name.replace('_', ' ')}:** {weight:.2f}"
+            for name, weight in zip(self.cfg.point_names, weights)
+        )
         distance = float(self.metrics["distance"][env_idx].item())
         handle.content = (
             f"**Moving:** {point.replace('_', ' ')}\n\n"
+            f"{weight_lines}\n\n"
             f"**Blue:** current points\n\n"
-            f"**Orange:** targets\n\n"
-            f"**Distance sum:** {distance:.3f} m\n\n"
+            f"**Orange:** targets, faded by weight\n\n"
+            f"**Weighted distance:** {distance:.3f} m\n\n"
             f"{episode_reward_caption(self._episode_reward_total(env_idx))}"
         )
 
@@ -685,13 +893,13 @@ def _body_targets(env: ManagerBasedRlEnv, command_name: str) -> BodyPointTargetC
 
 
 def target_position_reward(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
-    """Alive bonus minus the capped distance sum, per second."""
+    """Alive bonus minus the capped weighted distance, per second."""
 
     return _body_targets(env, command_name).reward_terms()["target_pos"]
 
 
 def target_gain_reward(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
-    """Rate for twice the drop in the distance sum since the previous step."""
+    """Rate for twice the weighted drop in per-point distance since the previous step."""
 
     return _body_targets(env, command_name).reward_terms()["target_gain"]
 
@@ -703,6 +911,6 @@ def body_target_rung_endpoints(env: ManagerBasedRlEnv, command_name: str) -> tor
 
 
 def body_target_privileged(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
-    """Critic-only distances: five point errors and their sum."""
+    """Critic-only distances: five point errors and the weighted sum."""
 
     return _body_targets(env, command_name).privileged()

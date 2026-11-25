@@ -623,7 +623,7 @@ def make_g1_ladder_rl_env_cfg(
     *,
     play: bool = False,
 ) -> ManagerBasedRlEnvCfg:
-    """Create the G1 ladder task that moves one body point to a nearby target."""
+    """Create the G1 ladder task that tracks five weighted body-point targets."""
 
     actor_terms = {
         "ladder_command": ObservationTermCfg(
@@ -787,14 +787,15 @@ def make_g1_ladder_rl_env_cfg(
     }
 
     rewards = {
-        # 1.25 per second minus the sum of the five point errors, capped at
-        # 1 m so the rate stays positive on the ladder. Ground contact pays 0.
+        # 1.25 per second minus the weighted point error, capped at 1 m so the
+        # rate stays positive on the ladder. Ground contact pays 0.
         "target_pos": RewardTermCfg(
             func=mdp.target_position_reward,
             weight=1.0,
             params={"command_name": "ladder"},
         ),
-        # Twice the drop in that distance sum. The reset step pays 0.
+        # Twice the weighted drop in per-point distance. A reset or a new
+        # subgoal pays 0.
         "target_gain": RewardTermCfg(
             func=mdp.target_gain_reward,
             weight=1.0,
@@ -819,7 +820,7 @@ def make_g1_ladder_rl_env_cfg(
     }
 
     terminations = {
-        # The 5 s deadline bootstraps. Touching the ground does not.
+        # The 8 s deadline bootstraps. Touching the ground does not.
         "time_out": TerminationTermCfg(func=mdp.time_out, time_out=True),
         "touched_ground": TerminationTermCfg(
             func=mdp.ladder_touched_ground,
@@ -914,7 +915,7 @@ def make_g1_ladder_rl_env_cfg(
             ),
         ),
         decimation=4,
-        episode_length_s=5.0,
+        episode_length_s=8.0,
     )
 
     _configure_self_collision_reward(cfg, primary_pattern=r".*_link")

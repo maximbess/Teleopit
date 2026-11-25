@@ -27,7 +27,7 @@ def test_deadline_bootstraps_and_the_reward_is_the_body_targets() -> None:
     assert manager.terminated.tolist() == [False, False, False]
     assert manager.time_outs.tolist() == [True, False, False]
     assert cfg.terminations["time_out"].time_out is True
-    assert cfg.episode_length_s == 5.0
+    assert cfg.episode_length_s == 8.0
     assert set(cfg.rewards) == {
         "target_pos",
         "target_gain",

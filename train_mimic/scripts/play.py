@@ -23,7 +23,7 @@ Usage:
         --motion_file data/datasets_precomputed \
         --video
 
-    # Play the ladder policy. Each reset moves one body point inside a 20 cm ball.
+    # Play the ladder policy. One limb tracks a target inside a 25 cm ball.
     python train_mimic/scripts/play.py \
         --task G1-Ladder-Climb-RL \
         --checkpoint logs/rsl_rl/g1_ladder_rl/2026-.../model_60000.pt

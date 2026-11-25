@@ -2,8 +2,8 @@
 """Train the G1 body-point target policy with plain PPO reinforcement learning.
 
 This entry point intentionally has no motion dataset, sampling mode, imitation
-reward, or motion-tracking runner. The policy learns to move one of five body
-points toward a nearby target. Welds stay off.
+reward, or motion-tracking runner. The policy tracks five weighted body
+points. One limb moves inside a 25 cm ball. Welds stay off.
 Prototyping a model, reward, and initial state without MuJoCo uses
 ``train_mimic.tasks.tracking.rl.isolated.train`` instead of this script.
 
