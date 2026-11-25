@@ -378,7 +378,7 @@ def test_ladder_task_moves_one_body_point() -> None:
         "self_collision",
     )
     assert cfg.scene.sensors[0].global_frame is True
-    assert cfg.sim.contact_sensor_maxmatch == 128
+    assert cfg.sim.contact_sensor_maxmatch == 200
     assert load_runner_cls(LADDER_RL_TASK) is LadderOnPolicyRunner
 
     play_cfg = make_g1_ladder_rl_env_cfg(play=True)

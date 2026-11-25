@@ -901,9 +901,10 @@ def make_g1_ladder_rl_env_cfg(
         sim=SimulationCfg(
             nconmax=200,
             njmax=1200,
-            # Pelvis-vs-ground matching overflows the default of 64 when the
-            # body is on the floor. The slot index in the warning must fit.
-            contact_sensor_maxmatch=128,
+            # A fallen robot matches more than the default 64 contacts, and
+            # the self-collision sensor matches more than 128. This equals
+            # nconmax, so every stored contact can be reported.
+            contact_sensor_maxmatch=200,
             mujoco=MujocoCfg(
                 timestep=0.005,
                 iterations=10,

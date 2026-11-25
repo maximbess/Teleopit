@@ -271,6 +271,8 @@ class BodyPointTargetCommand(CommandTerm):
         )
         self._target_caption = None
         self._gui_env = None
+        self._current_marker_handle = None
+        self._current_marker_count = 0
         self._target_marker_handle = None
         self._target_marker_count = 0
         self._target_marker_vertices: np.ndarray | None = None
@@ -483,15 +485,19 @@ class BodyPointTargetCommand(CommandTerm):
             self._install_viser_target_markers(visualizer)
             return
         env_indices = list(visualizer.get_env_indices(self.num_envs))
+        current = self.point_pos_w.detach().cpu().numpy()
+        targets = self.targets_w.detach().cpu().numpy()
         for batch in env_indices:
-            active = int(self.active_index[batch].item())
             for point_id in range(self.num_points):
-                chosen = point_id == active
-                rgba = (1.0, 0.75, 0.1, 0.95) if chosen else (0.2, 0.45, 0.95, 0.45)
                 visualizer.add_sphere(
-                    self.targets_w[batch, point_id].detach().cpu().numpy(),
-                    0.04 if chosen else 0.025,
-                    rgba,
+                    current[batch, point_id],
+                    0.03,
+                    (0.15, 0.55, 1.0, 0.95),
+                )
+                visualizer.add_sphere(
+                    targets[batch, point_id],
+                    0.045,
+                    (1.0, 0.55, 0.1, 0.85),
                 )
 
     def _install_viser_target_markers(self, visualizer) -> None:
@@ -514,68 +520,98 @@ class BodyPointTargetCommand(CommandTerm):
             and self._debug_vis_enabled
             and getattr(visualizer, "debug_visualization_enabled", True)
         )
-        handle = self._target_marker_handle
         if not enabled:
-            if handle is not None:
-                handle.visible = False
+            self._set_marker_visible(self._current_marker_handle, False)
+            self._set_marker_visible(self._target_marker_handle, False)
             return
         env_indices = list(visualizer.get_env_indices(body_xpos.shape[0]))
         if not env_indices:
-            if handle is not None:
-                handle.visible = False
+            self._set_marker_visible(self._current_marker_handle, False)
+            self._set_marker_visible(self._target_marker_handle, False)
             return
         offset = np.asarray(scene_offset, dtype=np.float64)
+        current = self.point_pos_w.detach().cpu().numpy()
         targets = self.targets_w.detach().cpu().numpy()
-        active = self.active_index.detach().cpu().numpy()
-        positions: list[np.ndarray] = []
-        colors: list[tuple[int, int, int]] = []
-        scales: list[float] = []
+        current_positions: list[np.ndarray] = []
+        target_positions: list[np.ndarray] = []
         for batch in env_indices:
             for point_id in range(self.num_points):
-                positions.append(
-                    (np.asarray(targets[batch, point_id], dtype=np.float64) + offset).astype(
-                        np.float32
-                    )
-                )
-                chosen = int(active[batch]) == point_id
-                colors.append((242, 191, 26) if chosen else (51, 115, 242))
-                scales.append(0.04 if chosen else 0.025)
-        self._sync_viser_targets(visualizer, positions, colors, scales)
-        if self._target_marker_handle is not None:
-            self._target_marker_handle.visible = True
+                current_positions.append(self._offset_point(current[batch, point_id], offset))
+                target_positions.append(self._offset_point(targets[batch, point_id], offset))
+        self._current_marker_handle = self._sync_viser_spheres(
+            visualizer,
+            "/debug/body_points",
+            self._current_marker_handle,
+            self._current_marker_count,
+            current_positions,
+            color=(38, 140, 255),
+            radius=0.03,
+            opacity=0.95,
+        )
+        self._current_marker_count = len(current_positions)
+        self._target_marker_handle = self._sync_viser_spheres(
+            visualizer,
+            "/debug/body_targets",
+            self._target_marker_handle,
+            self._target_marker_count,
+            target_positions,
+            color=(255, 140, 26),
+            radius=0.045,
+            opacity=0.8,
+        )
+        self._target_marker_count = len(target_positions)
 
-    def _sync_viser_targets(self, visualizer, positions, colors, scales) -> None:
+    @staticmethod
+    def _offset_point(point: np.ndarray, offset: np.ndarray) -> np.ndarray:
+        return (np.asarray(point, dtype=np.float64) + offset).astype(np.float32)
+
+    @staticmethod
+    def _set_marker_visible(handle, visible: bool) -> None:
+        if handle is not None:
+            handle.visible = visible
+
+    def _sync_viser_spheres(
+        self,
+        visualizer,
+        name: str,
+        handle,
+        previous_count: int,
+        positions: list[np.ndarray],
+        *,
+        color: tuple[int, int, int],
+        radius: float,
+        opacity: float,
+    ):
         count = len(positions)
         pos = np.stack(positions).astype(np.float32)
-        cols = np.asarray(colors, dtype=np.uint8)
-        radii = np.asarray(scales, dtype=np.float32)
+        cols = np.tile(np.asarray(color, dtype=np.uint8), (count, 1))
         quats = np.tile(np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32), (count, 1))
-        batched_scales = np.repeat(radii[:, None], 3, axis=1)
-        handle = self._target_marker_handle
-        if handle is None or self._target_marker_count != count:
+        scales = np.full((count, 3), radius, dtype=np.float32)
+        if handle is None or previous_count != count:
             if handle is not None:
                 handle.remove()
             vertices, faces = self._target_marker_mesh()
-            self._target_marker_handle = visualizer.server.scene.add_batched_meshes_simple(
-                "/debug/body_targets",
+            handle = visualizer.server.scene.add_batched_meshes_simple(
+                name,
                 vertices,
                 faces,
                 batched_wxyzs=quats,
                 batched_positions=pos,
-                batched_scales=batched_scales,
+                batched_scales=scales,
                 batched_colors=cols,
-                opacity=0.85,
+                opacity=opacity,
                 side="double",
                 cast_shadow=False,
                 receive_shadow=False,
                 lod="off",
             )
-            self._target_marker_count = count
-            return
+            return handle
         handle.batched_positions = pos
         handle.batched_wxyzs = quats
-        handle.batched_scales = batched_scales
+        handle.batched_scales = scales
         handle.batched_colors = cols
+        handle.visible = True
+        return handle
 
     def _target_marker_mesh(self) -> tuple[np.ndarray, np.ndarray]:
         if self._target_marker_vertices is None or self._target_marker_faces is None:
@@ -604,6 +640,8 @@ class BodyPointTargetCommand(CommandTerm):
         distance = float(self.metrics["distance"][env_idx].item())
         handle.content = (
             f"**Moving:** {point.replace('_', ' ')}\n\n"
+            f"**Blue:** current points\n\n"
+            f"**Orange:** targets\n\n"
             f"**Distance sum:** {distance:.3f} m\n\n"
             f"{episode_reward_caption(self._episode_reward_total(env_idx))}"
         )
