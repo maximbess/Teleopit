@@ -35,6 +35,7 @@ from .ladder_init import (
     LADDER_INITIAL_JOINT_POS,
     LADDER_INITIAL_ROOT_POS,
     LADDER_INITIAL_ROOT_ROT,
+    LADDER_POSE_BANK,
 )
 
 _TRACKING_BODY_NAMES = (
@@ -70,12 +71,9 @@ _LADDER_RAIL_RADIUS = 0.050
 _LADDER_RUNG_HALF_DEPTH = 0.055
 _LADDER_RUNG_HALF_HEIGHT = 0.035
 _LADDER_GRIP_RADIUS = 0.075
-_LADDER_START_RUNG = 7
-_LADDER_INITIAL_FOOT_RUNG = 3
 _LADDER_FOOT_CONTACT_SENSOR = "ladder_foot_contact"
 _LADDER_GROUND_CONTACT_SENSOR = "ladder_ground_contact"
 _LADDER_ARM_EFFORT_SCALE = 0.70
-_LADDER_SUCCESSES_PER_ROLLOUT = 4
 # Warp rejects a nonzero margin only for box/box, box/mesh, and mesh/mesh pairs.
 # Capsule rails keep a 2 mm skin. Box rungs stay at zero.
 _LADDER_RAIL_MARGIN = 0.002
@@ -88,11 +86,6 @@ _LADDER_GRAVITY = (0.0, 0.0, -9.81 * 1.0)
 # Radius of ``left_hand_collision`` / ``right_hand_collision`` and of the
 # grip-site markers. The farthest fingertip is 0.085 m from the grip site.
 _HAND_COLLISION_RADIUS = 0.085
-# Grip site to rung centerline. A sphere of radius 0.085 m cannot sit on the
-# top face: the next rung occupies that point. The clear seat is the near
-# upper corner, 0.136 m from the centerline. Attachment allows a few
-# millimetres past that seat.
-_LADDER_ATTACH_DISTANCE = 0.14
 
 _LADDER_FLOOR_MATERIAL = spec_cfg.MaterialCfg(
     name="ladder_floor_material",
@@ -166,6 +159,15 @@ def _add_ladder_to_g1_spec(spec: mujoco.MjSpec) -> None:
         size=(_HAND_COLLISION_RADIUS,),
         group=3,
         rgba=(0.0, 0.0, 1.0, 0.10),
+    )
+    # The head mesh is fixed on the torso. This site is the fifth tracked point.
+    _required_spec_body(spec, "torso_link").add_site(
+        name="head_site",
+        type=mujoco.mjtGeom.mjGEOM_SPHERE,
+        pos=mdp.HEAD_SITE_OFFSET,
+        size=(0.02,),
+        group=5,
+        rgba=(0.95, 0.8, 0.15, 0.9),
     )
 
     world = spec.worldbody
@@ -621,7 +623,7 @@ def make_g1_ladder_rl_env_cfg(
     *,
     play: bool = False,
 ) -> ManagerBasedRlEnvCfg:
-    """Create the G1 ladder task without motion imitation or reference data."""
+    """Create the G1 ladder task that moves one body point to a nearby target."""
 
     actor_terms = {
         "ladder_command": ObservationTermCfg(
@@ -666,7 +668,7 @@ def make_g1_ladder_rl_env_cfg(
         "actions": ObservationTermCfg(func=mdp.last_action),
     }
     ladder_geometry_term = ObservationTermCfg(
-        func=mdp.ladder_rung_tokens_torso,
+        func=mdp.body_target_rung_endpoints,
         params={"command_name": "ladder"},
     )
     observations = {
@@ -692,11 +694,10 @@ def make_g1_ladder_rl_env_cfg(
         ),
         "critic_privileged": ObservationGroupCfg(
             {
-                "ladder_privileged": ObservationTermCfg(
-                    func=mdp.ladder_critic_privileged,
+                "target_distances": ObservationTermCfg(
+                    func=mdp.body_target_privileged,
                     params={"command_name": "ladder"},
                 ),
-                "remaining_time": ObservationTermCfg(func=mdp.ladder_remaining_time),
             },
             concatenate_terms=True,
             enable_corruption=False,
@@ -716,34 +717,21 @@ def make_g1_ladder_rl_env_cfg(
         ),
     }
 
+    rung_site_names = tuple(
+        f"left_ladder_rung_{i:02d}_grip" for i in range(1, _LADDER_NUM_RUNGS + 1)
+    )
     commands = {
-        "ladder": mdp.LadderClimbCommandCfg(
+        "ladder": mdp.BodyPointTargetCommandCfg(
             entity_name="robot",
-            hand_site_names=("left_grip_site", "right_grip_site"),
-            foot_site_names=("left_foot", "right_foot"),
-            foot_contact_sensor_name=_LADDER_FOOT_CONTACT_SENSOR,
-            anchor_body_names=("left_grip_anchor_body", "right_grip_anchor_body"),
-            weld_names=("left_grip_weld", "right_grip_weld"),
-            rung_site_names=tuple(
-                f"left_ladder_rung_{i:02d}_grip"
-                for i in range(1, _LADDER_NUM_RUNGS + 1)
-            ),
+            site_names=mdp.SITE_NAMES,
+            point_names=mdp.POINT_NAMES,
             torso_body_name="torso_link",
-            pelvis_body_name="pelvis",
-            lead_hand="left",
-            start_rung=_LADDER_START_RUNG,
-            initialize_on_reset=True,
-            initial_foot_rung=_LADDER_INITIAL_FOOT_RUNG,
-            successes_per_rollout=_LADDER_SUCCESSES_PER_ROLLOUT,
-            stabilization_dwell_steps=50,
-            max_stabilization_torso_speed=0.20,
-            max_stabilization_body_angular_speed=0.40,
-            weld_release_joint_speed=4.0,
-            weld_release_speed_factor=4.0,
-            attach_distance=_LADDER_ATTACH_DISTANCE,
-            max_attach_speed=0.35,
-            grip_half_span=0.18,
-            foot_support_distance=0.11,
+            rung_site_names=rung_site_names,
+            weld_names=("left_grip_weld", "right_grip_weld"),
+            ground_contact_sensor_name=_LADDER_GROUND_CONTACT_SENSOR,
+            pose_bank=LADDER_POSE_BANK,
+            target_ball_radius=mdp.TARGET_BALL_RADIUS_M,
+            latches_enabled=False,
             debug_vis=True,
         ),
     }
@@ -799,173 +787,40 @@ def make_g1_ladder_rl_env_cfg(
     }
 
     rewards = {
-        # 0.5 per meter of approach. A hand's approach gap is the climb left
-        # to the far top edge of the next rung. Leaving the plane through the
-        # two lowest rungs costs 0.5 per meter from the attached pose. A
-        # foot's gap is the path around the next rung box to the standing
-        # slab, using the sole point still outside it. Each limb's approach
-        # stops at 0.
-        # A latched hand then pays 0.25 per second on the next rung. An
-        # unlatched hand in that zone pays the same rate times grip progress.
-        # A foot on the next tread pays 0.10 per second for the contact,
-        # plus 1 per second times its share of body weight.
-        # That share stops at 0.35 and uses the simulator gravity. Each limb
-        # caps at +3. The step its phase ends pays whatever is left of that
-        # cap. After that the climb column locks off until the next rung.
-        # A completed hold clears the caps.
-        # On the last
-        # step, half of each limb's net approach drop is kept.
-        # Each limb is its own term. A hand or foot is on only during its
-        # phase. The lead foot is the same side as the lead hand. Columns
-        # outside their phase are zero.
-        "ladder_climb_left_arm": RewardTermCfg(
-            func=mdp.ladder_climb_left_arm,
+        # 1.25 per second minus the sum of the five point errors, capped at
+        # 1 m so the rate stays positive on the ladder. Ground contact pays 0.
+        "target_pos": RewardTermCfg(
+            func=mdp.target_position_reward,
             weight=1.0,
             params={"command_name": "ladder"},
         ),
-        "ladder_climb_right_arm": RewardTermCfg(
-            func=mdp.ladder_climb_right_arm,
+        # Twice the drop in that distance sum. The reset step pays 0.
+        "target_gain": RewardTermCfg(
+            func=mdp.target_gain_reward,
             weight=1.0,
             params={"command_name": "ladder"},
         ),
-        "ladder_climb_left_leg": RewardTermCfg(
-            func=mdp.ladder_climb_left_leg,
-            weight=1.0,
-            params={"command_name": "ladder"},
-        ),
-        "ladder_climb_right_leg": RewardTermCfg(
-            func=mdp.ladder_climb_right_leg,
-            weight=1.0,
-            params={"command_name": "ladder"},
-        ),
-        # The climbing hand earns the rise in (1 - grip progress) while it
-        # still holds the baseline rung, so a commanded full release is +1
-        # and closing gives that back. A commanded open to progress 0 also
-        # pays +0.5. The +1 and the +0.5 each pay once per rung. A weld that
-        # breaks without that commanded open pays 0, including the 0.5.
-        # Latch load is latch_pressure. Every other hand pays
-        # (progress - 1) * 0.3 per second.
-        "detach_left": RewardTermCfg(
-            func=mdp.ladder_detach_left,
-            weight=1.0,
-            params={"command_name": "ladder"},
-        ),
-        "detach_right": RewardTermCfg(
-            func=mdp.ladder_detach_right,
-            weight=1.0,
-            params={"command_name": "ladder"},
-        ),
-        "ungrip_left": RewardTermCfg(
-            func=mdp.ladder_ungrip_left,
-            weight=1.0,
-            params={"command_name": "ladder"},
-        ),
-        "ungrip_right": RewardTermCfg(
-            func=mdp.ladder_ungrip_right,
-            weight=1.0,
-            params={"command_name": "ladder"},
-        ),
-        # The step a hand phase ends pays +4 times that phase's place in
-        # CLIMB_PHASE_ORDER. With hands first, the lead hand pays +4 and
-        # the trailing hand pays +8. Both on the same step pays +12. A
-        # finished hold pays 0 from this term.
-        "ladder_hand_phase": RewardTermCfg(
-            func=mdp.ladder_hand_phase,
-            weight=1.0,
-            params={"command_name": "ladder"},
-        ),
-        # The step a leg phase ends pays +4 times that phase's place in
-        # CLIMB_PHASE_ORDER. With hands first, the lead foot pays +16 and
-        # the trailing foot pays +32. The gate is that foot on the next
-        # rung for one second at 20% of body weight. The clock scales with
-        # load, from nothing at no pressure to full speed at 20%. Leaving
-        # the rung starts the second over. The lead foot matches the lead hand. Both feet
-        # finishing on one step pays +48. Weight on the starting rung
-        # pays 0, and a finished hold pays 0.
-        "ladder_leg_phase": RewardTermCfg(
-            func=mdp.ladder_leg_phase,
-            weight=1.0,
-            params={"command_name": "ladder"},
-        ),
-        # The hold potential and the completion impulse run only after both
-        # hands have latched and both feet have passed the load gate. The
-        # hands climb first.
-        "ladder_hold": RewardTermCfg(
-            func=mdp.ladder_hold,
-            weight=1.0,
-            params={"command_name": "ladder"},
-        ),
-        "ladder_hold_completed": RewardTermCfg(
-            func=mdp.ladder_hold_completed,
-            weight=1.0,
-            params={"command_name": "ladder"},
-        ),
-        # 1 per second while the episode has lasted at most 2 s and this step
-        # is not the ground contact. A full window is +2. After 2 s the rate
-        # is zero, so a long weld collects nothing more from this term.
-        "ladder_alive": RewardTermCfg(
-            func=mdp.ladder_alive,
-            weight=1.0,
-            params={"command_name": "ladder"},
-        ),
-        # Any thigh or shin crossing on the ladder face costs 0.5 per
-        # second, and the episode stops at -1.2. Ankles may pass close in
-        # depth without counting as a cross.
-        "leg_cross": RewardTermCfg(
-            func=mdp.leg_cross,
-            weight=1.0,
-            params={"command_name": "ladder"},
-        ),
-        # A thigh or shin crossing a climbing-face rail costs 2 per second,
-        # four times leg_cross, and the episode stops at -4.8. The plane is
-        # the one through the two lowest rungs.
-        "side_cross": RewardTermCfg(
-            func=mdp.side_cross,
-            weight=1.0,
-            params={"command_name": "ladder"},
-        ),
-        # Loading a closed weld past half the release speed. The cost is 32
-        # times the squared excess per second, so the trip itself is -8 per
-        # second and the slope is zero at the cap. Opening the grip on
-        # purpose does not pay.
-        "latch_pressure": RewardTermCfg(
-            func=mdp.latch_pressure,
-            weight=1.0,
-            params={"command_name": "ladder"},
-        ),
-        # Two or more limbs off the climb cost 1 per second. The episode sum
-        # stops at 1, so a long fall costs the same as one second.
-        "ladder_flight": RewardTermCfg(
-            func=mdp.ladder_flight,
-            weight=1.0,
-            params={"command_name": "ladder"},
-        ),
-        # Center of mass outside the segment from the starting foot rung to
-        # the last hand rung. The projection follows gravity. Inside the
-        # segment the rate is 0. It falls linearly to -0.2 per second at
-        # 0.15 m, the keyframe lean, and stays there. The episode stops at -1.
-        "ladder_stance": RewardTermCfg(
-            func=mdp.ladder_stance,
-            weight=1.0,
-            params={"command_name": "ladder"},
-        ),
-        # Squared action change near 1 for the whole 20 s costs 0.04, about
-        # a sixth of one plant. The tread-1 fall averaged near 7.5 and would
-        # cost 0.30 stretched over 20 s, about one plant, so dying early to
-        # escape the penalty saves less than a contact.
         "action_rate_l2": RewardTermCfg(
             func=mdp.action_rate_l2,
             weight=-0.002,
         ),
+        "joint_limit": RewardTermCfg(
+            func=mdp.joint_pos_limits,
+            weight=-1.0,
+            params={"asset_cfg": SceneEntityCfg("robot", joint_names=(".*",))},
+        ),
+        "feet_acc": RewardTermCfg(
+            func=mdp.joint_acc_l2,
+            weight=-2.5e-6,
+            params={
+                "asset_cfg": SceneEntityCfg("robot", joint_names=r".*ankle.*"),
+            },
+        ),
     }
 
     terminations = {
-        # The task deadline is a terminal failure, not a bootstrapped truncation.
-        "time_out": TerminationTermCfg(func=mdp.time_out, time_out=False),
-        "success": TerminationTermCfg(
-            func=mdp.ladder_success,
-            params={"command_name": "ladder"},
-        ),
+        # The 5 s deadline bootstraps. Touching the ground does not.
+        "time_out": TerminationTermCfg(func=mdp.time_out, time_out=True),
         "touched_ground": TerminationTermCfg(
             func=mdp.ladder_touched_ground,
             params={"sensor_name": _LADDER_GROUND_CONTACT_SENSOR},
@@ -1058,9 +913,10 @@ def make_g1_ladder_rl_env_cfg(
             ),
         ),
         decimation=4,
-        episode_length_s=20.0,
+        episode_length_s=5.0,
     )
 
+    _configure_self_collision_reward(cfg, primary_pattern=r".*_link")
     _add_history_obs_groups(cfg)
 
     if play:

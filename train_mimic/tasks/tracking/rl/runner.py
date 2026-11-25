@@ -165,8 +165,8 @@ def _recover_nonfinite_ladder_steps(
     """Reset worlds whose step went non-finite and keep the transition finite.
 
     The returned observation for those worlds is zero and the episode ends.
-    The simulator state is the reset pose, with the hands welded again, so the
-    next step does not integrate a NaN.
+    The simulator state is a pose from the bank with fresh targets. The welds
+    stay inactive, so the next step does not integrate a NaN.
     """
 
     bad = _nonfinite_env_mask(obs, rewards)
@@ -179,7 +179,7 @@ def _recover_nonfinite_ladder_steps(
     unwrapped.scene.write_data_to_sim()
     unwrapped.sim.forward()
     command = unwrapped.command_manager.get_term("ladder")
-    command._initialize_from_start_pose()
+    command.refresh_after_reset()
     _sanitize_logged_extras(extras)
 
     print(f"[ladder] reset {int(env_ids.numel())} non-finite environments")

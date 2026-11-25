@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Train the G1 ladder-climbing policy with plain PPO reinforcement learning.
+"""Train the G1 body-point target policy with plain PPO reinforcement learning.
 
 This entry point intentionally has no motion dataset, sampling mode, imitation
-reward, or motion-tracking runner.  The policy learns directly from the ladder
-command, robot state, sparse rung progress, and dense reach/height rewards.
+reward, or motion-tracking runner. The policy learns to move one of five body
+points toward a nearby target. Welds stay off.
 Prototyping a model, reward, and initial state without MuJoCo uses
 ``train_mimic.tasks.tracking.rl.isolated.train`` instead of this script.
 
@@ -166,14 +166,11 @@ def _run_worker(args: argparse.Namespace) -> None:
             "robot_xml": str(robot_xml),
             "num_envs": env_cfg.scene.num_envs,
             "max_iterations": agent_cfg.max_iterations,
-            "start_rung": ladder_cmd.start_rung,
+            "pose_bank": len(ladder_cmd.pose_bank),
+            "target_ball_radius_m": ladder_cmd.target_ball_radius,
+            "latches_enabled": ladder_cmd.latches_enabled,
+            "episode_length_s": env_cfg.episode_length_s,
             "num_rungs": len(ladder_cmd.rung_site_names),
-            "successes_per_rollout": ladder_cmd.successes_per_rollout,
-            "stabilization_dwell_steps": ladder_cmd.stabilization_dwell_steps,
-            "max_stabilization_torso_speed": ladder_cmd.max_stabilization_torso_speed,
-            "max_stabilization_body_angular_speed": (
-                ladder_cmd.max_stabilization_body_angular_speed
-            ),
         },
     )
 

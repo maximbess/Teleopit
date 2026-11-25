@@ -317,7 +317,16 @@ def test_grip_marker_is_red_when_latched_and_blue_when_open() -> None:
     assert grip_marker_rgba(True, 0.5) == pytest.approx((1.0, 0.0, 0.0, 0.55))
 
 
-def test_ladder_task_is_one_repeated_hold() -> None:
+def test_ladder_task_moves_one_body_point() -> None:
+    from train_mimic.tasks.tracking.mdp.body_targets import (
+        TARGET_ALIVE_RATE,
+        TARGET_BALL_RADIUS_M,
+        TARGET_GAIN_SCALE,
+        BodyPointTargetCommandCfg,
+        target_gain_reward,
+        target_position_reward,
+    )
+
     cfg = load_env_cfg(LADDER_RL_TASK)
 
     assert LADDER_RL_TASK in SUPPORTED_TASKS
@@ -325,122 +334,57 @@ def test_ladder_task_is_one_repeated_hold() -> None:
     assert cfg.commands["ladder"].debug_vis is True
     assert set(cfg.actions) == {"joint_pos", "grip"}
     assert isinstance(cfg.actions["grip"], LadderGripActionCfg)
+    assert isinstance(cfg.commands["ladder"], BodyPointTargetCommandCfg)
     assert set(cfg.rewards) == {
-        "ladder_climb_left_arm",
-        "ladder_climb_right_arm",
-        "ladder_climb_left_leg",
-        "ladder_climb_right_leg",
-        "detach_left",
-        "detach_right",
-        "ungrip_left",
-        "ungrip_right",
-        "ladder_hand_phase",
-        "ladder_leg_phase",
-        "ladder_hold",
-        "ladder_hold_completed",
-        "ladder_alive",
-        "leg_cross",
-        "side_cross",
-        "latch_pressure",
-        "ladder_flight",
-        "ladder_stance",
+        "target_pos",
+        "target_gain",
         "action_rate_l2",
+        "joint_limit",
+        "feet_acc",
+        "self_collisions",
     }
-    assert cfg.rewards["ladder_climb_left_arm"].func is ladder_climb_left_arm
-    assert cfg.rewards["ladder_climb_right_arm"].func is ladder_climb_right_arm
-    assert cfg.rewards["ladder_climb_left_leg"].func is ladder_climb_left_leg
-    assert cfg.rewards["ladder_climb_right_leg"].func is ladder_climb_right_leg
-    assert cfg.rewards["ladder_climb_left_arm"].weight == 1.0
-    assert cfg.rewards["ladder_climb_right_arm"].weight == 1.0
-    assert cfg.rewards["ladder_climb_left_leg"].weight == 1.0
-    assert cfg.rewards["ladder_climb_right_leg"].weight == 1.0
-    assert cfg.rewards["detach_left"].func is ladder_detach_left
-    assert cfg.rewards["detach_right"].func is ladder_detach_right
-    assert cfg.rewards["detach_left"].weight == 1.0
-    assert cfg.rewards["detach_right"].weight == 1.0
-    assert DETACH_POTENTIAL == pytest.approx(1.0)
-    assert DETACH_COMPLETE == pytest.approx(0.5)
-    assert cfg.commands["ladder"].lead_hand == "left"
-    assert cfg.rewards["ungrip_left"].func is ladder_ungrip_left
-    assert cfg.rewards["ungrip_right"].func is ladder_ungrip_right
-    assert cfg.rewards["ungrip_left"].weight == 1.0
-    assert cfg.rewards["ungrip_right"].weight == 1.0
-    assert UNGRIP_RATE == pytest.approx(0.3)
-    assert cfg.rewards["ladder_hand_phase"].func is ladder_hand_phase
-    assert cfg.rewards["ladder_hand_phase"].weight == 1.0
-    assert HAND_PHASE_REWARD == pytest.approx(4.0)
-    assert cfg.rewards["ladder_leg_phase"].func is ladder_leg_phase
-    assert cfg.rewards["ladder_leg_phase"].weight == 1.0
-    assert LEG_PHASE_REWARD == pytest.approx(4.0)
-    assert cfg.rewards["ladder_hold"].func is ladder_hold
-    assert cfg.rewards["ladder_hold_completed"].func is ladder_hold_completed
-    assert cfg.rewards["ladder_alive"].func is ladder_alive
-    assert cfg.rewards["ladder_alive"].weight == 1.0
-    assert cfg.rewards["leg_cross"].func is leg_cross
-    assert cfg.rewards["leg_cross"].weight == 1.0
-    assert LEG_CROSS_RATE == -0.5
-    assert LEG_CROSS_TOTAL == pytest.approx(-1.2)
-    assert cfg.rewards["leg_cross"].params == {"command_name": "ladder"}
-    assert cfg.rewards["side_cross"].func is side_cross
-    assert cfg.rewards["side_cross"].weight == 1.0
-    assert SIDE_CROSS_RATE == pytest.approx(4.0 * LEG_CROSS_RATE)
-    assert SIDE_CROSS_TOTAL == pytest.approx(4.0 * LEG_CROSS_TOTAL)
-    assert cfg.rewards["side_cross"].params == {"command_name": "ladder"}
-    assert cfg.rewards["latch_pressure"].func is latch_pressure
-    assert cfg.rewards["latch_pressure"].weight == 1.0
-    assert LATCH_PRESSURE_ONSET == pytest.approx(0.5)
-    assert LATCH_PRESSURE_RATE == pytest.approx(-32.0)
-    assert cfg.rewards["latch_pressure"].params == {"command_name": "ladder"}
-    assert cfg.rewards["ladder_flight"].func is ladder_flight
-    assert cfg.rewards["ladder_flight"].weight == 1.0
-    assert FLIGHT_RATE == -1.0
-    assert FLIGHT_TOTAL == pytest.approx(-1.0)
-    assert cfg.rewards["ladder_flight"].params == {"command_name": "ladder"}
-    assert cfg.rewards["ladder_stance"].func is ladder_stance
-    assert cfg.rewards["ladder_stance"].weight == 1.0
-    assert STANCE_RATE == pytest.approx(-0.2)
-    assert STANCE_DISTANCE == pytest.approx(0.15)
-    assert STANCE_TOTAL == pytest.approx(-1.0)
-    assert cfg.rewards["ladder_stance"].params == {"command_name": "ladder"}
+    assert cfg.rewards["target_pos"].func is target_position_reward
+    assert cfg.rewards["target_gain"].func is target_gain_reward
+    assert cfg.rewards["target_pos"].weight == 1.0
+    assert cfg.rewards["target_gain"].weight == 1.0
+    assert TARGET_ALIVE_RATE == pytest.approx(1.25)
+    assert TARGET_GAIN_SCALE == pytest.approx(2.0)
     assert cfg.rewards["action_rate_l2"].func is action_rate_l2
     assert cfg.rewards["action_rate_l2"].weight == -0.002
-    assert cfg.rewards["ladder_hold_completed"].weight == 1.0
-    assert cfg.sim.mujoco.gravity == pytest.approx((0.0, 0.0, -9.81 / 3.0))
-    assert cfg.commands["ladder"].attach_distance == pytest.approx(0.14)
-    assert cfg.terminations["time_out"].time_out is False
-    assert set(cfg.terminations) == {"time_out", "success", "touched_ground"}
+    assert cfg.rewards["joint_limit"].weight == -1.0
+    assert cfg.rewards["feet_acc"].weight == pytest.approx(-2.5e-6)
+    assert cfg.rewards["self_collisions"].weight == pytest.approx(-0.1)
+    assert cfg.episode_length_s == pytest.approx(5.0)
+    assert cfg.terminations["time_out"].time_out is True
+    assert set(cfg.terminations) == {"time_out", "touched_ground"}
     assert cfg.terminations["touched_ground"].func.__name__ == "ladder_touched_ground"
-    assert "curriculum_stage_complete" not in cfg.terminations
-    assert "pre_release_stalled" not in cfg.terminations
     assert cfg.curriculum == {}
     ladder_cmd = cfg.commands["ladder"]
-    assert ladder_cmd.successes_per_rollout == 4
-    assert ladder_cmd.stabilization_dwell_steps == 50
-    assert ladder_cmd.max_stabilization_torso_speed == pytest.approx(0.20)
-    assert ladder_cmd.max_stabilization_body_angular_speed == pytest.approx(0.40)
-    assert ladder_cmd.weld_release_joint_speed == pytest.approx(4.0)
-    assert ladder_cmd.weld_release_speed_factor == 4.0
-    assert not hasattr(ladder_cmd, "max_stabilization_joint_speed")
-    assert not hasattr(ladder_cmd, "max_stabilization_waist_joint_speed")
-    assert not hasattr(ladder_cmd, "max_stabilization_support_offset_error")
-    assert ladder_cmd.initialize_on_reset is True
-    assert ladder_cmd.start_rung == 7
-    assert ladder_cmd.initial_foot_rung == 3
-    assert ladder_cmd.start_rung == ladder_cmd.initial_foot_rung + FOOT_HAND_RUNG_GAP
-    assert not hasattr(ladder_cmd, "curriculum_enabled")
-    assert not hasattr(ladder_cmd, "fixed_max_unlocked_phase")
-    assert "prepare_ladder_weld_model" not in cfg.events
+    assert ladder_cmd.latches_enabled is False
+    assert ladder_cmd.target_ball_radius == pytest.approx(TARGET_BALL_RADIUS_M)
+    assert len(ladder_cmd.pose_bank) == 1
+    assert ladder_cmd.point_names == (
+        "left_hand",
+        "right_hand",
+        "left_foot",
+        "right_foot",
+        "head",
+    )
+    assert "remaining_time" not in cfg.observations["actor"].terms
+    assert "remaining_time" not in cfg.observations["critic"].terms
     assert tuple(sensor.name for sensor in cfg.scene.sensors) == (
         "ladder_foot_contact",
         "ladder_ground_contact",
+        "self_collision",
     )
     assert cfg.scene.sensors[0].global_frame is True
     assert cfg.sim.contact_sensor_maxmatch == 128
     assert load_runner_cls(LADDER_RL_TASK) is LadderOnPolicyRunner
 
     play_cfg = make_g1_ladder_rl_env_cfg(play=True)
-    assert play_cfg.commands["ladder"].successes_per_rollout == 4
+    assert play_cfg.commands["ladder"].latches_enabled is False
     assert set(play_cfg.rewards) == set(cfg.rewards)
+    assert play_cfg.episode_length_s == int(1e9)
 
 
 def test_one_attempt_records_the_keyframe_baseline() -> None:
@@ -2191,7 +2135,7 @@ def test_nonfinite_step_resets_that_world_and_returns_a_finite_done() -> None:
     env.unwrapped = env
     env.command_manager = SimpleNamespace(
         get_term=lambda _name: SimpleNamespace(
-            _initialize_from_start_pose=lambda: initialized.__setitem__("called", True)
+            refresh_after_reset=lambda: initialized.__setitem__("called", True)
         )
     )
     obs = {
@@ -2736,6 +2680,9 @@ def test_ladder_box_contacts_keep_zero_margin() -> None:
     spec = mujoco.MjSpec()
     spec.worldbody.add_body(name="left_wrist_yaw_link")
     spec.worldbody.add_body(name="right_wrist_yaw_link")
+    spec.worldbody.add_body(name="left_wrist_roll_link")
+    spec.worldbody.add_body(name="right_wrist_roll_link")
+    spec.worldbody.add_body(name="torso_link")
     _add_ladder_to_g1_spec(spec)
     for collision in robot_cfg.collisions:
         names = " ".join(collision.geom_names_expr)
@@ -2839,6 +2786,9 @@ def test_ladder_robot_augments_canonical_g1_spec() -> None:
             model.site_size[hand_site, 0]
         )
         assert model.site_type[hand_site] == mujoco.mjtGeom.mjGEOM_SPHERE
+    head_site = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, "head_site")
+    assert head_site >= 0
+    assert model.site_pos[head_site].tolist() == pytest.approx([0.0, 0.0, 0.43])
 
     # Reload the climbing keyframe. Feet are on rung 4 and hands on rung 8
     # (1-based names). The knee is nearly straight so the mass sits over

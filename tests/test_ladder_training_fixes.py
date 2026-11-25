@@ -8,54 +8,34 @@ from train_mimic.tasks.tracking.config.env import make_g1_ladder_rl_env_cfg
 from train_mimic.tasks.tracking.mdp.ladder import ladder_remaining_time
 
 
-def test_deadline_is_terminal_and_has_no_failure_reward() -> None:
+def test_deadline_bootstraps_and_the_reward_is_the_body_targets() -> None:
     cfg = make_g1_ladder_rl_env_cfg()
     env = SimpleNamespace(
         num_envs=3,
         device="cpu",
         step_dt=0.02,
-        episode_length_buf=torch.tensor([1000, 500, 0]),
-        max_episode_length=1000,
+        episode_length_buf=torch.tensor([250, 125, 0]),
+        max_episode_length=250,
     )
     torch.testing.assert_close(
         ladder_remaining_time(env),
         torch.tensor([[0.0], [0.5], [1.0]]),
     )
-    manager = TerminationManager(
-        {
-            "time_out": cfg.terminations["time_out"],
-            "success": cfg.terminations["success"],
-        },
-        env,
-    )
+    manager = TerminationManager({"time_out": cfg.terminations["time_out"]}, env)
     env.termination_manager = manager
-    env.command_manager = SimpleNamespace(
-        get_term=lambda _name: SimpleNamespace(finished=torch.zeros(3, dtype=torch.bool))
-    )
     manager.compute()
-    assert manager.terminated.tolist() == [True, False, False]
-    assert manager.time_outs.tolist() == [False, False, False]
-    assert cfg.terminations["time_out"].time_out is False
+    assert manager.terminated.tolist() == [False, False, False]
+    assert manager.time_outs.tolist() == [True, False, False]
+    assert cfg.terminations["time_out"].time_out is True
+    assert cfg.episode_length_s == 5.0
     assert set(cfg.rewards) == {
-        "ladder_climb_left_arm",
-        "ladder_climb_right_arm",
-        "ladder_climb_left_leg",
-        "ladder_climb_right_leg",
-        "detach_left",
-        "detach_right",
-        "ungrip_left",
-        "ungrip_right",
-        "ladder_hand_phase",
-        "ladder_leg_phase",
-        "ladder_hold",
-        "ladder_hold_completed",
-        "ladder_alive",
-        "leg_cross",
-        "side_cross",
-        "latch_pressure",
-        "ladder_flight",
-        "ladder_stance",
+        "target_pos",
+        "target_gain",
         "action_rate_l2",
+        "joint_limit",
+        "feet_acc",
+        "self_collisions",
     }
+    assert cfg.commands["ladder"].latches_enabled is False
     assert "remaining_time" not in cfg.observations["actor"].terms
     assert "remaining_time" not in cfg.observations["critic_history"].terms

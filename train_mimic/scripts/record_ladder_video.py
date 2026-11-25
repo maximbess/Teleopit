@@ -236,8 +236,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     env_cfg.seed = args.seed
     env_cfg.scene.num_envs = 1
-    successes = env_cfg.commands["ladder"].successes_per_rollout
-    print(f"[INFO] Ladder recording ends after {successes} completed holds.")
+    ladder_cmd = env_cfg.commands["ladder"]
+    print(
+        "[INFO] Body-point targets. "
+        f"Ball radius {ladder_cmd.target_ball_radius:.2f} m, "
+        f"latches {'on' if ladder_cmd.latches_enabled else 'off'}."
+    )
     env_cfg.scene.entities["robot"] = make_g1_ladder_training_robot_cfg(robot_xml)
     env_cfg.robot_xml = str(robot_xml)
     env_cfg.viewer.width = args.width

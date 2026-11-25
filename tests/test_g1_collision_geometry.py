@@ -133,8 +133,8 @@ def test_far_face_is_visual_and_robot_geoms_collide_with_each_other():
     assert tuple(sensor.name for sensor in cfg.scene.sensors) == (
         "ladder_foot_contact",
         "ladder_ground_contact",
+        "self_collision",
     )
-    assert not any(s.name == "self_collision" for s in cfg.scene.sensors)
 
     model = Entity(cfg.scene.entities["robot"]).spec.compile()
     names = [model.geom(i).name for i in range(model.ngeom)]

@@ -23,7 +23,7 @@ Usage:
         --motion_file data/datasets_precomputed \
         --video
 
-    # Play the ladder policy. The rollout repeats one rung until N successes.
+    # Play the ladder policy. Each reset moves one body point inside a 20 cm ball.
     python train_mimic/scripts/play.py \
         --task G1-Ladder-Climb-RL \
         --checkpoint logs/rsl_rl/g1_ladder_rl/2026-.../model_60000.pt
@@ -145,8 +145,12 @@ def main() -> None:
     if args.task in TRACKING_TASKS:
         env_cfg.commands["motion"].motion_file = args.motion_file
     else:
-        successes = env_cfg.commands["ladder"].successes_per_rollout
-        print(f"[INFO] Ladder playback ends after {successes} completed holds.")
+        ladder_cmd = env_cfg.commands["ladder"]
+        print(
+            "[INFO] Body-point targets. "
+            f"Ball radius {ladder_cmd.target_ball_radius:.2f} m, "
+            f"latches {'on' if ladder_cmd.latches_enabled else 'off'}."
+        )
 
     device = resolve_device(args.device, torch)
 

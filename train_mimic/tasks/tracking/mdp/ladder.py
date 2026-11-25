@@ -2466,10 +2466,7 @@ class LadderGripAction(ActionTerm):
         self._raw_actions[:] = actions
 
     def apply_actions(self) -> None:
-        command = cast(
-            LadderClimbCommand,
-            self._env.command_manager.get_term(self.cfg.command_name),
-        )
+        command = self._env.command_manager.get_term(self.cfg.command_name)
         command.apply_grip_requests(self._raw_actions)
 
     def reset(self, env_ids: torch.Tensor | slice | None = None) -> None:
